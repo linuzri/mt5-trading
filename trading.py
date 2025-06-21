@@ -1,0 +1,329 @@
+import MetaTrader5 as mt5
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta, UTC
+import calendar
+import time
+import json
+
+# Read credentials from config.json
+with open("config.json", "r") as f:
+    config = json.load(f)
+login = config["login"]
+password = config["password"]
+server = config["server"]
+
+# Connect to MT5 (default path or existing instance)
+if not mt5.initialize(login=login, password=password, server=server):
+    print("MT5 initialize() failed, error code=", mt5.last_error())
+    mt5.shutdown()
+    quit()
+print("Connected to MT5:", mt5.terminal_info().name)
+# Get account information
+account_info = mt5.account_info()
+
+symbol = "EURUSD"
+lot = 0.01
+
+# Check if today is weekend
+now = datetime.now(UTC)
+if now.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+    print("The market is closed on weekends. Please try again during weekdays.")
+    mt5.shutdown()
+    quit()
+
+# (Re)initialize and ensure the symbol is available
+mt5.initialize(login=login, password=password, server=server)
+mt5.symbol_select(symbol, True)
+
+# Check if market is open for trading
+symbol_info = mt5.symbol_info(symbol)
+if symbol_info is None or not symbol_info.visible:
+    print(f"Symbol {symbol} is not available for trading.")
+    mt5.shutdown()
+    quit()
+# Check if trading is allowed (trade_mode == SYMBOL_TRADE_MODE_FULL)
+if symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
+    print(f"Market is currently closed for {symbol} (trade_mode={symbol_info.trade_mode}). No trades will be sent.")
+    mt5.shutdown()
+    quit()
+
+# Fetch the last 250 1-minute bars for EURUSD
+utc_now = datetime.now(UTC)
+rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, utc_now - timedelta(minutes=250), 250)
+if rates is None or len(rates) == 0:
+    print("Failed to get bars for", symbol)
+    mt5.shutdown()
+    quit()
+
+# Compute moving averages (simple MA)
+closes = np.array([bar[4] for bar in rates])  # index 4 = close price
+short_ma = np.mean(closes[-50:])   # e.g. 50-period MA
+long_ma  = np.mean(closes[-200:])  # e.g. 200-period MA
+
+# Get current price
+tick = mt5.symbol_info_tick(symbol)
+if tick is None:
+    print("Failed to get current tick for", symbol)
+    mt5.shutdown()
+    quit()
+ask = tick.ask
+bid = tick.bid
+
+# Ensure prices are valid
+if ask == 0 or bid == 0:
+    print("Invalid ask/bid price.")
+    mt5.shutdown()
+    quit()
+
+# Determine signal and send order
+if short_ma > long_ma:
+    # Bullish signal: place a BUY order
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": lot,
+        "type": mt5.ORDER_TYPE_BUY,
+        "price": ask,
+        "sl": ask - 0.0010,    # example 10-pip stop loss
+        "tp": ask + 0.0020,    # example 20-pip take profit
+        "deviation": 20,
+        "magic": 234000,
+        "comment": "python scalping buy",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_RETURN,
+    }
+    result = mt5.order_send(request)
+    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+        print("BUY order placed, ticket:", result.order)
+    else:
+        print("BUY order failed, retcode =", result.retcode)
+elif short_ma < long_ma:
+    # Bearish signal: place a SELL order
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": lot,
+        "type": mt5.ORDER_TYPE_SELL,
+        "price": bid,
+        "sl": bid + 0.0010,
+        "tp": bid - 0.0020,
+        "deviation": 20,
+        "magic": 234000,
+        "comment": "python scalping sell",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_RETURN,
+    }
+    # Check if price is valid for SELL
+    if bid > 0:
+        result = mt5.order_send(request)
+        if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+            print("SELL order placed, ticket:", result.order)
+        else:
+            print("SELL order failed, retcode =", result.retcode)
+    else:
+        print("SELL order not sent: invalid bid price.")
+
+mt5.shutdown()
+
+
+positions = mt5.positions_get(symbol="EURUSD")
+if positions:
+    for pos in positions:
+        print(pos)  # shows ticket, type, volume, profit, etc.
+
+
+# --- BACKTESTING CODE (REMOVED FROM EXECUTION, KEEP FOR LATER USE) ---
+'''
+# --- Simple Backtesting Example ---
+# Define backtest parameters
+num_bars = 500  # Number of bars for backtest
+start_date = datetime.utcnow() - timedelta(minutes=num_bars)
+
+# Fetch historical M5 data
+rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M5, start_date, num_bars)
+if rates is not None and len(rates) > 0:
+    df = pd.DataFrame(rates)
+    df['time'] = pd.to_datetime(df['time'], unit='s')
+    df['close'] = df['close'].astype(float)
+    # Compute moving averages
+    df['ma50'] = df['close'].rolling(window=50).mean()
+    df['ma200'] = df['close'].rolling(window=200).mean()
+    # Generate signals: 1 for buy, -1 for sell, 0 for hold
+    df['signal'] = 0
+    df.loc[df['ma50'] > df['ma200'], 'signal'] = 1
+    df.loc[df['ma50'] < df['ma200'], 'signal'] = -1
+    # Simulate P/L (very basic example)
+    df['returns'] = df['close'].pct_change().shift(-1)  # next bar return
+    df['strategy'] = df['signal'].shift(1) * df['returns']
+    total_return = df['strategy'].sum()
+    print(f"Backtest total return: {total_return:.4f}")
+else:
+    print("Failed to get historical data for backtest.")
+'''
+
+log_file = "trade_notifications.log"
+
+def log_notify(message):
+    print(message)
+    with open(log_file, "a") as f:
+        f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
+
+# --- Trade Management Loop ---
+try:
+    while True:
+        # Check if today is weekend
+        now = datetime.now(UTC)
+        if now.weekday() >= 5:
+            print("The market is closed on weekends. Please try again during weekdays.")
+            break
+
+        # (Re)initialize and ensure the symbol is available
+        mt5.initialize(login=login, password=password, server=server)
+        mt5.symbol_select(symbol, True)
+
+        # Check if market is open for trading
+        symbol_info = mt5.symbol_info(symbol)
+        if symbol_info is None or not symbol_info.visible:
+            print(f"Symbol {symbol} is not available for trading.")
+            break
+        if symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
+            print(f"Market is currently closed for {symbol} (trade_mode={symbol_info.trade_mode}). No trades will be sent.")
+            break
+
+        # Fetch the last 250 1-minute bars for EURUSD
+        utc_now = datetime.now(UTC)
+        rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, utc_now - timedelta(minutes=250), 250)
+        if rates is None or len(rates) == 0:
+            print("Failed to get bars for", symbol)
+            break
+
+        # Compute moving averages (simple MA)
+        closes = np.array([bar[4] for bar in rates])
+        short_ma = np.mean(closes[-50:])
+        long_ma  = np.mean(closes[-200:])
+
+        # Get current price
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            print("Failed to get current tick for", symbol)
+            break
+        ask = tick.ask
+        bid = tick.bid
+        if ask == 0 or bid == 0:
+            print("Invalid ask/bid price.")
+            break
+
+        # Check for open positions
+        positions = mt5.positions_get(symbol=symbol)
+        position_type = None
+        ticket = None
+        entry_price = None
+        if positions:
+            pos = positions[0]
+            position_type = pos.type  # 0=buy, 1=sell
+            ticket = pos.ticket
+            entry_price = pos.price_open
+
+        # Trading logic with management and notifications
+        if short_ma > long_ma:
+            if position_type is None:
+                # No open position, open BUY
+                request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": symbol,
+                    "volume": lot,
+                    "type": mt5.ORDER_TYPE_BUY,
+                    "price": ask,
+                    "sl": ask - 0.0010,
+                    "tp": ask + 0.0020,
+                    "deviation": 20,
+                    "magic": 234000,
+                    "comment": "python scalping buy",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                }
+                result = mt5.order_send(request)
+                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                    log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
+                else:
+                    log_notify(f"BUY order failed, retcode = {result.retcode}")
+            elif position_type == 1:
+                # Open SELL, but signal is BUY: close SELL, open BUY
+                close_request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": symbol,
+                    "volume": lot,
+                    "type": mt5.ORDER_TYPE_BUY,
+                    "position": ticket,
+                    "price": ask,
+                    "deviation": 20,
+                    "magic": 234000,
+                    "comment": "close sell, open buy",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                }
+                close_result = mt5.order_send(close_request)
+                if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
+                    log_notify(f"[NOTIFY] Closed SELL, opened BUY, ticket: {close_result.order}, price: {ask}")
+                    # Fetch last deal for profit/loss
+                    deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
+                    if deals:
+                        last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
+                        log_notify(f"[NOTIFY] Closed SELL position, profit/loss: {last_deal.profit}")
+                else:
+                    log_notify(f"Failed to close SELL and open BUY, retcode = {close_result.retcode}")
+        elif short_ma < long_ma:
+            if position_type is None:
+                # No open position, open SELL
+                request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": symbol,
+                    "volume": lot,
+                    "type": mt5.ORDER_TYPE_SELL,
+                    "price": bid,
+                    "sl": bid + 0.0010,
+                    "tp": bid - 0.0020,
+                    "deviation": 20,
+                    "magic": 234000,
+                    "comment": "python scalping sell",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                }
+                result = mt5.order_send(request)
+                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                    log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
+                else:
+                    log_notify(f"SELL order failed, retcode = {result.retcode}")
+            elif position_type == 0:
+                # Open BUY, but signal is SELL: close BUY, open SELL
+                close_request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": symbol,
+                    "volume": lot,
+                    "type": mt5.ORDER_TYPE_SELL,
+                    "position": ticket,
+                    "price": bid,
+                    "deviation": 20,
+                    "magic": 234000,
+                    "comment": "close buy, open sell",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                }
+                close_result = mt5.order_send(close_request)
+                if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
+                    log_notify(f"[NOTIFY] Closed BUY, opened SELL, ticket: {close_result.order}, price: {bid}")
+                    # Fetch last deal for profit/loss
+                    deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
+                    if deals:
+                        last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
+                        log_notify(f"[NOTIFY] Closed BUY position, profit/loss: {last_deal.profit}")
+                else:
+                    log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
+        else:
+            log_notify("No trade signal.")
+
+        # Wait for 60 seconds before next check
+        time.sleep(60)
+finally:
+    mt5.shutdown()
