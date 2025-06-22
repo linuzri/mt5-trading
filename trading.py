@@ -25,6 +25,16 @@ account_info = mt5.account_info()
 symbol = "EURUSD"
 lot = 0.01
 
+# Load optimized parameters if available
+try:
+    with open("strategy_params.json", "r") as f:
+        params = json.load(f)
+    short_ma_period = params.get("short_ma", 10)
+    long_ma_period = params.get("long_ma", 300)
+except Exception:
+    short_ma_period = 10
+    long_ma_period = 300
+
 # Check if today is weekend
 now = datetime.now(UTC)
 if now.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
@@ -58,8 +68,8 @@ if rates is None or len(rates) == 0:
 
 # Compute moving averages (simple MA)
 closes = np.array([bar[4] for bar in rates])  # index 4 = close price
-short_ma = np.mean(closes[-50:])   # e.g. 50-period MA
-long_ma  = np.mean(closes[-200:])  # e.g. 200-period MA
+short_ma = np.mean(closes[-short_ma_period:])   # optimized short MA
+long_ma  = np.mean(closes[-long_ma_period:])    # optimized long MA
 
 # Get current price
 tick = mt5.symbol_info_tick(symbol)
@@ -197,11 +207,10 @@ try:
         if rates is None or len(rates) == 0:
             print("Failed to get bars for", symbol)
             break
-
         # Compute moving averages (simple MA)
         closes = np.array([bar[4] for bar in rates])
-        short_ma = np.mean(closes[-50:])
-        long_ma  = np.mean(closes[-200:])
+        short_ma = np.mean(closes[-short_ma_period:])
+        long_ma  = np.mean(closes[-long_ma_period:])
 
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
