@@ -143,35 +143,6 @@ if positions:
         print(pos)  # shows ticket, type, volume, profit, etc.
 
 
-# --- BACKTESTING CODE (REMOVED FROM EXECUTION, KEEP FOR LATER USE) ---
-'''
-# --- Simple Backtesting Example ---
-# Define backtest parameters
-num_bars = 500  # Number of bars for backtest
-start_date = datetime.utcnow() - timedelta(minutes=num_bars)
-
-# Fetch historical M5 data
-rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M5, start_date, num_bars)
-if rates is not None and len(rates) > 0:
-    df = pd.DataFrame(rates)
-    df['time'] = pd.to_datetime(df['time'], unit='s')
-    df['close'] = df['close'].astype(float)
-    # Compute moving averages
-    df['ma50'] = df['close'].rolling(window=50).mean()
-    df['ma200'] = df['close'].rolling(window=200).mean()
-    # Generate signals: 1 for buy, -1 for sell, 0 for hold
-    df['signal'] = 0
-    df.loc[df['ma50'] > df['ma200'], 'signal'] = 1
-    df.loc[df['ma50'] < df['ma200'], 'signal'] = -1
-    # Simulate P/L (very basic example)
-    df['returns'] = df['close'].pct_change().shift(-1)  # next bar return
-    df['strategy'] = df['signal'].shift(1) * df['returns']
-    total_return = df['strategy'].sum()
-    print(f"Backtest total return: {total_return:.4f}")
-else:
-    print("Failed to get historical data for backtest.")
-'''
-
 log_file = "trade_notifications.log"
 
 def log_notify(message):
