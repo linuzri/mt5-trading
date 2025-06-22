@@ -26,8 +26,8 @@ else:
     print("Failed to get account info.")
 
 symbol = "EURUSD"  # You can change this to any symbol available in your account
-# For 3 months of M5 bars: 3 months ≈ 90 days × 24 hours × 12 bars/hour = 25,920 bars
-num_bars = 25920  # Number of bars for backtest (approx. 3 months)
+# For 6 months of M5 bars: 6 months ≈ 180 days × 24 hours × 12 bars/hour = 51,840 bars
+num_bars = 51840  # Number of bars for backtest (approx. 6 months)
 
 # Helper to get pip size for symbol
 pip_size = 0.0001 if symbol.endswith('JPY') is False else 0.01
@@ -153,7 +153,7 @@ def run_forward_test():
         print("Failed to get bars for forward test.")
 
 if __name__ == "__main__":
-    print("--- Running Backtest Optimization (3 months) ---")
+    print("--- Running Backtest Optimization (6 months) ---")
     run_backtest_optimized()
     print("\n--- Running Forward Test (Demo) ---")
     run_forward_test()
