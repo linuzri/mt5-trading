@@ -6,12 +6,14 @@ import calendar
 import time
 import json
 
-# Read credentials from config.json
+# Read credentials and SL/TP from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
 login = config["login"]
 password = config["password"]
 server = config["server"]
+sl_pips = config.get("sl_pips", 0.0010)  # default 10 pips
+tp_pips = config.get("tp_pips", 0.0020)  # default 20 pips
 
 # Connect to MT5 (default path or existing instance)
 if not mt5.initialize(login=login, password=password, server=server):
@@ -95,8 +97,8 @@ if short_ma > long_ma:
         "volume": lot,
         "type": mt5.ORDER_TYPE_BUY,
         "price": ask,
-        "sl": ask - 0.0010,    # example 10-pip stop loss
-        "tp": ask + 0.0020,    # example 20-pip take profit
+        "sl": ask - sl_pips,    # example 10-pip stop loss
+        "tp": ask + tp_pips,    # example 20-pip take profit
         "deviation": 20,
         "magic": 234000,
         "comment": "python scalping buy",
@@ -116,8 +118,8 @@ elif short_ma < long_ma:
         "volume": lot,
         "type": mt5.ORDER_TYPE_SELL,
         "price": bid,
-        "sl": bid + 0.0010,
-        "tp": bid - 0.0020,
+        "sl": bid + sl_pips,
+        "tp": bid - tp_pips,
         "deviation": 20,
         "magic": 234000,
         "comment": "python scalping sell",
@@ -153,31 +155,28 @@ def log_notify(message):
 # --- Trade Management Loop ---
 try:
     while True:
-        # Check if today is weekend
         now = datetime.now(UTC)
-        if now.weekday() >= 5:
-            print("The market is closed on weekends. Please try again during weekdays.")
-            break
-
         # (Re)initialize and ensure the symbol is available
         mt5.initialize(login=login, password=password, server=server)
         mt5.symbol_select(symbol, True)
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)
-        if symbol_info is None or not symbol_info.visible:
-            print(f"Symbol {symbol} is not available for trading.")
-            break
-        if symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
-            print(f"Market is currently closed for {symbol} (trade_mode={symbol_info.trade_mode}). No trades will be sent.")
-            break
+        market_open = (
+            symbol_info is not None and symbol_info.visible and symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
+        )
+        if not market_open:
+            log_notify(f"Market is closed for {symbol}. Waiting...")
+            time.sleep(60)
+            continue
 
         # Fetch the last 250 1-minute bars for EURUSD
         utc_now = datetime.now(UTC)
         rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, utc_now - timedelta(minutes=250), 250)
         if rates is None or len(rates) == 0:
-            print("Failed to get bars for", symbol)
-            break
+            log_notify(f"Failed to get bars for {symbol}. Waiting...")
+            time.sleep(60)
+            continue
         # Compute moving averages (simple MA)
         closes = np.array([bar[4] for bar in rates])
         short_ma = np.mean(closes[-short_ma_period:])
@@ -186,13 +185,15 @@ try:
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
         if tick is None:
-            print("Failed to get current tick for", symbol)
-            break
+            log_notify(f"Failed to get current tick for {symbol}. Waiting...")
+            time.sleep(60)
+            continue
         ask = tick.ask
         bid = tick.bid
         if ask == 0 or bid == 0:
-            print("Invalid ask/bid price.")
-            break
+            log_notify("Invalid ask/bid price. Waiting...")
+            time.sleep(60)
+            continue
 
         # Check for open positions
         positions = mt5.positions_get(symbol=symbol)
@@ -215,8 +216,8 @@ try:
                     "volume": lot,
                     "type": mt5.ORDER_TYPE_BUY,
                     "price": ask,
-                    "sl": ask - 0.0010,
-                    "tp": ask + 0.0020,
+                    "sl": ask - sl_pips,
+                    "tp": ask + tp_pips,
                     "deviation": 20,
                     "magic": 234000,
                     "comment": "python scalping buy",
@@ -262,8 +263,8 @@ try:
                     "volume": lot,
                     "type": mt5.ORDER_TYPE_SELL,
                     "price": bid,
-                    "sl": bid + 0.0010,
-                    "tp": bid - 0.0020,
+                    "sl": bid + sl_pips,
+                    "tp": bid - tp_pips,
                     "deviation": 20,
                     "magic": 234000,
                     "comment": "python scalping sell",
@@ -302,6 +303,30 @@ try:
                     log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
             log_notify("No trade signal.")
+
+        # --- Trailing Stop Loss Management ---
+        trailing_pips = 0.0020  # 20 pips for EURUSD
+        positions = mt5.positions_get(symbol=symbol)
+        if positions:
+            for pos in positions:
+                # Get latest price
+                tick = mt5.symbol_info_tick(symbol)
+                if pos.type == mt5.POSITION_TYPE_BUY:
+                    # For BUY, trail SL up as price rises
+                    new_sl = tick.bid - trailing_pips
+                    # Only move SL up (never down)
+                    if (pos.sl is None or pos.sl == 0) or (new_sl > pos.sl):
+                        modify_result = mt5.order_modify(pos.ticket, pos.price_open, new_sl, pos.tp, 0)
+                        if modify_result:
+                            log_notify(f"[TRAILING SL] BUY position {pos.ticket}: SL updated to {new_sl:.5f}")
+                elif pos.type == mt5.POSITION_TYPE_SELL:
+                    # For SELL, trail SL down as price falls
+                    new_sl = tick.ask + trailing_pips
+                    # Only move SL down (never up)
+                    if (pos.sl is None or pos.sl == 0) or (new_sl < pos.sl):
+                        modify_result = mt5.order_modify(pos.ticket, pos.price_open, new_sl, pos.tp, 0)
+                        if modify_result:
+                            log_notify(f"[TRAILING SL] SELL position {pos.ticket}: SL updated to {new_sl:.5f}")
 
         # Wait for 60 seconds before next check
         time.sleep(60)
