@@ -73,13 +73,6 @@ macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
 bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
 bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
 
-# Check if today is weekend
-now = datetime.now(UTC)
-if now.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
-    print("The market is closed on weekends. Please try again during weekdays.")
-    mt5.shutdown()
-    quit()
-
 # (Re)initialize and ensure the symbol is available
 mt5.initialize(login=login, password=password, server=server)
 mt5.symbol_select(symbol, True)
