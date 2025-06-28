@@ -186,14 +186,15 @@ TELEGRAM_CHAT_ID = telegram_cfg.get("chat_id")
 
 def send_telegram_message(message):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("[DEBUG] Telegram token or chat_id missing.")
         return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
-        requests.post(url, data=data, timeout=5)
+        resp = requests.post(url, data=data, timeout=5)
+        print(f"[DEBUG] Telegram response: {resp.text}")
     except Exception as e:
-        # Optionally log Telegram errors
-        pass
+        print(f"[DEBUG] Telegram error: {e}")
 
 def log_notify(message):
     print(message)
