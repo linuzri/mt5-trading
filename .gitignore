@@ -58,7 +58,10 @@ coverage.xml
 .pyre/
 
 # MetaTrader5 config
-config.json
+#config.json
 
 # Log files
 *.log
+
+# Ignore MT5 authentication file
+mt5_auth.json

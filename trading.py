@@ -12,12 +12,15 @@ try:
 except ImportError:
     from pytz import timezone as ZoneInfo  # fallback for older Python
 
-# Read credentials and SL/TP from config.json
+# Read credentials from mt5_auth.json
+with open("mt5_auth.json", "r") as f:
+    auth = json.load(f)
+login = auth["login"]
+password = auth["password"]
+server = auth["server"]
+# Read other config from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
-login = config["login"]
-password = config["password"]
-server = config["server"]
 sl_pips = config.get("sl_pips", 0.0010)  # default 10 pips
 tp_pips = config.get("tp_pips", 0.0020)  # default 20 pips
 atr_period = config.get("atr_period", 14)  # ATR period for trailing stop

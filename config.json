@@ -1,0 +1,17 @@
+{
+  "sl_pips": 0.0010,
+  "tp_pips": 0.0020,
+  "atr_period": 14,
+  "atr_multiplier": 1.5,
+  "enable_trailing_stop": false,
+  "strategy": "ma_crossover",
+  "bollinger_period": 20,
+  "bollinger_stddev": 2,
+  "rsi_period": 14,
+  "macd_fast": 12,
+  "macd_slow": 26,
+  "macd_signal": 9,
+  "timeframe": "M5",
+  "backtest_period_days": 365,
+  "forward_test_period_days": 28
+}
