@@ -43,143 +43,12 @@ TIMEFRAME_MAP = {
 }
 timeframe = TIMEFRAME_MAP.get(timeframe_str.upper(), mt5.TIMEFRAME_M5)
 
-# Connect to MT5 (default path or existing instance)
-if not mt5.initialize(login=login, password=password, server=server):
-    print("MT5 initialize() failed, error code=", mt5.last_error())
-    mt5.shutdown()
-    quit()
-print("Connected to MT5:", mt5.terminal_info().name)
-# Get account information
-account_info = mt5.account_info()
-
+# Define symbol and lot before the main loop
 symbol = "EURUSD"
 lot = 0.01
 
-# Load optimized parameters for the selected strategy if available
-try:
-    with open("strategy_params.json", "r") as f:
-        params = json.load(f)
-    strat_params = params.get(strategy, {})
-except Exception:
-    strat_params = {}
-
-# Set parameters for each strategy
-# MA Crossover
-short_ma_period = strat_params.get("short_ma", config.get("short_ma", 10))
-long_ma_period = strat_params.get("long_ma", config.get("long_ma", 300))
-# RSI
-rsi_period = strat_params.get("rsi_period", config.get("rsi_period", 14))
-# MACD
-macd_fast = strat_params.get("macd_fast", config.get("macd_fast", 12))
-macd_slow = strat_params.get("macd_slow", config.get("macd_slow", 26))
-macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
-# Bollinger Bands
-bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
-bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
-
-# (Re)initialize and ensure the symbol is available
-mt5.initialize(login=login, password=password, server=server)
-mt5.symbol_select(symbol, True)
-
-# Check if market is open for trading
-symbol_info = mt5.symbol_info(symbol)
-if symbol_info is None or not symbol_info.visible:
-    print(f"Symbol {symbol} is not available for trading.")
-    mt5.shutdown()
-    quit()
-# Check if trading is allowed (trade_mode == SYMBOL_TRADE_MODE_FULL)
-if symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
-    print(f"Market is currently closed for {symbol} (trade_mode={symbol_info.trade_mode}). No trades will be sent.")
-    mt5.shutdown()
-    quit()
-
-# Fetch the last 250 1-minute bars for EURUSD
-utc_now = datetime.now(UTC)
-rates = mt5.copy_rates_from(symbol, timeframe, utc_now - timedelta(minutes=250), 250)
-if rates is None or len(rates) == 0:
-    print("Failed to get bars for", symbol)
-    mt5.shutdown()
-    quit()
-
-# Compute moving averages (simple MA)
-closes = np.array([bar[4] for bar in rates])  # index 4 = close price
-short_ma = np.mean(closes[-short_ma_period:])   # optimized short MA
-long_ma  = np.mean(closes[-long_ma_period:])    # optimized long MA
-
-# Get current price
-tick = mt5.symbol_info_tick(symbol)
-if tick is None:
-    print("Failed to get current tick for", symbol)
-    mt5.shutdown()
-    quit()
-ask = tick.ask
-bid = tick.bid
-
-# Ensure prices are valid
-if ask == 0 or bid == 0:
-    print("Invalid ask/bid price.")
-    mt5.shutdown()
-    quit()
-
-# Determine signal and send order
-if short_ma > long_ma:
-    # Bullish signal: place a BUY order
-    request = {
-        "action": mt5.TRADE_ACTION_DEAL,
-        "symbol": symbol,
-        "volume": lot,
-        "type": mt5.ORDER_TYPE_BUY,
-        "price": ask,
-        "sl": ask - sl_pips,    # example 10-pip stop loss
-        "tp": ask + tp_pips,    # example 20-pip take profit
-        "deviation": 20,
-        "magic": 234000,
-        "comment": "python scalping buy",
-        "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_RETURN,
-    }
-    result = mt5.order_send(request)
-    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-        print("BUY order placed, ticket:", result.order)
-    else:
-        print("BUY order failed, retcode =", result.retcode)
-elif short_ma < long_ma:
-    # Bearish signal: place a SELL order
-    request = {
-        "action": mt5.TRADE_ACTION_DEAL,
-        "symbol": symbol,
-        "volume": lot,
-        "type": mt5.ORDER_TYPE_SELL,
-        "price": bid,
-        "sl": bid + sl_pips,
-        "tp": bid - tp_pips,
-        "deviation": 20,
-        "magic": 234000,
-        "comment": "python scalping sell",
-        "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": mt5.ORDER_FILLING_RETURN,
-    }
-    # Check if price is valid for SELL
-    if bid > 0:
-        result = mt5.order_send(request)
-        if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-            print("SELL order placed, ticket:", result.order)
-        else:
-            print("SELL order failed, retcode =", result.retcode)
-    else:
-        print("SELL order not sent: invalid bid price.")
-
-mt5.shutdown()
-
-
-positions = mt5.positions_get(symbol="EURUSD")
-if positions:
-    for pos in positions:
-        print(pos)  # shows ticket, type, volume, profit, etc.
-
-
+# Define log_file, telegram_cfg, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID before the main loop
 log_file = "trade_notifications.log"
-
 telegram_cfg = auth.get("telegram", {})
 TELEGRAM_TOKEN = telegram_cfg.get("api_token")
 TELEGRAM_CHAT_ID = telegram_cfg.get("chat_id")
@@ -238,10 +107,35 @@ def is_monday_morning_us():
     return now_et.weekday() == 0 and now_et.hour >= 8 and now_et.hour < 12  # 8am-12pm ET
 
 last_backtest_monday = None
+
+# Load optimized parameters for the selected strategy if available
+try:
+    with open("strategy_params.json", "r") as f:
+        params = json.load(f)
+    strat_params = params.get(strategy, {})
+except Exception:
+    strat_params = {}
+
+# Set parameters for each strategy (ensure always defined before main loop)
+short_ma_period = strat_params.get("short_ma", config.get("short_ma", 10))
+long_ma_period = strat_params.get("long_ma", config.get("long_ma", 300))
+rsi_period = strat_params.get("rsi_period", config.get("rsi_period", 14))
+macd_fast = strat_params.get("macd_fast", config.get("macd_fast", 12))
+macd_slow = strat_params.get("macd_slow", config.get("macd_slow", 26))
+macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
+bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
+bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
+
 # --- Trade Management Loop ---
 try:
     while True:
         now = datetime.now(UTC)
+        try:
+            eastern = ZoneInfo("America/New_York")
+            now_et = datetime.now(eastern)
+        except Exception:
+            now_et = datetime.now(UTC) - timedelta(hours=4)
+        log_notify(f"[HEARTBEAT] Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
         # --- Backtest automation inside loop ---
         try:
             eastern = ZoneInfo("America/New_York")
@@ -273,13 +167,23 @@ try:
                 except Exception as e:
                     print("[AUTOMATION] Failed to reload strategy_params.json:", e)
         # (Re)initialize and ensure the symbol is available
-        mt5.initialize(login=login, password=password, server=server)
-        mt5.symbol_select(symbol, True)
+        if not mt5.initialize(login=login, password=password, server=server):
+            log_notify(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
+            time.sleep(60)
+            continue
+        if not mt5.symbol_select(symbol, True):
+            log_notify(f"[ERROR] Failed to select symbol {symbol}. Waiting...")
+            time.sleep(60)
+            continue
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)
+        if symbol_info is None:
+            log_notify(f"[ERROR] symbol_info for {symbol} is None. Waiting...")
+            time.sleep(60)
+            continue
         market_open = (
-            symbol_info is not None and symbol_info.visible and symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
+            symbol_info.visible and symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
         )
         if not market_open:
             log_notify(f"Market is closed for {symbol}. Waiting...")
