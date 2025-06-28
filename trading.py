@@ -7,6 +7,7 @@ import time
 import json
 import subprocess
 import sys
+import requests
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
 except ImportError:
@@ -179,10 +180,26 @@ if positions:
 
 log_file = "trade_notifications.log"
 
+telegram_cfg = auth.get("telegram", {})
+TELEGRAM_TOKEN = telegram_cfg.get("api_token")
+TELEGRAM_CHAT_ID = telegram_cfg.get("chat_id")
+
+def send_telegram_message(message):
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    try:
+        requests.post(url, data=data, timeout=5)
+    except Exception as e:
+        # Optionally log Telegram errors
+        pass
+
 def log_notify(message):
     print(message)
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
+    send_telegram_message(message)
 
 # --- Helper functions for indicators ---
 def compute_rsi(prices, period=14):
