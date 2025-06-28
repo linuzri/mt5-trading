@@ -5,6 +5,12 @@ from datetime import datetime, timedelta, UTC
 import calendar
 import time
 import json
+import subprocess
+import sys
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    from pytz import timezone as ZoneInfo  # fallback for older Python
 
 # Read credentials and SL/TP from config.json
 with open("config.json", "r") as f:
@@ -14,6 +20,24 @@ password = config["password"]
 server = config["server"]
 sl_pips = config.get("sl_pips", 0.0010)  # default 10 pips
 tp_pips = config.get("tp_pips", 0.0020)  # default 20 pips
+atr_period = config.get("atr_period", 14)  # ATR period for trailing stop
+atr_multiplier = config.get("atr_multiplier", 1.0)  # Multiplier for ATR trailing stop
+enable_trailing_stop = config.get("enable_trailing_stop", True)
+strategy = config.get("strategy", "ma_crossover")
+timeframe_str = config.get("timeframe", "M5")
+# Map string to MT5 timeframe constant
+TIMEFRAME_MAP = {
+    "M1": mt5.TIMEFRAME_M1,
+    "M5": mt5.TIMEFRAME_M5,
+    "M15": mt5.TIMEFRAME_M15,
+    "M30": mt5.TIMEFRAME_M30,
+    "H1": mt5.TIMEFRAME_H1,
+    "H4": mt5.TIMEFRAME_H4,
+    "D1": mt5.TIMEFRAME_D1,
+    "W1": mt5.TIMEFRAME_W1,
+    "MN1": mt5.TIMEFRAME_MN1
+}
+timeframe = TIMEFRAME_MAP.get(timeframe_str.upper(), mt5.TIMEFRAME_M5)
 
 # Connect to MT5 (default path or existing instance)
 if not mt5.initialize(login=login, password=password, server=server):
@@ -27,15 +51,27 @@ account_info = mt5.account_info()
 symbol = "EURUSD"
 lot = 0.01
 
-# Load optimized parameters if available
+# Load optimized parameters for the selected strategy if available
 try:
     with open("strategy_params.json", "r") as f:
         params = json.load(f)
-    short_ma_period = params.get("short_ma", 10)
-    long_ma_period = params.get("long_ma", 300)
+    strat_params = params.get(strategy, {})
 except Exception:
-    short_ma_period = 10
-    long_ma_period = 300
+    strat_params = {}
+
+# Set parameters for each strategy
+# MA Crossover
+short_ma_period = strat_params.get("short_ma", config.get("short_ma", 10))
+long_ma_period = strat_params.get("long_ma", config.get("long_ma", 300))
+# RSI
+rsi_period = strat_params.get("rsi_period", config.get("rsi_period", 14))
+# MACD
+macd_fast = strat_params.get("macd_fast", config.get("macd_fast", 12))
+macd_slow = strat_params.get("macd_slow", config.get("macd_slow", 26))
+macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
+# Bollinger Bands
+bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
+bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
 
 # Check if today is weekend
 now = datetime.now(UTC)
@@ -62,7 +98,7 @@ if symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
 
 # Fetch the last 250 1-minute bars for EURUSD
 utc_now = datetime.now(UTC)
-rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, utc_now - timedelta(minutes=250), 250)
+rates = mt5.copy_rates_from(symbol, timeframe, utc_now - timedelta(minutes=250), 250)
 if rates is None or len(rates) == 0:
     print("Failed to get bars for", symbol)
     mt5.shutdown()
@@ -152,10 +188,76 @@ def log_notify(message):
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
 
+# --- Helper functions for indicators ---
+def compute_rsi(prices, period=14):
+    delta = np.diff(prices)
+    up = delta.clip(min=0)
+    down = -1 * delta.clip(max=0)
+    ma_up = pd.Series(up).rolling(window=period, min_periods=period).mean()
+    ma_down = pd.Series(down).rolling(window=period, min_periods=period).mean()
+    rs = ma_up / ma_down
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+def compute_macd(prices, fast=12, slow=26, signal=9):
+    exp1 = pd.Series(prices).ewm(span=fast, adjust=False).mean()
+    exp2 = pd.Series(prices).ewm(span=slow, adjust=False).mean()
+    macd = exp1 - exp2
+    signal_line = macd.ewm(span=signal, adjust=False).mean()
+    return macd, signal_line
+
+def compute_bollinger_bands(prices, period=20, stddev=2):
+    series = pd.Series(prices)
+    ma = series.rolling(window=period).mean()
+    std = series.rolling(window=period).std()
+    upper = ma + stddev * std
+    lower = ma - stddev * std
+    return ma, upper, lower
+
+# --- Backtest automation on Monday 8:00 AM US Eastern ---
+def is_monday_morning_us():
+    try:
+        eastern = ZoneInfo("America/New_York")
+        now_et = datetime.now(eastern)
+    except Exception:
+        now_et = datetime.now(UTC) - timedelta(hours=4)
+    return now_et.weekday() == 0 and now_et.hour >= 8 and now_et.hour < 12  # 8am-12pm ET
+
+last_backtest_monday = None
 # --- Trade Management Loop ---
 try:
     while True:
         now = datetime.now(UTC)
+        # --- Backtest automation inside loop ---
+        try:
+            eastern = ZoneInfo("America/New_York")
+            now_et = datetime.now(eastern)
+        except Exception:
+            now_et = datetime.now(UTC) - timedelta(hours=4)
+        monday_date = now_et.date() if now_et.weekday() == 0 else None
+        if is_monday_morning_us() and (last_backtest_monday != monday_date):
+            print("[AUTOMATION] Monday morning US time detected. Running backtest.py...")
+            result = subprocess.run([sys.executable, "backtest.py"], capture_output=True, text=True)
+            print(result.stdout)
+            if result.returncode != 0:
+                print("[AUTOMATION] backtest.py failed:", result.stderr)
+            else:
+                print("[AUTOMATION] backtest.py completed. Reloading strategy parameters...")
+                try:
+                    with open("strategy_params.json", "r") as f:
+                        params = json.load(f)
+                    strat_params = params.get(strategy, {})
+                    short_ma_period = strat_params.get("short_ma", config.get("short_ma", 10))
+                    long_ma_period = strat_params.get("long_ma", config.get("long_ma", 300))
+                    rsi_period = strat_params.get("rsi_period", config.get("rsi_period", 14))
+                    macd_fast = strat_params.get("macd_fast", config.get("macd_fast", 12))
+                    macd_slow = strat_params.get("macd_slow", config.get("macd_slow", 26))
+                    macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
+                    bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
+                    bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
+                    last_backtest_monday = monday_date
+                except Exception as e:
+                    print("[AUTOMATION] Failed to reload strategy_params.json:", e)
         # (Re)initialize and ensure the symbol is available
         mt5.initialize(login=login, password=password, server=server)
         mt5.symbol_select(symbol, True)
@@ -172,15 +274,55 @@ try:
 
         # Fetch the last 250 1-minute bars for EURUSD
         utc_now = datetime.now(UTC)
-        rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, utc_now - timedelta(minutes=250), 250)
+        rates = mt5.copy_rates_from(symbol, timeframe, utc_now - timedelta(minutes=250), 250)
         if rates is None or len(rates) == 0:
             log_notify(f"Failed to get bars for {symbol}. Waiting...")
             time.sleep(60)
             continue
-        # Compute moving averages (simple MA)
         closes = np.array([bar[4] for bar in rates])
-        short_ma = np.mean(closes[-short_ma_period:])
-        long_ma  = np.mean(closes[-long_ma_period:])
+        # --- Strategy selection ---
+        trade_signal = None
+        if strategy == "ma_crossover":
+            short_ma = np.mean(closes[-short_ma_period:])
+            long_ma = np.mean(closes[-long_ma_period:])
+            if short_ma > long_ma:
+                trade_signal = "buy"
+            elif short_ma < long_ma:
+                trade_signal = "sell"
+        elif strategy == "rsi":
+            rsi = compute_rsi(closes, rsi_period)
+            if len(rsi) > 0:
+                last_rsi = rsi.iloc[-1]
+                if last_rsi < 30:
+                    trade_signal = "buy"
+                elif last_rsi > 70:
+                    trade_signal = "sell"
+        elif strategy == "macd":
+            macd, signal_line = compute_macd(closes, macd_fast, macd_slow, macd_signal)
+            if len(macd) > 1 and len(signal_line) > 1:
+                if macd.iloc[-2] < signal_line.iloc[-2] and macd.iloc[-1] > signal_line.iloc[-1]:
+                    trade_signal = "buy"
+                elif macd.iloc[-2] > signal_line.iloc[-2] and macd.iloc[-1] < signal_line.iloc[-1]:
+                    trade_signal = "sell"
+        elif strategy == "bollinger":
+            ma, upper, lower = compute_bollinger_bands(closes, bollinger_period, bollinger_stddev)
+            if len(closes) > bollinger_period:
+                last_close = closes[-1]
+                last_upper = upper.iloc[-1]
+                last_lower = lower.iloc[-1]
+                if last_close > last_upper:
+                    trade_signal = "buy"
+                elif last_close < last_lower:
+                    trade_signal = "sell"
+        elif strategy == "custom":
+            # Example: custom logic placeholder
+            # Set trade_signal = "buy" or "sell" based on your own rules
+            # Example: trade_signal = "buy" if some_condition else None
+            log_notify("Custom strategy not implemented. Please add your logic.")
+            trade_signal = None
+        else:
+            log_notify(f"Unknown strategy: {strategy}. No trades will be made.")
+            trade_signal = None
 
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
@@ -207,7 +349,7 @@ try:
             entry_price = pos.price_open
 
         # Trading logic with management and notifications
-        if short_ma > long_ma:
+        if trade_signal == "buy":
             if position_type is None:
                 # No open position, open BUY
                 request = {
@@ -227,6 +369,9 @@ try:
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
+                    # Log account balance after successful BUY
+                    balance = mt5.account_info().balance
+                    log_notify(f"[BALANCE] Account balance after BUY: {balance}")
                 else:
                     log_notify(f"BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
@@ -252,9 +397,12 @@ try:
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         log_notify(f"[NOTIFY] Closed SELL position, profit/loss: {last_deal.profit}")
+                    # Log account balance after reversal to BUY
+                    balance = mt5.account_info().balance
+                    log_notify(f"[BALANCE] Account balance after reversing to BUY: {balance}")
                 else:
                     log_notify(f"Failed to close SELL and open BUY, retcode = {close_result.retcode}")
-        elif short_ma < long_ma:
+        elif trade_signal == "sell":
             if position_type is None:
                 # No open position, open SELL
                 request = {
@@ -274,6 +422,9 @@ try:
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
+                    # Log account balance after successful SELL
+                    balance = mt5.account_info().balance
+                    log_notify(f"[BALANCE] Account balance after SELL: {balance}")
                 else:
                     log_notify(f"SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
@@ -299,34 +450,65 @@ try:
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         log_notify(f"[NOTIFY] Closed BUY position, profit/loss: {last_deal.profit}")
+                    # Log account balance after reversal to SELL
+                    balance = mt5.account_info().balance
+                    log_notify(f"[BALANCE] Account balance after reversing to SELL: {balance}")
                 else:
                     log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
             log_notify("No trade signal.")
 
-        # --- Trailing Stop Loss Management ---
-        trailing_pips = 0.0020  # 20 pips for EURUSD
-        positions = mt5.positions_get(symbol=symbol)
-        if positions:
-            for pos in positions:
-                # Get latest price
-                tick = mt5.symbol_info_tick(symbol)
-                if pos.type == mt5.POSITION_TYPE_BUY:
-                    # For BUY, trail SL up as price rises
-                    new_sl = tick.bid - trailing_pips
-                    # Only move SL up (never down)
-                    if (pos.sl is None or pos.sl == 0) or (new_sl > pos.sl):
-                        modify_result = mt5.order_modify(pos.ticket, pos.price_open, new_sl, pos.tp, 0)
-                        if modify_result:
-                            log_notify(f"[TRAILING SL] BUY position {pos.ticket}: SL updated to {new_sl:.5f}")
-                elif pos.type == mt5.POSITION_TYPE_SELL:
-                    # For SELL, trail SL down as price falls
-                    new_sl = tick.ask + trailing_pips
-                    # Only move SL down (never up)
-                    if (pos.sl is None or pos.sl == 0) or (new_sl < pos.sl):
-                        modify_result = mt5.order_modify(pos.ticket, pos.price_open, new_sl, pos.tp, 0)
-                        if modify_result:
-                            log_notify(f"[TRAILING SL] SELL position {pos.ticket}: SL updated to {new_sl:.5f}")
+        # --- Trailing Stop Loss Management (ATR-based) ---
+        if enable_trailing_stop:
+            # Fetch recent bars for ATR calculation
+            atr_bars = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, datetime.now(UTC) - timedelta(minutes=atr_period+2), atr_period+2)
+            trailing_pips = 0.0020  # fallback default
+            if atr_bars is not None and len(atr_bars) > atr_period:
+                atr_df = pd.DataFrame(atr_bars)
+                atr_df['high'] = atr_df['high'].astype(float)
+                atr_df['low'] = atr_df['low'].astype(float)
+                atr_df['close'] = atr_df['close'].astype(float)
+                atr_df['prev_close'] = atr_df['close'].shift(1)
+                atr_df['tr1'] = atr_df['high'] - atr_df['low']
+                atr_df['tr2'] = abs(atr_df['high'] - atr_df['prev_close'])
+                atr_df['tr3'] = abs(atr_df['low'] - atr_df['prev_close'])
+                atr_df['tr'] = atr_df[['tr1', 'tr2', 'tr3']].max(axis=1)
+                atr = atr_df['tr'].rolling(window=atr_period).mean().iloc[-1]
+                trailing_pips = atr * atr_multiplier
+            positions = mt5.positions_get(symbol=symbol)
+            if positions:
+                for pos in positions:
+                    tick = mt5.symbol_info_tick(symbol)
+                    if pos.type == mt5.POSITION_TYPE_BUY:
+                        new_sl = tick.bid - trailing_pips
+                        if (pos.sl is None or pos.sl == 0) or (new_sl > pos.sl):
+                            modify_request = {
+                                "action": mt5.TRADE_ACTION_SLTP,
+                                "position": pos.ticket,
+                                "sl": new_sl,
+                                "tp": pos.tp,
+                                "symbol": symbol,
+                                "magic": 234000,
+                                "comment": "ATR trailing stop update"
+                            }
+                            modify_result = mt5.order_send(modify_request)
+                            if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
+                                log_notify(f"[TRAILING SL ATR] BUY position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
+                    elif pos.type == mt5.POSITION_TYPE_SELL:
+                        new_sl = tick.ask + trailing_pips
+                        if (pos.sl is None or pos.sl == 0) or (new_sl < pos.sl):
+                            modify_request = {
+                                "action": mt5.TRADE_ACTION_SLTP,
+                                "position": pos.ticket,
+                                "sl": new_sl,
+                                "tp": pos.tp,
+                                "symbol": symbol,
+                                "magic": 234000,
+                                "comment": "ATR trailing stop update"
+                            }
+                            modify_result = mt5.order_send(modify_request)
+                            if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
+                                log_notify(f"[TRAILING SL ATR] SELL position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
 
         # Wait for 60 seconds before next check
         time.sleep(60)

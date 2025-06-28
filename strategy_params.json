@@ -1,1 +1,22 @@
-{"short_ma": 50, "long_ma": 140}
+{
+  "ma_crossover": {
+    "short_ma": 50,
+    "long_ma": 140,
+    "total_return": 0.016007596354806086
+  },
+  "rsi": {
+    "rsi_period": 8,
+    "total_return": 0.08094858329852372
+  },
+  "macd": {
+    "macd_fast": 12,
+    "macd_slow": 27,
+    "macd_signal": 7,
+    "total_return": 0.034756900095314736
+  },
+  "bollinger": {
+    "bollinger_period": 14,
+    "bollinger_stddev": 2,
+    "total_return": 0.007598238700115556
+  }
+}
