@@ -5,12 +5,15 @@ from datetime import datetime, timedelta, UTC
 import json
 from itertools import product
 
-# Read credentials and settings from config.json
+# Read credentials from mt5_auth.json
+with open("mt5_auth.json", "r") as f:
+    auth = json.load(f)
+login = auth["login"]
+password = auth["password"]
+server = auth["server"]
+# Read other config from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
-login = config["login"]
-password = config["password"]
-server = config["server"]
 backtest_period_days = config.get("backtest_period_days", 365)
 forward_test_period_days = config.get("forward_test_period_days", 28)
 timeframe_str = config.get("timeframe", "M5")

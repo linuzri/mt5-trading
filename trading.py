@@ -61,7 +61,7 @@ def send_telegram_message(message):
     data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         resp = requests.post(url, data=data, timeout=5)
-        print(f"[DEBUG] Telegram response: {resp.text}")
+    #   print(f"[DEBUG] Telegram response: {resp.text}")
     except Exception as e:
         print(f"[DEBUG] Telegram error: {e}")
 
@@ -135,7 +135,6 @@ try:
             now_et = datetime.now(eastern)
         except Exception:
             now_et = datetime.now(UTC) - timedelta(hours=4)
-        log_notify(f"[HEARTBEAT] Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
         # --- Backtest automation inside loop ---
         try:
             eastern = ZoneInfo("America/New_York")
@@ -186,7 +185,7 @@ try:
             symbol_info.visible and symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
         )
         if not market_open:
-            log_notify(f"Market is closed for {symbol}. Waiting...")
+            log_notify(f"[HEARTBEAT] Market is closed for {symbol}. Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
             time.sleep(60)
             continue
 
@@ -209,8 +208,8 @@ try:
                 trade_signal = "sell"
         elif strategy == "rsi":
             rsi = compute_rsi(closes, rsi_period)
-            if len(rsi) > 0:
-                last_rsi = rsi.iloc[-1]
+            last_rsi = rsi.iloc[-1] if len(rsi) > 0 else None
+            if last_rsi is not None:
                 if last_rsi < 30:
                     trade_signal = "buy"
                 elif last_rsi > 70:
@@ -224,23 +223,22 @@ try:
                     trade_signal = "sell"
         elif strategy == "bollinger":
             ma, upper, lower = compute_bollinger_bands(closes, bollinger_period, bollinger_stddev)
-            if len(closes) > bollinger_period:
-                last_close = closes[-1]
-                last_upper = upper.iloc[-1]
-                last_lower = lower.iloc[-1]
+            last_close = closes[-1] if len(closes) > bollinger_period else None
+            last_upper = upper.iloc[-1] if len(closes) > bollinger_period else None
+            last_lower = lower.iloc[-1] if len(closes) > bollinger_period else None
+            if last_close is not None and last_upper is not None and last_lower is not None:
                 if last_close > last_upper:
                     trade_signal = "buy"
                 elif last_close < last_lower:
                     trade_signal = "sell"
         elif strategy == "custom":
-            # Example: custom logic placeholder
-            # Set trade_signal = "buy" or "sell" based on your own rules
-            # Example: trade_signal = "buy" if some_condition else None
             log_notify("Custom strategy not implemented. Please add your logic.")
             trade_signal = None
         else:
             log_notify(f"Unknown strategy: {strategy}. No trades will be made.")
             trade_signal = None
+        # log_notify(debug_msg)  # Commented out for future troubleshooting
+        # log_notify(f"[DEBUG] trade_signal={trade_signal}")  # Commented out for future troubleshooting
 
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
