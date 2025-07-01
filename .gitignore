@@ -65,3 +65,6 @@ coverage.xml
 
 # Ignore MT5 authentication file
 mt5_auth.json
+
+# backup files
+*bak*

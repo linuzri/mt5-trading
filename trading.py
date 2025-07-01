@@ -8,6 +8,8 @@ import json
 import subprocess
 import sys
 import requests
+import csv
+from collections import defaultdict
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
 except ImportError:
@@ -126,8 +128,48 @@ macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
 bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
 bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
 
+# --- Enhancement Configs ---
+min_atr = config.get("min_atr", 0.0005)  # Minimum ATR for volatility filter
+news_block_minutes = config.get("news_block_minutes", 15)  # Block trading this many minutes before/after news
+higher_timeframe_str = config.get("higher_timeframe", "H1")
+higher_timeframe = TIMEFRAME_MAP.get(higher_timeframe_str.upper(), mt5.TIMEFRAME_H1)
+
+# --- News API Helper (placeholder, returns True if news is near) ---
+def is_high_impact_news_near(symbol, block_minutes=15):
+    # TODO: Integrate real news API (e.g., Forex Factory, Financial Modeling Prep, etc.)
+    # For now, always return False (no news block)
+    # You can later replace this with a real API call and time check
+    return False
+
+# --- Multi-timeframe trend helper ---
+def get_higher_tf_trend(symbol, short_ma=10, long_ma=300):
+    utc_now = datetime.now(UTC)
+    rates = mt5.copy_rates_from(symbol, higher_timeframe, utc_now - timedelta(minutes=long_ma*2), long_ma*2)
+    if rates is None or len(rates) < long_ma:
+        return None  # Not enough data
+    closes = np.array([bar[4] for bar in rates])
+    short_ma_val = np.mean(closes[-short_ma:])
+    long_ma_val = np.mean(closes[-long_ma:])
+    if short_ma_val > long_ma_val:
+        return "up"
+    elif short_ma_val < long_ma_val:
+        return "down"
+    else:
+        return None
+
+# --- ATR filter helper ---
+def get_atr(rates, period=14):
+    highs = rates['high']
+    lows = rates['low']
+    closes = rates['close']
+    prev_closes = np.roll(closes, 1)
+    tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_closes), np.abs(lows - prev_closes)))
+    atr = pd.Series(tr).rolling(window=period).mean().iloc[-1]
+    return atr
+
 # --- Trade Management Loop ---
 try:
+    last_filter_message = None  # Track last filter message to avoid spamming
     while True:
         now = datetime.now(UTC)
         try:
@@ -199,12 +241,37 @@ try:
         closes = np.array([bar[4] for bar in rates])
         # --- Strategy selection ---
         trade_signal = None
+        # Multi-timeframe trend filter
+        higher_tf_trend = get_higher_tf_trend(symbol, short_ma_period, long_ma_period)
+        if higher_tf_trend is None:
+            msg = "[FILTER] Not enough higher timeframe data for trend confirmation. No trade."
+            if last_filter_message != msg:
+                log_notify(msg)
+                last_filter_message = msg
+            continue
+        # ATR filter
+        atr_val = get_atr(rates, atr_period)
+        if atr_val < min_atr:
+            msg = f"[FILTER] ATR {atr_val:.5f} below threshold {min_atr}. No trade."
+            if last_filter_message != msg:
+                log_notify(msg)
+                last_filter_message = msg
+            continue
+        # News filter
+        if is_high_impact_news_near(symbol, news_block_minutes):
+            msg = f"[FILTER] High-impact news event near. No trade."
+            if last_filter_message != msg:
+                log_notify(msg)
+                last_filter_message = msg
+            continue
+        last_filter_message = None  # Reset if all filters pass
+        # --- Strategy logic as before, but only take trade if M5 and H1 agree ---
         if strategy == "ma_crossover":
             short_ma = np.mean(closes[-short_ma_period:])
             long_ma = np.mean(closes[-long_ma_period:])
-            if short_ma > long_ma:
+            if short_ma > long_ma and higher_tf_trend == "up":
                 trade_signal = "buy"
-            elif short_ma < long_ma:
+            elif short_ma < long_ma and higher_tf_trend == "down":
                 trade_signal = "sell"
         elif strategy == "rsi":
             rsi = compute_rsi(closes, rsi_period)
@@ -313,6 +380,9 @@ try:
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         log_notify(f"[NOTIFY] Closed SELL position, profit/loss: {last_deal.profit}")
+                        append_trade_log([str(datetime.now(UTC)), "SELL", entry_price, tick.bid, last_deal.profit])
+                        daily_pl += last_deal.profit
+                        check_max_loss_profit()
                     # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after reversing to BUY: {balance}")
@@ -366,6 +436,9 @@ try:
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         log_notify(f"[NOTIFY] Closed BUY position, profit/loss: {last_deal.profit}")
+                        append_trade_log([str(datetime.now(UTC)), "BUY", entry_price, tick.ask, last_deal.profit])
+                        daily_pl += last_deal.profit
+                        check_max_loss_profit()
                     # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after reversing to SELL: {balance}")
@@ -426,7 +499,66 @@ try:
                             if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
                                 log_notify(f"[TRAILING SL ATR] SELL position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
 
+        # --- Trade summary and critical alert enhancements ---
+        trade_log = []  # In-memory log for current day/week
+        trade_log_file = "trade_log.csv"
+        max_daily_loss = config.get("max_daily_loss", 100)  # USD, set in config.json
+        max_daily_profit = config.get("max_daily_profit", 200)  # USD, set in config.json
+        last_summary_date = None
+        last_week_number = None
+        daily_pl = 0
+        last_pl_date = None
+
+        def append_trade_log(entry):
+            trade_log.append(entry)
+            with open(trade_log_file, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(entry)
+
+        def send_trade_summary(period="daily"):
+            if not trade_log:
+                return
+            total_profit = sum([t[4] for t in trade_log])
+            num_trades = len(trade_log)
+            buys = sum(1 for t in trade_log if t[1] == "BUY")
+            sells = sum(1 for t in trade_log if t[1] == "SELL")
+            msg = f"[SUMMARY] {period.capitalize()} Trade Summary:\nTotal Trades: {num_trades}\nBuys: {buys}, Sells: {sells}\nTotal P/L: {total_profit:.2f} USD"
+            send_telegram_message(msg)
+            # Optionally, email or other notification here
+
+        def check_and_send_summaries():
+            global last_summary_date, last_week_number, trade_log
+            eastern = ZoneInfo("America/New_York")
+            now_et = datetime.now(eastern)
+            today = now_et.date()
+            week = today.isocalendar()[1]
+            # Daily summary at 5pm ET
+            if last_summary_date != today and now_et.hour >= 17:
+                send_trade_summary("daily")
+                trade_log = []  # Reset for new day
+                last_summary_date = today
+            # Weekly summary on Friday after 5pm ET
+            if now_et.weekday() == 4 and last_week_number != week and now_et.hour >= 17:
+                send_trade_summary("weekly")
+                last_week_number = week
+
+        def check_max_loss_profit():
+            global daily_pl, last_pl_date
+            eastern = ZoneInfo("America/New_York")
+            now_et = datetime.now(eastern)
+            today = now_et.date()
+            if last_pl_date != today:
+                daily_pl = 0
+                last_pl_date = today
+            if abs(daily_pl) >= max_daily_loss:
+                send_telegram_message(f"[ALERT] Max daily loss reached: {daily_pl:.2f} USD. Trading paused.")
+                time.sleep(3600)  # Pause for 1 hour
+            if daily_pl >= max_daily_profit:
+                send_telegram_message(f"[ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
+                time.sleep(3600)  # Pause for 1 hour
+
         # Wait for 60 seconds before next check
         time.sleep(60)
+        check_and_send_summaries()
 finally:
     mt5.shutdown()
