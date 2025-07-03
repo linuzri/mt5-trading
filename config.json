@@ -12,10 +12,13 @@
   "macd_slow": 26,
   "macd_signal": 9,
   "timeframe": "M5",
+  "higher_timeframe": "H1",
   "backtest_period_days": 365,
   "forward_test_period_days": 28,
   "max_daily_loss": 100,
   "max_daily_profit": 200,
-  "min_atr": 0.0005,
+  "_min_atr": "0.0005",
+  "min_atr": 0,
+  "_comment": "Set min_atr to 0 to disable the volatility filter. This is a remark or comment for human readers only.",
   "news_block_minutes": 30
 }

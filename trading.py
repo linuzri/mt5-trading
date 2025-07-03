@@ -129,7 +129,7 @@ bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_pe
 bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
 
 # --- Enhancement Configs ---
-min_atr = config.get("min_atr", 0.0005)  # Minimum ATR for volatility filter
+min_atr = config.get("min_atr", 0)  # Minimum ATR for volatility filter, default 0 disables filter
 news_block_minutes = config.get("news_block_minutes", 15)  # Block trading this many minutes before/after news
 higher_timeframe_str = config.get("higher_timeframe", "H1")
 higher_timeframe = TIMEFRAME_MAP.get(higher_timeframe_str.upper(), mt5.TIMEFRAME_H1)
