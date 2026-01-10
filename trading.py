@@ -347,7 +347,7 @@ try:
                     "magic": 234000,
                     "comment": "python scalping buy",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                    "type_filling": mt5.ORDER_FILLING_FOK,
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -370,7 +370,7 @@ try:
                     "magic": 234000,
                     "comment": "close sell, open buy",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                    "type_filling": mt5.ORDER_FILLING_FOK,
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -403,7 +403,7 @@ try:
                     "magic": 234000,
                     "comment": "python scalping sell",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                    "type_filling": mt5.ORDER_FILLING_FOK,
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -426,7 +426,7 @@ try:
                     "magic": 234000,
                     "comment": "close buy, open sell",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_RETURN,
+                    "type_filling": mt5.ORDER_FILLING_FOK,
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
