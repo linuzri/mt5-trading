@@ -102,9 +102,9 @@ def run_backtest():
         print("Failed to get historical data for backtest.")
 
 def run_backtest_optimized():
-    # Define ranges for moving average periods
-    short_ma_range = range(10, 101, 10)   # 10, 20, ..., 100
-    long_ma_range = range(100, 301, 20)   # 100, 120, ..., 300
+    # Define ranges for moving average periods (fast for M1 scalping)
+    short_ma_range = range(5, 31, 5)    # 5, 10, 15, 20, 25, 30
+    long_ma_range = range(20, 81, 10)   # 20, 30, 40, 50, 60, 70, 80
     best_result = None
     best_params = None
     print("\nOptimizing moving average periods...")
@@ -225,9 +225,10 @@ def run_all_strategies_backtest():
     results = {}
 
     # --- MA Crossover ---
+    # Fast MA ranges for M1 scalping
     print("\n[MA Crossover Optimization]")
-    short_ma_range = range(10, 101, 10)
-    long_ma_range = range(100, 301, 20)
+    short_ma_range = range(5, 31, 5)    # 5, 10, 15, 20, 25, 30
+    long_ma_range = range(20, 81, 10)   # 20, 30, 40, 50, 60, 70, 80
     best_ma = None
     best_ma_result = -np.inf
     for short_ma, long_ma in product(short_ma_range, long_ma_range):
