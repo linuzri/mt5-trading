@@ -1,22 +1,22 @@
 {
   "ma_crossover": {
-    "short_ma": 80,
-    "long_ma": 180,
-    "total_return": 0.10190538787527337
+    "short_ma": 10,
+    "long_ma": 30,
+    "total_return": 0.10452404978942098
   },
   "rsi": {
     "rsi_period": 22,
-    "total_return": 0.025266157663390354
+    "total_return": 0.026011482293402777
   },
   "macd": {
     "macd_fast": 12,
     "macd_slow": 27,
     "macd_signal": 9,
-    "total_return": 0.05543361343297604
+    "total_return": 0.05589774816711501
   },
   "bollinger": {
     "bollinger_period": 22,
     "bollinger_stddev": 2.5,
-    "total_return": 0.053277008662357295
+    "total_return": 0.05366740853246743
   }
 }
