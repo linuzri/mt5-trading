@@ -43,12 +43,17 @@ if account_info:
 else:
     print("Failed to get account info.")
 
-symbol = "EURUSD"  # You can change this to any symbol available in your account
+# Symbol is now configurable via config.json
+symbol = config.get("symbol", "BTCUSD")
 # For 6 months of M5 bars: 6 months ≈ 180 days × 24 hours × 12 bars/hour = 51,840 bars
 num_bars = 51840  # Number of bars for backtest (approx. 6 months)
 
-# Helper to get pip size for symbol
-pip_size = 0.0001 if symbol.endswith('JPY') is False else 0.01
+# Helper to get pip size for symbol (crypto uses point value from broker)
+symbol_info = mt5.symbol_info(symbol)
+if symbol_info:
+    pip_size = symbol_info.point  # Use broker's point value (0.01 for BTCUSD, 0.0001 for EURUSD, etc.)
+else:
+    pip_size = 0.0001 if not symbol.endswith('JPY') else 0.01
 lot = 0.01  # Example lot size for P/L calculation
 
 # Get symbol info for tick value
@@ -57,9 +62,10 @@ tick_value = symbol_info.trade_tick_value if symbol_info else 1.0
 
 
 def run_backtest():
-    # Fetch historical M5 data
-    start_date = datetime.now(UTC) - timedelta(days=backtest_period_days)
-    rates = mt5.copy_rates_from(symbol, timeframe, start_date, backtest_period_days * 24 * 12)
+    # Fetch historical M5 data using copy_rates_range for better reliability
+    end_date = datetime.now(UTC)
+    start_date = end_date - timedelta(days=backtest_period_days)
+    rates = mt5.copy_rates_range(symbol, timeframe, start_date, end_date)
     if rates is not None and len(rates) > 0:
         df = pd.DataFrame(rates)
         df['time'] = pd.to_datetime(df['time'], unit='s', utc=True)
@@ -102,8 +108,9 @@ def run_backtest_optimized():
     best_result = None
     best_params = None
     print("\nOptimizing moving average periods...")
-    start_date = datetime.now(UTC) - timedelta(days=backtest_period_days)
-    rates = mt5.copy_rates_from(symbol, timeframe, start_date, backtest_period_days * 24 * 12)
+    end_date = datetime.now(UTC)
+    start_date = end_date - timedelta(days=backtest_period_days)
+    rates = mt5.copy_rates_range(symbol, timeframe, start_date, end_date)
     if rates is None or len(rates) == 0:
         print("Failed to get historical data for backtest.")
         return
@@ -198,11 +205,19 @@ def compute_bollinger_bands(prices, period=20, stddev=2):
 
 # --- Multi-strategy backtest ---
 def run_all_strategies_backtest():
-    start_date = datetime.now(UTC) - timedelta(days=backtest_period_days)
-    rates = mt5.copy_rates_from(symbol, timeframe, start_date, backtest_period_days * 24 * 12)
+    end_date = datetime.now(UTC)
+    start_date = end_date - timedelta(days=backtest_period_days)
+    rates = mt5.copy_rates_range(symbol, timeframe, start_date, end_date)
     if rates is None or len(rates) == 0:
-        print("Failed to get historical data for backtest.")
-        return
+        print(f"Failed to get historical data for backtest. Error: {mt5.last_error()}")
+        print(f"Trying with shorter period...")
+        # Try with 180 days if full period fails
+        start_date = end_date - timedelta(days=180)
+        rates = mt5.copy_rates_range(symbol, timeframe, start_date, end_date)
+        if rates is None or len(rates) == 0:
+            print("Still no data available. Exiting backtest.")
+            return
+    print(f"Loaded {len(rates)} bars for backtesting ({len(rates) / (24*12):.1f} days of data)")
     df = pd.DataFrame(rates)
     df['time'] = pd.to_datetime(df['time'], unit='s', utc=True)
     df['close'] = df['close'].astype(float)
@@ -304,19 +319,68 @@ def run_all_strategies_backtest():
         json.dump(results, f, indent=2)
     print("\nAll best parameters/results saved to strategy_params.json")
 
+    # --- AUTO-SELECT BEST STRATEGY ---
+    # Find the strategy with the highest total_return
+    best_strategy = None
+    best_return = -float('inf')
+
+    print("\n" + "="*50)
+    print("STRATEGY PERFORMANCE RANKING")
+    print("="*50)
+
+    # Sort strategies by return
+    sorted_strategies = sorted(results.items(), key=lambda x: x[1].get('total_return', 0), reverse=True)
+
+    for rank, (strat_name, strat_data) in enumerate(sorted_strategies, 1):
+        ret = strat_data.get('total_return', 0)
+        ret_pips = ret / pip_size
+        status = ""
+        if rank == 1 and ret > 0:
+            best_strategy = strat_name
+            best_return = ret
+            status = " <-- BEST (SELECTED)"
+        elif ret <= 0:
+            status = " (negative/zero return)"
+        print(f"  {rank}. {strat_name}: {ret_pips:.2f} pips{status}")
+
+    # Update config.json with the best strategy
+    if best_strategy and best_return > 0:
+        with open("config.json", "r") as f:
+            current_config = json.load(f)
+
+        old_strategy = current_config.get("strategy", "unknown")
+        current_config["strategy"] = best_strategy
+
+        with open("config.json", "w") as f:
+            json.dump(current_config, f, indent=2)
+
+        print("="*50)
+        print(f"AUTO-SELECTED: {best_strategy}")
+        print(f"Previous strategy: {old_strategy}")
+        print(f"Expected return: {best_return/pip_size:.2f} pips")
+        print("config.json has been updated!")
+        print("="*50)
+    else:
+        print("="*50)
+        print("WARNING: No profitable strategy found!")
+        print("Keeping current strategy in config.json")
+        print("="*50)
+
 def run_all_strategies_forward_test(strategy_params):
     print("\n--- Forward Test Results (Most Recent Data) ---")
-    # Use last 2 weeks of M5 bars for forward test
-    forward_bars = forward_test_period_days * 24 * 12
-    utc_now = datetime.now(UTC)
-    rates = mt5.copy_rates_from(symbol, timeframe, utc_now - timedelta(days=forward_test_period_days), forward_bars)
+    # Use last N days of M5 bars for forward test
+    end_date = datetime.now(UTC)
+    start_date = end_date - timedelta(days=forward_test_period_days)
+    rates = mt5.copy_rates_range(symbol, timeframe, start_date, end_date)
     if rates is None or len(rates) == 0:
         print("Failed to get bars for forward test.")
         return
     df = pd.DataFrame(rates)
     df['close'] = df['close'].astype(float)
     closes = df['close'].values
-    pip_size = 0.0001 if symbol.endswith('JPY') is False else 0.01
+    # Use broker's point value for pip_size
+    sym_info = mt5.symbol_info(symbol)
+    pip_size = sym_info.point if sym_info else 0.0001
     # MA Crossover
     ma = strategy_params.get('ma_crossover', {})
     if ma:

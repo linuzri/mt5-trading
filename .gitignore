@@ -66,5 +66,14 @@ coverage.xml
 # Ignore MT5 authentication file
 mt5_auth.json
 
+# Trading logs and data files
+trade_log.csv
+
 # backup files
 *bak*
+
+# IDE files
+.idea/
+.DS_Store
+*.swp
+*.swo
