@@ -45,8 +45,8 @@ TIMEFRAME_MAP = {
 }
 timeframe = TIMEFRAME_MAP.get(timeframe_str.upper(), mt5.TIMEFRAME_M5)
 
-# Define symbol and lot before the main loop
-symbol = "EURUSD"
+# Define symbol and lot before the main loop (symbol is now configurable via config.json)
+symbol = config.get("symbol", "BTCUSD")
 lot = 0.01
 
 # Define log_file, telegram_cfg, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID before the main loop
@@ -68,10 +68,20 @@ def send_telegram_message(message):
         print(f"[DEBUG] Telegram error: {e}")
 
 def log_notify(message):
+    """Log to console, file, AND Telegram (for important trade alerts only)."""
     print(message)
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
     send_telegram_message(message)
+
+def log_only(message):
+    """Log to console and file only (NO Telegram)."""
+    print(message)
+    with open(log_file, "a") as f:
+        f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
+
+# Hourly heartbeat tracking
+last_heartbeat_hour = None
 
 # --- Helper functions for indicators ---
 def compute_rsi(prices, period=14):
@@ -99,16 +109,18 @@ def compute_bollinger_bands(prices, period=20, stddev=2):
     lower = ma - stddev * std
     return ma, upper, lower
 
-# --- Backtest automation on Monday 8:00 AM US Eastern ---
-def is_monday_morning_us():
+# --- Backtest automation DAILY at 8:00 AM US Eastern ---
+def is_daily_optimization_time():
+    """Check if it's time for daily optimization (8am-9am ET every day)."""
     try:
         eastern = ZoneInfo("America/New_York")
         now_et = datetime.now(eastern)
     except Exception:
         now_et = datetime.now(UTC) - timedelta(hours=4)
-    return now_et.weekday() == 0 and now_et.hour >= 8 and now_et.hour < 12  # 8am-12pm ET
+    # Run optimization between 8am-9am ET every day
+    return now_et.hour >= 8 and now_et.hour < 9
 
-last_backtest_monday = None
+last_backtest_date = None
 
 # Load optimized parameters for the selected strategy if available
 try:
@@ -157,6 +169,20 @@ def get_higher_tf_trend(symbol, short_ma=10, long_ma=300):
     else:
         return None
 
+# --- Get correct filling mode for symbol ---
+def get_filling_mode(symbol):
+    """Get the correct order filling mode for a symbol based on broker support."""
+    sym_info = mt5.symbol_info(symbol)
+    if sym_info is None:
+        return mt5.ORDER_FILLING_IOC  # Default fallback
+    # filling_mode is a bitmask: 1=FOK supported, 2=IOC supported
+    if sym_info.filling_mode & 2:  # IOC supported
+        return mt5.ORDER_FILLING_IOC
+    elif sym_info.filling_mode & 1:  # FOK supported
+        return mt5.ORDER_FILLING_FOK
+    else:
+        return mt5.ORDER_FILLING_RETURN
+
 # --- ATR filter helper ---
 def get_atr(rates, period=14):
     highs = rates['high']
@@ -166,6 +192,39 @@ def get_atr(rates, period=14):
     tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_closes), np.abs(lows - prev_closes)))
     atr = pd.Series(tr).rolling(window=period).mean().iloc[-1]
     return atr
+
+# --- Function to reload configuration after backtest ---
+def reload_config_and_strategy():
+    """Reload config.json and strategy_params.json after backtest completes."""
+    global strategy, config, short_ma_period, long_ma_period, rsi_period
+    global macd_fast, macd_slow, macd_signal, bollinger_period, bollinger_stddev
+
+    # Reload config.json to get the new best strategy
+    with open("config.json", "r") as f:
+        config = json.load(f)
+    new_strategy = config.get("strategy", "ma_crossover")
+
+    # Reload strategy_params.json
+    with open("strategy_params.json", "r") as f:
+        params = json.load(f)
+
+    # Get parameters for the NEW strategy
+    strat_params = params.get(new_strategy, {})
+
+    # Update strategy variable
+    strategy = new_strategy
+
+    # Update all strategy parameters
+    short_ma_period = strat_params.get("short_ma", config.get("short_ma", 10))
+    long_ma_period = strat_params.get("long_ma", config.get("long_ma", 300))
+    rsi_period = strat_params.get("rsi_period", config.get("rsi_period", 14))
+    macd_fast = strat_params.get("macd_fast", config.get("macd_fast", 12))
+    macd_slow = strat_params.get("macd_slow", config.get("macd_slow", 26))
+    macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
+    bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
+    bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
+
+    return strategy, strat_params
 
 # --- Trade Management Loop ---
 try:
@@ -177,65 +236,65 @@ try:
             now_et = datetime.now(eastern)
         except Exception:
             now_et = datetime.now(UTC) - timedelta(hours=4)
-        # --- Backtest automation inside loop ---
+        # --- DAILY Backtest automation inside loop ---
         try:
             eastern = ZoneInfo("America/New_York")
             now_et = datetime.now(eastern)
         except Exception:
             now_et = datetime.now(UTC) - timedelta(hours=4)
-        monday_date = now_et.date() if now_et.weekday() == 0 else None
-        if is_monday_morning_us() and (last_backtest_monday != monday_date):
-            print("[AUTOMATION] Monday morning US time detected. Running backtest.py...")
+        today_date = now_et.date()
+        if is_daily_optimization_time() and (last_backtest_date != today_date):
+            log_notify(f"[AUTOMATION] Daily optimization time (8am ET). Running backtest.py...")
             result = subprocess.run([sys.executable, "backtest.py"], capture_output=True, text=True)
             print(result.stdout)
             if result.returncode != 0:
                 print("[AUTOMATION] backtest.py failed:", result.stderr)
             else:
-                print("[AUTOMATION] backtest.py completed. Reloading strategy parameters...")
+                print("[AUTOMATION] backtest.py completed. Reloading configuration...")
                 try:
-                    with open("strategy_params.json", "r") as f:
-                        params = json.load(f)
-                    strat_params = params.get(strategy, {})
-                    short_ma_period = strat_params.get("short_ma", config.get("short_ma", 10))
-                    long_ma_period = strat_params.get("long_ma", config.get("long_ma", 300))
-                    rsi_period = strat_params.get("rsi_period", config.get("rsi_period", 14))
-                    macd_fast = strat_params.get("macd_fast", config.get("macd_fast", 12))
-                    macd_slow = strat_params.get("macd_slow", config.get("macd_slow", 26))
-                    macd_signal = strat_params.get("macd_signal", config.get("macd_signal", 9))
-                    bollinger_period = strat_params.get("bollinger_period", config.get("bollinger_period", 20))
-                    bollinger_stddev = strat_params.get("bollinger_stddev", config.get("bollinger_stddev", 2))
-                    last_backtest_monday = monday_date
+                    new_strategy, strat_params = reload_config_and_strategy()
+                    last_backtest_date = today_date
+                    log_notify(f"[AUTOMATION] Best strategy selected: {new_strategy}")
+                    log_notify(f"[AUTOMATION] Parameters: {strat_params}")
                 except Exception as e:
-                    print("[AUTOMATION] Failed to reload strategy_params.json:", e)
+                    print("[AUTOMATION] Failed to reload configuration:", e)
         # (Re)initialize and ensure the symbol is available
         if not mt5.initialize(login=login, password=password, server=server):
-            log_notify(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
+            log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
             time.sleep(60)
             continue
         if not mt5.symbol_select(symbol, True):
-            log_notify(f"[ERROR] Failed to select symbol {symbol}. Waiting...")
+            log_only(f"[ERROR] Failed to select symbol {symbol}. Waiting...")
             time.sleep(60)
             continue
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)
         if symbol_info is None:
-            log_notify(f"[ERROR] symbol_info for {symbol} is None. Waiting...")
+            log_only(f"[ERROR] symbol_info for {symbol} is None. Waiting...")
             time.sleep(60)
             continue
         market_open = (
             symbol_info.visible and symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
         )
         if not market_open:
-            log_notify(f"[HEARTBEAT] Market is closed for {symbol}. Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
+            log_only(f"[HEARTBEAT] Market is closed for {symbol}. Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
             time.sleep(60)
             continue
 
-        # Fetch the last 250 1-minute bars for EURUSD
+        # --- Hourly heartbeat to Telegram ---
+        current_hour = now_et.hour
+        if last_heartbeat_hour != current_hour:
+            account = mt5.account_info()
+            balance = account.balance if account else 0
+            log_notify(f"[HEARTBEAT] Bot running. Balance: ${balance:.2f} | Strategy: {strategy} | {symbol}")
+            last_heartbeat_hour = current_hour
+
+        # Fetch the last 250 bars for the configured symbol
         utc_now = datetime.now(UTC)
         rates = mt5.copy_rates_from(symbol, timeframe, utc_now - timedelta(minutes=250), 250)
         if rates is None or len(rates) == 0:
-            log_notify(f"Failed to get bars for {symbol}. Waiting...")
+            log_only(f"Failed to get bars for {symbol}. Waiting...")
             time.sleep(60)
             continue
         closes = np.array([bar[4] for bar in rates])
@@ -246,7 +305,7 @@ try:
         if higher_tf_trend is None:
             msg = "[FILTER] Not enough higher timeframe data for trend confirmation. No trade."
             if last_filter_message != msg:
-                log_notify(msg)
+                log_only(msg)
                 last_filter_message = msg
             continue
         # ATR filter
@@ -254,14 +313,14 @@ try:
         if atr_val < min_atr:
             msg = f"[FILTER] ATR {atr_val:.5f} below threshold {min_atr}. No trade."
             if last_filter_message != msg:
-                log_notify(msg)
+                log_only(msg)
                 last_filter_message = msg
             continue
         # News filter
         if is_high_impact_news_near(symbol, news_block_minutes):
             msg = f"[FILTER] High-impact news event near. No trade."
             if last_filter_message != msg:
-                log_notify(msg)
+                log_only(msg)
                 last_filter_message = msg
             continue
         last_filter_message = None  # Reset if all filters pass
@@ -299,24 +358,24 @@ try:
                 elif last_close < last_lower:
                     trade_signal = "sell"
         elif strategy == "custom":
-            log_notify("Custom strategy not implemented. Please add your logic.")
+            log_only("Custom strategy not implemented. Please add your logic.")
             trade_signal = None
         else:
-            log_notify(f"Unknown strategy: {strategy}. No trades will be made.")
+            log_only(f"Unknown strategy: {strategy}. No trades will be made.")
             trade_signal = None
-        # log_notify(debug_msg)  # Commented out for future troubleshooting
-        # log_notify(f"[DEBUG] trade_signal={trade_signal}")  # Commented out for future troubleshooting
+        # log_only(debug_msg)  # Commented out for future troubleshooting
+        # log_only(f"[DEBUG] trade_signal={trade_signal}")  # Commented out for future troubleshooting
 
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
         if tick is None:
-            log_notify(f"Failed to get current tick for {symbol}. Waiting...")
+            log_only(f"Failed to get current tick for {symbol}. Waiting...")
             time.sleep(60)
             continue
         ask = tick.ask
         bid = tick.bid
         if ask == 0 or bid == 0:
-            log_notify("Invalid ask/bid price. Waiting...")
+            log_only("Invalid ask/bid price. Waiting...")
             time.sleep(60)
             continue
 
@@ -347,7 +406,7 @@ try:
                     "magic": 234000,
                     "comment": "python scalping buy",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_FOK,
+                    "type_filling": get_filling_mode(symbol),
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -370,7 +429,7 @@ try:
                     "magic": 234000,
                     "comment": "close sell, open buy",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_FOK,
+                    "type_filling": get_filling_mode(symbol),
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -403,7 +462,7 @@ try:
                     "magic": 234000,
                     "comment": "python scalping sell",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_FOK,
+                    "type_filling": get_filling_mode(symbol),
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -426,7 +485,7 @@ try:
                     "magic": 234000,
                     "comment": "close buy, open sell",
                     "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_FOK,
+                    "type_filling": get_filling_mode(symbol),
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -445,7 +504,7 @@ try:
                 else:
                     log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
-            log_notify("No trade signal.")
+            log_only("No trade signal.")
 
         # --- Trailing Stop Loss Management (ATR-based) ---
         if enable_trailing_stop:
