@@ -77,3 +77,6 @@ trade_log.csv
 .DS_Store
 *.swp
 *.swo
+
+# MD files
+CLAUDE.md
