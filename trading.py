@@ -261,6 +261,19 @@ if strategy == "ml_random_forest":
 # --- Trade Management Loop ---
 try:
     last_filter_message = None  # Track last filter message to avoid spamming
+
+    # Trade logging setup
+    trade_log = []  # In-memory log for current day/week
+    trade_log_file = "trade_log.csv"
+    daily_pl = 0
+    last_pl_date = None
+
+    def append_trade_log(entry):
+        trade_log.append(entry)
+        with open(trade_log_file, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(entry)
+
     while True:
         now = datetime.now(UTC)
         try:
@@ -631,20 +644,10 @@ try:
                                 log_notify(f"[TRAILING SL ATR] SELL position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
 
         # --- Trade summary and critical alert enhancements ---
-        trade_log = []  # In-memory log for current day/week
-        trade_log_file = "trade_log.csv"
         max_daily_loss = config.get("max_daily_loss", 100)  # USD, set in config.json
         max_daily_profit = config.get("max_daily_profit", 200)  # USD, set in config.json
         last_summary_date = None
         last_week_number = None
-        daily_pl = 0
-        last_pl_date = None
-
-        def append_trade_log(entry):
-            trade_log.append(entry)
-            with open(trade_log_file, "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(entry)
 
         def send_trade_summary(period="daily"):
             if not trade_log:
