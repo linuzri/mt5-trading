@@ -57,7 +57,7 @@ class ModelPredictor:
             # Fallback to config
             self.feature_names = self.config['features']
 
-        print("✅ Model loaded successfully")
+        print("[OK] Model loaded successfully")
 
     def prepare_features(self, features_dict):
         """
@@ -271,5 +271,5 @@ if __name__ == "__main__":
         print(f"   Reason: {reason}")
 
     except FileNotFoundError as e:
-        print(f"\n⚠️ {e}")
+        print(f"\n[!] {e}")
         print("   Please train the model first!")

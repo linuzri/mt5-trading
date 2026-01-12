@@ -119,7 +119,7 @@ class FeatureEngineering:
         # Price changes
         df['price_change_1min'], df['price_change_5min'] = self.calculate_price_changes(df)
 
-        print(f"✅ Added {len(self.feature_names)} features")
+        print(f"[OK] Added {len(self.feature_names)} features")
 
         return df
 
@@ -194,7 +194,7 @@ class FeatureEngineering:
         if missing_features:
             raise ValueError(f"Missing features: {missing_features}")
 
-        print(f"✅ Dataset ready: {len(df)} samples with {len(self.feature_names)} features")
+        print(f"[OK] Dataset ready: {len(df)} samples with {len(self.feature_names)} features")
 
         return df
 
