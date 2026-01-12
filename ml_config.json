@@ -1,0 +1,58 @@
+{
+  "model_type": "random_forest",
+  "symbol": "BTCUSD",
+  "timeframe": "M1",
+
+  "data_collection": {
+    "training_period_days": 90,
+    "lookback_candles": 100,
+    "min_data_points": 5000
+  },
+
+  "features": [
+    "rsi_14",
+    "macd_line",
+    "macd_signal",
+    "atr_14",
+    "bb_upper",
+    "bb_lower",
+    "bb_width",
+    "volume_ratio",
+    "price_change_1min",
+    "price_change_5min"
+  ],
+
+  "labeling": {
+    "method": "future_return",
+    "lookahead_candles": 15,
+    "profit_threshold": 0.005,
+    "label_classes": ["buy", "sell", "hold"]
+  },
+
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "min_samples_split": 20,
+    "min_samples_leaf": 10,
+    "random_state": 42
+  },
+
+  "training": {
+    "test_size": 0.15,
+    "validation_size": 0.15,
+    "retrain_frequency_days": 7,
+    "cross_validation_folds": 5
+  },
+
+  "prediction": {
+    "confidence_threshold": 0.65,
+    "min_probability_diff": 0.1
+  },
+
+  "paths": {
+    "model_file": "models/random_forest_btcusd.pkl",
+    "scaler_file": "models/scaler_btcusd.pkl",
+    "training_data": "models/training_data_btcusd.csv",
+    "performance_log": "models/ml_performance.csv"
+  }
+}
