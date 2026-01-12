@@ -96,7 +96,7 @@ class FeatureEngineering:
         Returns:
             DataFrame with added features
         """
-        print("🔧 Engineering features...")
+        print("[i] Engineering features...")
 
         # Make a copy to avoid modifying original
         df = df.copy()
@@ -138,7 +138,7 @@ class FeatureEngineering:
         Returns:
             DataFrame with 'label' column
         """
-        print("🏷️ Creating labels...")
+        print("[i] Creating labels...")
 
         df = df.copy()
 
