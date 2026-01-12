@@ -50,7 +50,7 @@ class DataPreparation:
             mt5.shutdown()
             raise Exception(f"Failed to select symbol {self.symbol}")
 
-        print(f"✅ Connected to MT5: {mt5.terminal_info().name}")
+        print(f"[OK] Connected to MT5: {mt5.terminal_info().name}")
         return True
 
     def extract_historical_data(self, days=None):
@@ -104,7 +104,7 @@ class DataPreparation:
         if 'volume' not in df.columns:
             df['volume'] = df['tick_volume']
 
-        print(f"✅ Extracted {len(df)} candles")
+        print(f"[OK] Extracted {len(df)} candles")
         print(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
 
         return df
@@ -148,12 +148,12 @@ class DataPreparation:
 
         # Print validation results
         if issues:
-            print("⚠️ Data validation warnings:")
+            print("[!] Data validation warnings:")
             for issue in issues:
                 print(f"   - {issue}")
             return False
         else:
-            print("✅ Data validation passed")
+            print("[OK] Data validation passed")
             return True
 
     def clean_data(self, df):
@@ -186,7 +186,7 @@ class DataPreparation:
         # Ensure volume is non-negative
         df.loc[df['volume'] < 0, 'volume'] = 0
 
-        print(f"✅ Cleaned data: {len(df)} rows remaining")
+        print(f"[OK] Cleaned data: {len(df)} rows remaining")
 
         return df
 
@@ -234,10 +234,10 @@ class DataPreparation:
         if not force_refresh and os.path.exists(filepath):
             try:
                 df = self.load_data(filepath)
-                print("ℹ️ Using cached data. Use force_refresh=True to download fresh data.")
+                print("[i] Using cached data. Use force_refresh=True to download fresh data.")
                 return df
             except Exception as e:
-                print(f"⚠️ Failed to load cached data: {e}")
+                print(f"[!] Failed to load cached data: {e}")
                 print("   Extracting fresh data...")
 
         # Extract fresh data

@@ -45,8 +45,8 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.55,
-    "min_probability_diff": 0.05
+    "confidence_threshold": 0.40,
+    "min_probability_diff": 0.03
   },
 
   "paths": {

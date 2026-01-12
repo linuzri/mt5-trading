@@ -100,7 +100,7 @@ class ModelTrainer:
         Returns:
             Scaled X_train, X_val, X_test
         """
-        print("⚖️ Scaling features...")
+        print("[i] Scaling features...")
 
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
@@ -123,12 +123,12 @@ class ModelTrainer:
             Trained model
         """
         print(f"🌲 Training Random Forest with {self.model_params['n_estimators']} trees...")
-        print("⚖️ Using class_weight='balanced' to handle class imbalance")
+        print("[i] Using class_weight='balanced' to handle class imbalance")
 
         self.model = RandomForestClassifier(**self.model_params, class_weight='balanced')
         self.model.fit(X_train, y_train)
 
-        print("✅ Model training complete")
+        print("[OK] Model training complete")
 
         return self.model
 
@@ -338,7 +338,7 @@ class ModelTrainer:
         self.save_model()
 
         print("\n" + "=" * 60)
-        print("✅ Training Pipeline Complete!")
+        print("[OK] Training Pipeline Complete!")
         print("=" * 60)
 
         return self.model, self.performance_metrics

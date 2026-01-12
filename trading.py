@@ -421,7 +421,7 @@ try:
                                           ml_predictor.predict(latest_features)[2].items()]))
                     else:
                         trade_signal = None
-                        # log_only(f"[ML] {reason}")  # Optional: log why no signal
+                        log_only(f"[ML] {reason}")  # Log why no signal
 
                 except Exception as e:
                     log_only(f"[ML ERROR] Failed to get prediction: {e}")
