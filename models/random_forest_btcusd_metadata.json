@@ -1,0 +1,88 @@
+{
+  "model_type": "random_forest",
+  "feature_names": [
+    "rsi_14",
+    "macd_line",
+    "macd_signal",
+    "atr_14",
+    "bb_upper",
+    "bb_lower",
+    "bb_width",
+    "volume_ratio",
+    "price_change_1min",
+    "price_change_5min"
+  ],
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "min_samples_split": 20,
+    "min_samples_leaf": 10,
+    "random_state": 42
+  },
+  "performance_metrics": {
+    "cv_scores": [
+      0.5818965517241379,
+      0.5724469496021221,
+      0.5822281167108754,
+      0.5893567639257294,
+      0.575762599469496
+    ],
+    "cv_mean": 0.5803381962864721,
+    "cv_std": 0.005840251597479786,
+    "validation_metrics": {
+      "accuracy": 0.5808448089122699,
+      "precision": 0.6358536354344981,
+      "recall": 0.5808448089122699,
+      "f1_score": 0.5959939443246144
+    },
+    "test_metrics": {
+      "accuracy": 0.5933776883800093,
+      "precision": 0.6445773328280897,
+      "recall": 0.5933776883800093,
+      "f1_score": 0.6078637350845159
+    },
+    "feature_importance": [
+      {
+        "feature": "atr_14",
+        "importance": 0.2789785592659417
+      },
+      {
+        "feature": "bb_width",
+        "importance": 0.1659291098834803
+      },
+      {
+        "feature": "bb_lower",
+        "importance": 0.1223670821243154
+      },
+      {
+        "feature": "bb_upper",
+        "importance": 0.1134468516875698
+      },
+      {
+        "feature": "macd_signal",
+        "importance": 0.08673201016495852
+      },
+      {
+        "feature": "macd_line",
+        "importance": 0.07735007886200167
+      },
+      {
+        "feature": "price_change_5min",
+        "importance": 0.04378357719670089
+      },
+      {
+        "feature": "rsi_14",
+        "importance": 0.043430404756225886
+      },
+      {
+        "feature": "volume_ratio",
+        "importance": 0.03664891134455044
+      },
+      {
+        "feature": "price_change_1min",
+        "importance": 0.031333414714255395
+      }
+    ]
+  },
+  "trained_at": "2026-01-12T16:26:12.796598"
+}
