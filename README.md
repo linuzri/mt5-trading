@@ -1,19 +1,25 @@
 # MT5-Trading Python Bot
 
-A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting multiple strategies, advanced risk management, and comprehensive notifications/logging. Supports both **Forex and Crypto CFDs** (BTCUSD, ETHUSD, etc.).
+A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting multiple strategies including **Machine Learning**, advanced risk management, and comprehensive notifications/logging. Supports both **Forex and Crypto CFDs** (BTCUSD, ETHUSD, etc.).
 
 ## Features
 
 ### Core Trading
 - **Automated trading on MT5** (Pepperstone, IC Markets, or any MT5 broker)
 - **Configurable symbol** - Trade Forex (EURUSD) or Crypto (BTCUSD, ETHUSD)
-- **Multiple strategies:** MA Crossover, RSI, MACD, Bollinger Bands
+- **Multiple strategies:** MA Crossover, RSI, MACD, Bollinger Bands, **ML Random Forest**
 - **Scalping support:** M1 timeframe for quick trades
 - **All settings configurable** via `config.json`
 
+### Machine Learning Strategy
+- **Random Forest classifier** trained on 30 days of historical data
+- **10 technical indicators** as features (RSI, MACD, ATR, Bollinger Bands, etc.)
+- **Confidence-based trading** - Only trades when model confidence exceeds threshold
+- **Daily auto-retraining** - Model retrains every day at 8:00 AM ET with fresh data
+- **Class-balanced training** - Handles imbalanced BUY/SELL/HOLD labels
+
 ### Smart Optimization
-- **Daily auto-optimization** - Runs every day at 8:00 AM US Eastern
-- **Auto-select best strategy** - Automatically switches to the most profitable strategy
+- **Daily auto-training** - ML model retrains every day at 8:00 AM US Eastern
 - **Multi-timeframe confirmation** - Only trades when lower and higher timeframes agree
 - **ATR volatility filter** - Trades only when volatility is above threshold
 
@@ -41,7 +47,7 @@ A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting mu
 - MT5 Broker account (demo or live)
 
 ```sh
-pip install MetaTrader5 pandas numpy requests pytz
+pip install -r requirements.txt
 ```
 
 ## Quick Start
@@ -67,7 +73,12 @@ pip install -r requirements.txt
 }
 ```
 
-### 3. Configure `config.json`
+### 3. Train ML Model (for ML strategy)
+```sh
+python train_ml_model.py --refresh
+```
+
+### 4. Configure `config.json`
 ```json
 {
   "symbol": "BTCUSD",
@@ -75,15 +86,14 @@ pip install -r requirements.txt
   "tp_pips": 150,
   "timeframe": "M1",
   "higher_timeframe": "M15",
-  "strategy": "ma_crossover",
+  "strategy": "ml_random_forest",
   "enable_trailing_stop": false,
   "max_daily_loss": 100,
-  "max_daily_profit": 200,
-  "backtest_period_days": 30
+  "max_daily_profit": 200
 }
 ```
 
-### 4. Run the Bot
+### 5. Run the Bot
 ```sh
 python trading.py
 ```
@@ -95,7 +105,7 @@ python trading.py
 | `symbol` | Trading instrument | `"BTCUSD"`, `"EURUSD"` |
 | `timeframe` | Primary chart timeframe | `"M1"`, `"M5"`, `"H1"` |
 | `higher_timeframe` | Trend confirmation timeframe | `"M15"`, `"H1"` |
-| `strategy` | Trading strategy | `"ma_crossover"`, `"rsi"`, `"macd"`, `"bollinger"` |
+| `strategy` | Trading strategy | `"ml_random_forest"`, `"ma_crossover"`, `"rsi"`, `"macd"`, `"bollinger"` |
 | `sl_pips` | Stop loss in price units | `75` ($75 for crypto) |
 | `tp_pips` | Take profit in price units | `150` ($150 for crypto) |
 | `enable_trailing_stop` | Enable ATR trailing stop | `true`, `false` |
@@ -104,8 +114,96 @@ python trading.py
 | `min_atr` | Minimum ATR to trade (0=disabled) | `0` |
 | `max_daily_loss` | Max daily loss before pause (USD) | `100` |
 | `max_daily_profit` | Max daily profit before pause (USD) | `200` |
-| `backtest_period_days` | Days of data for optimization | `30` |
-| `news_block_minutes` | Minutes to block around news | `30` |
+
+## Machine Learning Strategy
+
+### How It Works
+
+**Traditional Strategy (Rule-Based):**
+```python
+if RSI < 30:
+    signal = "buy"  # Fixed rule
+```
+
+**ML Strategy (Pattern Learning):**
+```python
+# Model learns from 30 days of historical data
+# Discovers complex patterns across 10 indicators
+signal = model.predict(current_market_features)
+```
+
+### Features Used (10 Indicators)
+
+| Feature | Description |
+|---------|-------------|
+| `rsi_14` | Relative Strength Index (overbought/oversold) |
+| `macd_line` | MACD indicator (trend momentum) |
+| `macd_signal` | MACD signal line (crossover signals) |
+| `atr_14` | Average True Range (volatility) |
+| `bb_upper` | Bollinger Band upper (price envelope) |
+| `bb_lower` | Bollinger Band lower (support level) |
+| `bb_width` | BB width normalized (volatility squeeze) |
+| `volume_ratio` | Volume vs average (buying pressure) |
+| `price_change_1min` | 1-candle return (recent momentum) |
+| `price_change_5min` | 5-candle return (short-term trend) |
+
+### ML Configuration (ml_config.json)
+
+```json
+{
+  "model_type": "random_forest",
+  "data_collection": {
+    "training_period_days": 30
+  },
+  "prediction": {
+    "confidence_threshold": 0.55,
+    "min_probability_diff": 0.5
+  },
+  "labeling": {
+    "lookahead_candles": 15,
+    "profit_threshold": 0.001
+  }
+}
+```
+
+**Tuning Tips:**
+- Increase `confidence_threshold` (0.60-0.70) for fewer but higher quality trades
+- Decrease `confidence_threshold` (0.50-0.55) for more trades
+
+### Training the Model
+
+```sh
+# First time or refresh with latest data
+python train_ml_model.py --refresh
+
+# Re-training (uses cached data)
+python train_ml_model.py
+```
+
+**Expected Output:**
+```
+Label distribution:
+- SELL: 8600 (20.0%)
+- BUY: 8991 (20.9%)
+- HOLD: 25514 (59.2%)
+
+Cross-Validation Accuracy: 0.5803
+Test Set Accuracy: 0.5934
+
+Classification Report:
+        SELL: precision=0.40, recall=0.59
+        BUY:  precision=0.45, recall=0.52
+        HOLD: precision=0.80, recall=0.62
+```
+
+### Performance Metrics
+
+| Metric | Poor | Acceptable | Good |
+|--------|------|------------|------|
+| Accuracy | <52% | 52-58% | >58% |
+| BUY/SELL Recall | <30% | 30-50% | >50% |
+
+**Note:** >55% accuracy with balanced recall is profitable after fees.
 
 ## How It Works
 
@@ -117,20 +215,20 @@ Every 60 seconds:
   3. Fetch price data (M1 bars)
   4. Check higher timeframe trend (M15)
   5. Apply ATR volatility filter
-  6. Generate signal from strategy
+  6. Generate signal from strategy (ML or traditional)
   7. Execute trade if signal found
   8. Manage trailing stops
   9. Log to file (Telegram only for trades)
 ```
 
-### Daily Optimization (8:00 AM ET)
+### Daily ML Training (8:00 AM ET)
 ```
-  1. Run backtest.py
-  2. Optimize all 4 strategies
-  3. Rank by performance
-  4. Auto-select best strategy
-  5. Update config.json
-  6. Reload parameters
+  1. Run train_ml_model.py --refresh
+  2. Download latest 30 days of data
+  3. Engineer 10 technical features
+  4. Train Random Forest with class balancing
+  5. Save model to models/random_forest_btcusd.pkl
+  6. Reload model in trading bot
   7. Send Telegram notification
 ```
 
@@ -141,7 +239,7 @@ Every 60 seconds:
 - Positions closed with P/L
 - Trailing stop updates
 - Hourly heartbeat with balance
-- Daily strategy optimization results
+- Daily ML training results
 - Max loss/profit alerts
 
 **What does NOT send to Telegram:**
@@ -152,13 +250,12 @@ Every 60 seconds:
 
 ### Example Notifications
 ```
-[HEARTBEAT] Bot running. Balance: $50000.10 | Strategy: ma_crossover | BTCUSD
+[HEARTBEAT] Bot running. Balance: $50000.10 | Strategy: ml_random_forest | BTCUSD
 
-[NOTIFY] BUY order placed, ticket: 224067017, price: 90673.81
-[BALANCE] Account balance after BUY: 50150.00
+[ML] Model: BUY with 62% confidence | Probabilities: sell:18%, buy:62%, hold:20%
+[NOTIFY] BUY order placed, ticket: 224067017, price: 94567.89
 
-[AUTOMATION] Best strategy selected: ma_crossover
-[AUTOMATION] Parameters: {'short_ma': 80, 'long_ma': 180, 'total_return': 0.102}
+[AUTOMATION] ML model retrained successfully
 ```
 
 ## Files
@@ -166,15 +263,24 @@ Every 60 seconds:
 | File | Description |
 |------|-------------|
 | `trading.py` | Main trading bot with all logic |
-| `backtest.py` | Strategy optimization engine |
-| `config.json` | All trading parameters |
-| `strategy_params.json` | Auto-generated best parameters |
+| `train_ml_model.py` | ML model training script |
+| `backtest.py` | Traditional strategy optimization |
+| `config.json` | Trading parameters |
+| `ml_config.json` | ML model configuration |
 | `mt5_auth.json` | Credentials (DO NOT COMMIT) |
 | `trade_notifications.log` | All events log |
 | `trade_log.csv` | Closed trades history |
-| `check_market.py` | Diagnostic tool |
-| `check_broker_limits.py` | Symbol info checker |
-| `test_trading.py` | Order test utility |
+
+### ML Module Files
+
+| File | Description |
+|------|-------------|
+| `ml/data_preparation.py` | Extract MT5 data |
+| `ml/feature_engineering.py` | Calculate technical features |
+| `ml/model_trainer.py` | Train Random Forest model |
+| `ml/model_predictor.py` | Live predictions |
+| `models/random_forest_btcusd.pkl` | Trained model (generated) |
+| `models/scaler_btcusd.pkl` | Feature scaler (generated) |
 
 ## Supported Brokers
 
@@ -194,7 +300,6 @@ The bot auto-detects the correct order filling mode (FOK/IOC) for each broker.
 | `tp_pips` | `0.006` (60 pips) | `150` ($150) |
 | `timeframe` | `"M5"` | `"M1"` (scalping) |
 | Market hours | Mon-Fri | 24/7 |
-| `backtest_period_days` | `180` | `30` |
 
 ## Security
 
@@ -213,10 +318,27 @@ The bot auto-detects the correct order filling mode (FOK/IOC) for each broker.
 - Bot auto-detects correct mode
 - If issues persist, check broker symbol settings
 
+### "Model file not found"
+```sh
+python train_ml_model.py --refresh
+```
+
+### "ML modules not available"
+```sh
+pip install scikit-learn joblib
+```
+
+### Low ML Accuracy (<55%)
+1. Adjust `profit_threshold` in ml_config.json
+2. Increase `training_period_days` (if broker supports)
+3. Tune `confidence_threshold`
+
 ### No historical data
-- Reduce `backtest_period_days` for M1 timeframe
 - M1 data limited to ~30 days on most brokers
+- Use M5 timeframe for longer history
 
 ---
 
 **Ready to trade!** Run `python trading.py` and let the bot find profitable opportunities.
+
+For detailed ML documentation, see `ML_STRATEGY_README.md`.

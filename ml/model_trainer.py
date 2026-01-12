@@ -123,8 +123,9 @@ class ModelTrainer:
             Trained model
         """
         print(f"🌲 Training Random Forest with {self.model_params['n_estimators']} trees...")
+        print("⚖️ Using class_weight='balanced' to handle class imbalance")
 
-        self.model = RandomForestClassifier(**self.model_params)
+        self.model = RandomForestClassifier(**self.model_params, class_weight='balanced')
         self.model.fit(X_train, y_train)
 
         print("✅ Model training complete")
