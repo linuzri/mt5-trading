@@ -70,7 +70,7 @@ class DataPreparation:
         end_date = datetime.now(UTC)
         start_date = end_date - timedelta(days=days)
 
-        print(f"📊 Extracting {days} days of {self.symbol} data on {self.timeframe_str}...")
+        print(f"[i] Extracting {days} days of {self.symbol} data on {self.timeframe_str}...")
         print(f"   From: {start_date.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"   To:   {end_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -166,7 +166,7 @@ class DataPreparation:
         Returns:
             Cleaned DataFrame
         """
-        print("🧹 Cleaning data...")
+        print("[i] Cleaning data...")
 
         # Remove duplicates
         original_len = len(df)
@@ -199,7 +199,7 @@ class DataPreparation:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
         df.to_csv(filepath, index=False)
-        print(f"💾 Saved data to {filepath}")
+        print(f"[OK] Saved data to {filepath}")
 
     def load_data(self, filepath=None):
         """Load prepared data from CSV"""
@@ -212,7 +212,7 @@ class DataPreparation:
         df = pd.read_csv(filepath)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-        print(f"📂 Loaded {len(df)} rows from {filepath}")
+        print(f"[i] Loaded {len(df)} rows from {filepath}")
         return df
 
     def get_prepared_data(self, login, password, server, force_refresh=False):
@@ -251,7 +251,7 @@ class DataPreparation:
             return df
         finally:
             mt5.shutdown()
-            print("🔌 Disconnected from MT5")
+            print("[i] Disconnected from MT5")
 
 
 if __name__ == "__main__":

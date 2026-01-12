@@ -41,7 +41,7 @@ class ModelPredictor:
                 f"Please train the model first by running: python train_ml_model.py"
             )
 
-        print(f"📂 Loading model from {self.model_path}")
+        print(f"[i] Loading model from {self.model_path}")
         self.model = joblib.load(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
 
@@ -198,7 +198,7 @@ class ModelPredictor:
         Returns:
             DataFrame with predictions and results
         """
-        print("🔄 Backtesting model predictions...")
+        print("[i] Backtesting model predictions...")
 
         # Make predictions
         predictions, confidences = self.batch_predict(df_with_features)
@@ -259,7 +259,7 @@ if __name__ == "__main__":
         # Get prediction
         prediction, confidence, probabilities = predictor.predict(test_features)
 
-        print(f"\n🎯 Prediction: {prediction.upper()}")
+        print(f"\n[>] Prediction: {prediction.upper()}")
         print(f"   Confidence: {confidence:.2%}")
         print(f"   Probabilities:")
         for label, prob in probabilities.items():
@@ -267,7 +267,7 @@ if __name__ == "__main__":
 
         # Get trade signal
         signal, conf, reason = predictor.get_trade_signal(test_features)
-        print(f"\n📊 Trade Signal: {signal}")
+        print(f"\n[i] Trade Signal: {signal}")
         print(f"   Reason: {reason}")
 
     except FileNotFoundError as e:
