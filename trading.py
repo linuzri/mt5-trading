@@ -15,6 +15,15 @@ try:
 except ImportError:
     from pytz import timezone as ZoneInfo  # fallback for older Python
 
+# ML imports (optional - only needed if using ml_random_forest strategy)
+try:
+    from ml.model_predictor import ModelPredictor
+    from ml.feature_engineering import FeatureEngineering
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    print("[WARNING] ML modules not available. Install scikit-learn and train model to use ML strategy.")
+
 # Read credentials from mt5_auth.json
 with open("mt5_auth.json", "r") as f:
     auth = json.load(f)
@@ -226,6 +235,29 @@ def reload_config_and_strategy():
 
     return strategy, strat_params
 
+# --- Initialize ML Predictor (if using ML strategy) ---
+ml_predictor = None
+ml_feature_eng = None
+
+if strategy == "ml_random_forest":
+    if not ML_AVAILABLE:
+        print("[ERROR] ML strategy selected but ML modules not available!")
+        print("   Install dependencies: pip install scikit-learn joblib")
+        sys.exit(1)
+
+    try:
+        ml_predictor = ModelPredictor("ml_config.json")
+        ml_feature_eng = FeatureEngineering("ml_config.json")
+        ml_predictor.load_model()
+        print("[ML] Model loaded successfully for ml_random_forest strategy")
+    except FileNotFoundError as e:
+        print(f"[ERROR] ML model not found: {e}")
+        print("   Train the model first: python train_ml_model.py")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize ML predictor: {e}")
+        sys.exit(1)
+
 # --- Trade Management Loop ---
 try:
     last_filter_message = None  # Track last filter message to avoid spamming
@@ -357,6 +389,46 @@ try:
                     trade_signal = "buy"
                 elif last_close < last_lower:
                     trade_signal = "sell"
+        elif strategy == "ml_random_forest":
+            # Machine Learning strategy using trained Random Forest model
+            if ml_predictor is not None and ml_feature_eng is not None:
+                try:
+                    # Calculate all features from current market data
+                    df_temp = pd.DataFrame(rates)
+                    df_temp.rename(columns={
+                        'time': 'timestamp',
+                        'tick_volume': 'volume'
+                    }, inplace=True)
+                    df_temp['timestamp'] = pd.to_datetime(df_temp['time'], unit='s')
+
+                    # Add features
+                    df_with_features = ml_feature_eng.add_all_features(df_temp)
+
+                    # Get latest features (last row)
+                    latest_features = {}
+                    feature_cols = ml_feature_eng.get_feature_columns()
+                    for feat in feature_cols:
+                        if feat in df_with_features.columns:
+                            latest_features[feat] = df_with_features[feat].iloc[-1]
+
+                    # Get ML prediction
+                    signal, confidence, reason = ml_predictor.get_trade_signal(latest_features)
+
+                    if signal is not None:
+                        trade_signal = signal
+                        log_only(f"[ML] {reason} | Probabilities: " +
+                                ", ".join([f"{k}:{v:.1%}" for k, v in
+                                          ml_predictor.predict(latest_features)[2].items()]))
+                    else:
+                        trade_signal = None
+                        # log_only(f"[ML] {reason}")  # Optional: log why no signal
+
+                except Exception as e:
+                    log_only(f"[ML ERROR] Failed to get prediction: {e}")
+                    trade_signal = None
+            else:
+                log_only("[ML ERROR] ML predictor not initialized")
+                trade_signal = None
         elif strategy == "custom":
             log_only("Custom strategy not implemented. Please add your logic.")
             trade_signal = None

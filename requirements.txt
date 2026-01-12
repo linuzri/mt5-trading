@@ -1,3 +1,7 @@
 MetaTrader5
 pandas
 numpy
+requests
+pytz
+scikit-learn>=1.0.0
+joblib>=1.0.0
