@@ -118,18 +118,18 @@ def compute_bollinger_bands(prices, period=20, stddev=2):
     lower = ma - stddev * std
     return ma, upper, lower
 
-# --- Backtest automation DAILY at 8:00 AM US Eastern ---
-def is_daily_optimization_time():
-    """Check if it's time for daily optimization (8am-9am ET every day)."""
+# --- ML Model Training automation DAILY at 8:00 AM US Eastern ---
+def is_daily_training_time():
+    """Check if it's time for daily ML model training (8am-9am ET every day)."""
     try:
         eastern = ZoneInfo("America/New_York")
         now_et = datetime.now(eastern)
     except Exception:
         now_et = datetime.now(UTC) - timedelta(hours=4)
-    # Run optimization between 8am-9am ET every day
+    # Run ML training between 8am-9am ET every day
     return now_et.hour >= 8 and now_et.hour < 9
 
-last_backtest_date = None
+last_training_date = None
 
 # Load optimized parameters for the selected strategy if available
 try:
@@ -275,21 +275,22 @@ try:
         except Exception:
             now_et = datetime.now(UTC) - timedelta(hours=4)
         today_date = now_et.date()
-        if is_daily_optimization_time() and (last_backtest_date != today_date):
-            log_notify(f"[AUTOMATION] Daily optimization time (8am ET). Running backtest.py...")
-            result = subprocess.run([sys.executable, "backtest.py"], capture_output=True, text=True)
+        if is_daily_training_time() and (last_training_date != today_date):
+            log_notify(f"[AUTOMATION] Daily ML training time (8am ET). Running train_ml_model.py...")
+            result = subprocess.run([sys.executable, "train_ml_model.py", "--refresh"], capture_output=True, text=True)
             print(result.stdout)
             if result.returncode != 0:
-                print("[AUTOMATION] backtest.py failed:", result.stderr)
+                print("[AUTOMATION] train_ml_model.py failed:", result.stderr)
             else:
-                print("[AUTOMATION] backtest.py completed. Reloading configuration...")
+                print("[AUTOMATION] ML model training completed. Reloading model...")
                 try:
-                    new_strategy, strat_params = reload_config_and_strategy()
-                    last_backtest_date = today_date
-                    log_notify(f"[AUTOMATION] Best strategy selected: {new_strategy}")
-                    log_notify(f"[AUTOMATION] Parameters: {strat_params}")
+                    # Reload the ML model with fresh training
+                    if ml_predictor is not None:
+                        ml_predictor.load_model()
+                    last_training_date = today_date
+                    log_notify(f"[AUTOMATION] ML model retrained successfully")
                 except Exception as e:
-                    print("[AUTOMATION] Failed to reload configuration:", e)
+                    print("[AUTOMATION] Failed to reload ML model:", e)
         # (Re)initialize and ensure the symbol is available
         if not mt5.initialize(login=login, password=password, server=server):
             log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
@@ -395,11 +396,10 @@ try:
                 try:
                     # Calculate all features from current market data
                     df_temp = pd.DataFrame(rates)
+                    df_temp['timestamp'] = pd.to_datetime(df_temp['time'], unit='s')
                     df_temp.rename(columns={
-                        'time': 'timestamp',
                         'tick_volume': 'volume'
                     }, inplace=True)
-                    df_temp['timestamp'] = pd.to_datetime(df_temp['time'], unit='s')
 
                     # Add features
                     df_with_features = ml_feature_eng.add_all_features(df_temp)

@@ -5,7 +5,7 @@
   "atr_period": 14,
   "atr_multiplier": 1.5,
   "enable_trailing_stop": false,
-  "strategy": "macd",
+  "strategy": "ml_random_forest",
   "bollinger_period": 20,
   "bollinger_stddev": 2,
   "rsi_period": 14,
