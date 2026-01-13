@@ -187,7 +187,7 @@ class FeatureEngineering:
         df = df.dropna()
         dropped = original_len - len(df)
 
-        print(f"🧹 Dropped {dropped} rows with NaN values ({len(df)} remaining)")
+        print(f"[i] Dropped {dropped} rows with NaN values ({len(df)} remaining)")
 
         # Verify we have all required features
         missing_features = [f for f in self.feature_names if f not in df.columns]

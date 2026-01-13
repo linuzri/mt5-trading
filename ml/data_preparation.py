@@ -178,7 +178,7 @@ class DataPreparation:
         df = df.sort_values('timestamp').reset_index(drop=True)
 
         # Forward fill missing values (if any)
-        df = df.fillna(method='ffill').fillna(method='bfill')
+        df = df.ffill().bfill()
 
         # Remove any remaining NaN rows
         df = df.dropna()

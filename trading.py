@@ -274,13 +274,16 @@ try:
     cumulative_pl = 0.0
     last_trade_confidence = None  # Store ML confidence when opening position
 
+    # Track open positions to detect SL/TP closures
+    tracked_positions = {}  # {ticket: {'direction': 'BUY'/'SELL', 'entry_price': float, 'confidence': float}}
+
     def append_trade_log(entry):
         trade_log.append(entry)
         with open(trade_log_file, "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(entry)
 
-    def log_trade_result(direction, entry_price, exit_price, profit, confidence=None):
+    def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
         """Log trade result with statistics to both screen and Telegram"""
         global total_wins, total_losses, cumulative_pl
 
@@ -298,12 +301,96 @@ try:
 
         # Format trade result message
         conf_str = f" | Confidence: {confidence:.1%}" if confidence else ""
-        trade_msg = f"[TRADE {result}] {direction} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}"
+        reason_str = f" ({close_reason})" if close_reason else ""
+        trade_msg = f"[TRADE {result}] {direction}{reason_str} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}"
         stats_msg = f"[STATS] Wins: {total_wins} | Losses: {total_losses} | Win Rate: {win_rate:.1f}% | Session P/L: ${cumulative_pl:.2f}"
 
         # Send to both console and Telegram
         log_notify(trade_msg)
         log_notify(stats_msg)
+
+    def sync_existing_positions():
+        """Sync tracked_positions with actual open positions (for bot restart scenarios)"""
+        global tracked_positions
+
+        current_positions = mt5.positions_get(symbol=symbol)
+        if not current_positions:
+            return
+
+        for pos in current_positions:
+            if pos.ticket not in tracked_positions:
+                # Found a position we're not tracking - add it
+                direction = 'BUY' if pos.type == 0 else 'SELL'
+                tracked_positions[pos.ticket] = {
+                    'direction': direction,
+                    'entry_price': pos.price_open,
+                    'confidence': None  # Unknown for existing positions
+                }
+                log_only(f"[SYNC] Found existing {direction} position, ticket: {pos.ticket}, entry: {pos.price_open:.2f}")
+
+    def check_closed_positions():
+        """Check if any tracked positions were closed by SL/TP and log results"""
+        global tracked_positions, daily_pl
+
+        # First sync any existing positions we might not be tracking
+        sync_existing_positions()
+
+        if not tracked_positions:
+            return
+
+        # Get current open positions
+        current_positions = mt5.positions_get(symbol=symbol)
+        current_tickets = set()
+        if current_positions:
+            current_tickets = {pos.ticket for pos in current_positions}
+
+        # Check which tracked positions are no longer open
+        closed_tickets = set(tracked_positions.keys()) - current_tickets
+
+        for ticket in closed_tickets:
+            pos_info = tracked_positions[ticket]
+            # Get the deal history to find exit price and profit
+            deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
+            if deals:
+                # Find the closing deal for this position
+                closing_deal = None
+                for deal in sorted(deals, key=lambda d: d.time, reverse=True):
+                    if deal.position_id == ticket and deal.entry == 1:  # entry=1 means exit deal
+                        closing_deal = deal
+                        break
+
+                if closing_deal:
+                    exit_price = closing_deal.price
+                    profit = closing_deal.profit
+
+                    # Determine close reason based on deal comment or profit
+                    close_reason = ""
+                    if closing_deal.comment:
+                        if "sl" in closing_deal.comment.lower() or "stop" in closing_deal.comment.lower():
+                            close_reason = "SL Hit"
+                        elif "tp" in closing_deal.comment.lower() or "take" in closing_deal.comment.lower():
+                            close_reason = "TP Hit"
+                        else:
+                            close_reason = closing_deal.comment
+                    else:
+                        # Infer from profit if comment not available
+                        close_reason = "TP Hit" if profit > 0 else "SL Hit"
+
+                    # Log the trade result
+                    log_trade_result(
+                        pos_info['direction'],
+                        pos_info['entry_price'],
+                        exit_price,
+                        profit,
+                        pos_info.get('confidence'),
+                        close_reason
+                    )
+                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], exit_price, profit])
+                    daily_pl += profit
+                    check_max_loss_profit()
+
+            # Remove from tracking
+            del tracked_positions[ticket]
 
     while True:
         now = datetime.now(UTC)
@@ -344,6 +431,9 @@ try:
             log_only(f"[ERROR] Failed to select symbol {symbol}. Waiting...")
             time.sleep(60)
             continue
+
+        # Check if any tracked positions were closed by SL/TP
+        check_closed_positions()
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)
@@ -527,12 +617,16 @@ try:
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
-                    # Store ML confidence for this trade
-                    if strategy == "ml_random_forest" and 'confidence' in dir():
-                        last_trade_confidence = confidence
+                    # Track this position for SL/TP detection
+                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    tracked_positions[result.order] = {
+                        'direction': 'BUY',
+                        'entry_price': ask,
+                        'confidence': ml_conf
+                    }
                     # Log account balance after successful BUY
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after BUY: {balance}")
+                    log_notify(f"[BALANCE] Account balance after BUY: ${balance:.2f}")
                 else:
                     log_notify(f"BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
@@ -553,19 +647,31 @@ try:
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] Closed SELL, opened BUY, ticket: {close_result.order}, price: {ask}")
+                    # Remove old position from tracking
+                    if ticket in tracked_positions:
+                        old_conf = tracked_positions[ticket].get('confidence')
+                        del tracked_positions[ticket]
+                    else:
+                        old_conf = None
                     # Fetch last deal for profit/loss
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         # Log trade result with statistics
-                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, last_trade_confidence)
+                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, old_conf, "Reversal")
                         append_trade_log([str(datetime.now(UTC)), "SELL", entry_price, tick.bid, last_deal.profit])
                         daily_pl += last_deal.profit
-                        last_trade_confidence = None  # Reset after logging
                         check_max_loss_profit()
+                    # Track the new BUY position
+                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    tracked_positions[close_result.order] = {
+                        'direction': 'BUY',
+                        'entry_price': ask,
+                        'confidence': ml_conf
+                    }
                     # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after reversing to BUY: {balance}")
+                    log_notify(f"[BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
                 else:
                     log_notify(f"Failed to close SELL and open BUY, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
@@ -588,12 +694,16 @@ try:
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
-                    # Store ML confidence for this trade
-                    if strategy == "ml_random_forest" and 'confidence' in dir():
-                        last_trade_confidence = confidence
+                    # Track this position for SL/TP detection
+                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    tracked_positions[result.order] = {
+                        'direction': 'SELL',
+                        'entry_price': bid,
+                        'confidence': ml_conf
+                    }
                     # Log account balance after successful SELL
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after SELL: {balance}")
+                    log_notify(f"[BALANCE] Account balance after SELL: ${balance:.2f}")
                 else:
                     log_notify(f"SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
@@ -614,19 +724,31 @@ try:
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] Closed BUY, opened SELL, ticket: {close_result.order}, price: {bid}")
+                    # Remove old position from tracking
+                    if ticket in tracked_positions:
+                        old_conf = tracked_positions[ticket].get('confidence')
+                        del tracked_positions[ticket]
+                    else:
+                        old_conf = None
                     # Fetch last deal for profit/loss
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         # Log trade result with statistics
-                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, last_trade_confidence)
+                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, old_conf, "Reversal")
                         append_trade_log([str(datetime.now(UTC)), "BUY", entry_price, tick.ask, last_deal.profit])
                         daily_pl += last_deal.profit
-                        last_trade_confidence = None  # Reset after logging
                         check_max_loss_profit()
+                    # Track the new SELL position
+                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    tracked_positions[close_result.order] = {
+                        'direction': 'SELL',
+                        'entry_price': bid,
+                        'confidence': ml_conf
+                    }
                     # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after reversing to SELL: {balance}")
+                    log_notify(f"[BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
                 else:
                     log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
