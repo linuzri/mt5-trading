@@ -268,11 +268,42 @@ try:
     daily_pl = 0
     last_pl_date = None
 
+    # Trade statistics tracking
+    total_wins = 0
+    total_losses = 0
+    cumulative_pl = 0.0
+    last_trade_confidence = None  # Store ML confidence when opening position
+
     def append_trade_log(entry):
         trade_log.append(entry)
         with open(trade_log_file, "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(entry)
+
+    def log_trade_result(direction, entry_price, exit_price, profit, confidence=None):
+        """Log trade result with statistics to both screen and Telegram"""
+        global total_wins, total_losses, cumulative_pl
+
+        # Update statistics
+        if profit > 0:
+            total_wins += 1
+            result = "WIN"
+        else:
+            total_losses += 1
+            result = "LOSS"
+
+        cumulative_pl += profit
+        total_trades = total_wins + total_losses
+        win_rate = (total_wins / total_trades * 100) if total_trades > 0 else 0
+
+        # Format trade result message
+        conf_str = f" | Confidence: {confidence:.1%}" if confidence else ""
+        trade_msg = f"[TRADE {result}] {direction} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}"
+        stats_msg = f"[STATS] Wins: {total_wins} | Losses: {total_losses} | Win Rate: {win_rate:.1f}% | Session P/L: ${cumulative_pl:.2f}"
+
+        # Send to both console and Telegram
+        log_notify(trade_msg)
+        log_notify(stats_msg)
 
     while True:
         now = datetime.now(UTC)
@@ -496,6 +527,9 @@ try:
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
+                    # Store ML confidence for this trade
+                    if strategy == "ml_random_forest" and 'confidence' in dir():
+                        last_trade_confidence = confidence
                     # Log account balance after successful BUY
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after BUY: {balance}")
@@ -523,9 +557,11 @@ try:
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
-                        log_notify(f"[NOTIFY] Closed SELL position, profit/loss: {last_deal.profit}")
+                        # Log trade result with statistics
+                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, last_trade_confidence)
                         append_trade_log([str(datetime.now(UTC)), "SELL", entry_price, tick.bid, last_deal.profit])
                         daily_pl += last_deal.profit
+                        last_trade_confidence = None  # Reset after logging
                         check_max_loss_profit()
                     # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
@@ -552,6 +588,9 @@ try:
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
+                    # Store ML confidence for this trade
+                    if strategy == "ml_random_forest" and 'confidence' in dir():
+                        last_trade_confidence = confidence
                     # Log account balance after successful SELL
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after SELL: {balance}")
@@ -579,9 +618,11 @@ try:
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
-                        log_notify(f"[NOTIFY] Closed BUY position, profit/loss: {last_deal.profit}")
+                        # Log trade result with statistics
+                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, last_trade_confidence)
                         append_trade_log([str(datetime.now(UTC)), "BUY", entry_price, tick.ask, last_deal.profit])
                         daily_pl += last_deal.profit
+                        last_trade_confidence = None  # Reset after logging
                         check_max_loss_profit()
                     # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
