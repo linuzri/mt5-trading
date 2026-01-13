@@ -45,7 +45,7 @@ else:
 
 # Symbol is now configurable via config.json
 symbol = config.get("symbol", "BTCUSD")
-# For 6 months of M5 bars: 6 months ≈ 180 days × 24 hours × 12 bars/hour = 51,840 bars
+# For 6 months of M5 bars: 6 months ~ 180 days x 24 hours x 12 bars/hour = 51,840 bars
 num_bars = 51840  # Number of bars for backtest (approx. 6 months)
 
 # Helper to get pip size for symbol (crypto uses point value from broker)

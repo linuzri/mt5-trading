@@ -58,7 +58,7 @@ class ModelTrainer:
         Returns:
             X_train, X_val, X_test, y_train, y_val, y_test
         """
-        print("📊 Splitting data into train/val/test sets...")
+        print("[i] Splitting data into train/val/test sets...")
 
         # Extract features and labels
         X = df[feature_cols].values
@@ -122,7 +122,7 @@ class ModelTrainer:
         Returns:
             Trained model
         """
-        print(f"🌲 Training Random Forest with {self.model_params['n_estimators']} trees...")
+        print(f"[i] Training Random Forest with {self.model_params['n_estimators']} trees...")
         print("[i] Using class_weight='balanced' to handle class imbalance")
 
         self.model = RandomForestClassifier(**self.model_params, class_weight='balanced')
@@ -144,7 +144,7 @@ class ModelTrainer:
         Returns:
             Dictionary of metrics
         """
-        print(f"\n📈 Evaluating on {dataset_name} set...")
+        print(f"\n[i] Evaluating on {dataset_name} set...")
 
         # Make predictions
         y_pred = self.model.predict(X)
@@ -195,7 +195,7 @@ class ModelTrainer:
         Returns:
             CV scores
         """
-        print(f"\n🔄 Performing {self.cv_folds}-fold cross-validation...")
+        print(f"\n[i] Performing {self.cv_folds}-fold cross-validation...")
 
         cv_scores = cross_val_score(
             self.model,
@@ -226,7 +226,7 @@ class ModelTrainer:
             'importance': importances
         }).sort_values('importance', ascending=False)
 
-        print("\n🔍 Feature Importance:")
+        print("\n[i] Feature Importance:")
         for idx, row in feature_importance_df.iterrows():
             print(f"   {row['feature']:20s}: {row['importance']:.4f}")
 
@@ -242,11 +242,11 @@ class ModelTrainer:
 
         # Save model
         joblib.dump(self.model, model_path)
-        print(f"💾 Saved model to {model_path}")
+        print(f"[OK] Saved model to {model_path}")
 
         # Save scaler
         joblib.dump(self.scaler, scaler_path)
-        print(f"💾 Saved scaler to {scaler_path}")
+        print(f"[OK] Saved scaler to {scaler_path}")
 
         # Save metadata
         metadata = {
@@ -261,7 +261,7 @@ class ModelTrainer:
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
 
-        print(f"💾 Saved metadata to {metadata_path}")
+        print(f"[OK] Saved metadata to {metadata_path}")
 
     def load_model(self):
         """Load trained model and scaler from disk"""
@@ -282,7 +282,7 @@ class ModelTrainer:
                 self.feature_names = metadata.get('feature_names')
                 self.performance_metrics = metadata.get('performance_metrics', {})
 
-        print(f"📂 Loaded model from {model_path}")
+        print(f"[i] Loaded model from {model_path}")
         return self.model, self.scaler
 
     def train_and_evaluate(self, df, feature_cols, target_col):
@@ -298,7 +298,7 @@ class ModelTrainer:
             Trained model and performance metrics
         """
         print("=" * 60)
-        print("🎯 Starting ML Model Training Pipeline")
+        print("[i] Starting ML Model Training Pipeline")
         print("=" * 60)
 
         # Split data
