@@ -31,6 +31,8 @@ A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting mu
 
 ### Notifications
 - **Telegram alerts** - Only for trades (BUY/SELL), not spam
+- **Trade statistics** - Win/loss count, win rate, and session P/L after each trade
+- **Close reason tracking** - Shows if trade closed by SL Hit, TP Hit, or Reversal
 - **Hourly heartbeat** - Confirms bot is running with balance info
 - **Trade summaries** - Daily and weekly P/L summaries
 - **Critical alerts** - Max loss/profit triggers immediate notification
@@ -54,7 +56,7 @@ pip install -r requirements.txt
 
 ### 1. Clone and Install
 ```sh
-git clone https://github.com/your-repo/mt5-trading.git
+git clone https://github.com/linuzri/mt5-trading.git
 cd mt5-trading
 pip install -r requirements.txt
 ```
@@ -236,7 +238,8 @@ Every 60 seconds:
 
 **What sends to Telegram:**
 - BUY/SELL orders placed
-- Positions closed with P/L
+- Trade results with win/loss statistics
+- Close reason (SL Hit, TP Hit, Reversal)
 - Trailing stop updates
 - Hourly heartbeat with balance
 - Daily ML training results
@@ -254,6 +257,13 @@ Every 60 seconds:
 
 [ML] Model: BUY with 62% confidence | Probabilities: sell:18%, buy:62%, hold:20%
 [NOTIFY] BUY order placed, ticket: 224067017, price: 94567.89
+[BALANCE] Account balance after BUY: $50000.10
+
+[TRADE WIN] BUY (TP Hit) | Entry: 94567.89 | Exit: 94717.89 | P/L: $150.00
+[STATS] Wins: 5 | Losses: 2 | Win Rate: 71.4% | Session P/L: $425.00
+
+[TRADE LOSS] SELL (SL Hit) | Entry: 94500.00 | Exit: 94575.00 | P/L: -$75.00
+[STATS] Wins: 5 | Losses: 3 | Win Rate: 62.5% | Session P/L: $350.00
 
 [AUTOMATION] ML model retrained successfully
 ```
