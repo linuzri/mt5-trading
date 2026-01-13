@@ -45,7 +45,7 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.40,
+    "confidence_threshold": 0.50,
     "min_probability_diff": 0.03
   },
 
