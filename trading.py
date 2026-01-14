@@ -272,7 +272,6 @@ try:
     total_wins = 0
     total_losses = 0
     cumulative_pl = 0.0
-    last_trade_confidence = None  # Store ML confidence when opening position
 
     # Track open positions to detect SL/TP closures
     tracked_positions = {}  # {ticket: {'direction': 'BUY'/'SELL', 'entry_price': float, 'confidence': float}}
@@ -393,6 +392,7 @@ try:
             del tracked_positions[ticket]
 
     while True:
+        last_trade_confidence = None  # Reset each iteration
         now = datetime.now(UTC)
         try:
             eastern = ZoneInfo("America/New_York")
@@ -562,6 +562,7 @@ try:
 
                     if signal is not None:
                         trade_signal = signal
+                        last_trade_confidence = confidence  # Store for position tracking
                         log_only(f"[ML] {reason} | ATR: {current_atr:.1f} | Probabilities: " +
                                 ", ".join([f"{k}:{v:.1%}" for k, v in
                                           ml_predictor.predict(latest_features)[2].items()]))
@@ -634,7 +635,7 @@ try:
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
                     # Track this position for SL/TP detection
-                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
                     tracked_positions[result.order] = {
                         'direction': 'BUY',
                         'entry_price': ask,
@@ -679,7 +680,7 @@ try:
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
                     # Track the new BUY position
-                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
                     tracked_positions[close_result.order] = {
                         'direction': 'BUY',
                         'entry_price': ask,
@@ -711,7 +712,7 @@ try:
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
                     # Track this position for SL/TP detection
-                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
                     tracked_positions[result.order] = {
                         'direction': 'SELL',
                         'entry_price': bid,
@@ -756,7 +757,7 @@ try:
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
                     # Track the new SELL position
-                    ml_conf = confidence if (strategy == "ml_random_forest" and 'confidence' in dir()) else None
+                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
                     tracked_positions[close_result.order] = {
                         'direction': 'SELL',
                         'entry_price': bid,
