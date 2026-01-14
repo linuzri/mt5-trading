@@ -4,9 +4,9 @@
   "timeframe": "M1",
 
   "data_collection": {
-    "training_period_days": 30,
+    "training_period_days": 90,
     "lookback_candles": 100,
-    "min_data_points": 5000
+    "min_data_points": 10000
   },
 
   "features": [
@@ -23,9 +23,10 @@
   ],
 
   "labeling": {
-    "method": "future_return",
-    "lookahead_candles": 15,
-    "profit_threshold": 0.001,
+    "method": "sltp_aware",
+    "lookahead_candles": 45,
+    "profit_threshold": 0.0034,
+    "stop_loss_threshold": 0.0017,
     "label_classes": ["buy", "sell", "hold"]
   },
 
@@ -45,8 +46,14 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.55,
-    "min_probability_diff": 0.05
+    "confidence_threshold": 0.68,
+    "min_probability_diff": 0.12
+  },
+
+  "risk_management": {
+    "min_atr_threshold": 50,
+    "max_trades_per_day": 10,
+    "min_win_rate": 0.50
   },
 
   "paths": {
