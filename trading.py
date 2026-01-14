@@ -545,17 +545,33 @@ try:
                         if feat in df_with_features.columns:
                             latest_features[feat] = df_with_features[feat].iloc[-1]
 
+                    # VOLATILITY FILTER: Check ATR threshold
+                    current_atr = latest_features.get('atr_14', 0)
+                    min_atr_threshold = ml_predictor.config.get('risk_management', {}).get('min_atr_threshold', 50)
+
+                    if current_atr < min_atr_threshold:
+                        msg = f"[ML FILTER] ATR {current_atr:.1f} below threshold {min_atr_threshold}. Skipping trade."
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
+                        trade_signal = None
+                        continue
+
                     # Get ML prediction
                     signal, confidence, reason = ml_predictor.get_trade_signal(latest_features)
 
                     if signal is not None:
                         trade_signal = signal
-                        log_only(f"[ML] {reason} | Probabilities: " +
+                        log_only(f"[ML] {reason} | ATR: {current_atr:.1f} | Probabilities: " +
                                 ", ".join([f"{k}:{v:.1%}" for k, v in
                                           ml_predictor.predict(latest_features)[2].items()]))
+                        last_filter_message = None  # Reset filter message
                     else:
                         trade_signal = None
-                        log_only(f"[ML] {reason}")  # Log why no signal
+                        msg = f"[ML] {reason}"
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
 
                 except Exception as e:
                     log_only(f"[ML ERROR] Failed to get prediction: {e}")
