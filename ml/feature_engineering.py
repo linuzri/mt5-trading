@@ -26,6 +26,8 @@ class FeatureEngineering:
         self.feature_names = self.config['features']
         self.lookahead_candles = self.config['labeling']['lookahead_candles']
         self.profit_threshold = self.config['labeling']['profit_threshold']
+        self.labeling_method = self.config['labeling'].get('method', 'future_return')
+        self.stop_loss_threshold = self.config['labeling'].get('stop_loss_threshold', 0.0017)
 
     def calculate_rsi(self, df, period=14):
         """Calculate Relative Strength Index"""
@@ -123,14 +125,79 @@ class FeatureEngineering:
 
         return df
 
-    def create_labels(self, df):
+    def create_labels_sltp_aware(self, df):
         """
-        Create trading labels based on future returns
+        Create trading labels based on SL/TP hits (CRITICAL FIX)
 
         Label logic:
-        - BUY (1): If price increases > profit_threshold in next N candles
-        - SELL (0): If price decreases > profit_threshold in next N candles
-        - HOLD (2): Otherwise (price moves within threshold)
+        - BUY (1): If TP hit before SL in lookahead period
+        - SELL (0): If SL hit before TP in lookahead period
+        - HOLD (2): Neither TP nor SL hit, or both hit at same time
+
+        This ensures model learns what actually makes money in live trading!
+
+        Args:
+            df: DataFrame with OHLC data
+
+        Returns:
+            DataFrame with 'label' column
+        """
+        print(f"[i] Creating SL/TP-aware labels (TP={self.profit_threshold:.2%}, SL={self.stop_loss_threshold:.2%})...")
+
+        df = df.copy()
+        labels = []
+
+        for i in range(len(df)):
+            if i + self.lookahead_candles >= len(df):
+                labels.append(2)  # HOLD for rows without enough future data
+                continue
+
+            entry_price = df['close'].iloc[i]
+            future_highs = df['high'].iloc[i+1:i+self.lookahead_candles+1]
+            future_lows = df['low'].iloc[i+1:i+self.lookahead_candles+1]
+
+            # Calculate TP and SL price levels
+            tp_price_long = entry_price * (1 + self.profit_threshold)
+            sl_price_long = entry_price * (1 - self.stop_loss_threshold)
+            tp_price_short = entry_price * (1 - self.profit_threshold)
+            sl_price_short = entry_price * (1 + self.stop_loss_threshold)
+
+            # Check LONG trade (BUY): TP hit before SL?
+            tp_hit_long = (future_highs >= tp_price_long).any()
+            sl_hit_long = (future_lows <= sl_price_long).any()
+
+            if tp_hit_long and not sl_hit_long:
+                labels.append(1)  # BUY
+            # Check SHORT trade (SELL): TP hit before SL?
+            elif not tp_hit_long and sl_hit_long:
+                # For short, we need price to drop to TP before rising to SL
+                tp_hit_short = (future_lows <= tp_price_short).any()
+                sl_hit_short = (future_highs >= sl_price_short).any()
+
+                if tp_hit_short and not sl_hit_short:
+                    labels.append(0)  # SELL
+                else:
+                    labels.append(2)  # HOLD
+            else:
+                labels.append(2)  # HOLD
+
+        df['label'] = labels
+
+        # Count label distribution
+        label_counts = pd.Series(labels).value_counts().sort_index()
+        print(f"   Label distribution:")
+        label_map = {0: 'SELL', 1: 'BUY', 2: 'HOLD'}
+        total = len(labels)
+        for label, count in label_counts.items():
+            label_name = label_map.get(label, f'Unknown({label})')
+            percentage = (count / total) * 100
+            print(f"   - {label_name}: {count} ({percentage:.1f}%)")
+
+        return df
+
+    def create_labels(self, df):
+        """
+        Create trading labels based on configured method
 
         Args:
             df: DataFrame with features
@@ -138,33 +205,38 @@ class FeatureEngineering:
         Returns:
             DataFrame with 'label' column
         """
-        print("[i] Creating labels...")
+        if self.labeling_method == 'sltp_aware':
+            return self.create_labels_sltp_aware(df)
+        else:
+            # Original future_return method (deprecated for live trading)
+            print("[i] Creating labels (future_return method)...")
+            print("[!] WARNING: This method doesn't account for SL/TP and may not reflect real profitability!")
 
-        df = df.copy()
+            df = df.copy()
 
-        # Calculate future returns (lookahead)
-        future_price = df['close'].shift(-self.lookahead_candles)
-        future_return = (future_price - df['close']) / df['close']
+            # Calculate future returns (lookahead)
+            future_price = df['close'].shift(-self.lookahead_candles)
+            future_return = (future_price - df['close']) / df['close']
 
-        # Create labels
-        conditions = [
-            future_return > self.profit_threshold,   # Strong upward move -> BUY
-            future_return < -self.profit_threshold,  # Strong downward move -> SELL
-        ]
-        choices = [1, 0]  # 1=BUY, 0=SELL
+            # Create labels
+            conditions = [
+                future_return > self.profit_threshold,   # Strong upward move -> BUY
+                future_return < -self.profit_threshold,  # Strong downward move -> SELL
+            ]
+            choices = [1, 0]  # 1=BUY, 0=SELL
 
-        df['label'] = np.select(conditions, choices, default=2)  # 2=HOLD
+            df['label'] = np.select(conditions, choices, default=2)  # 2=HOLD
 
-        # Count label distribution
-        label_counts = df['label'].value_counts().sort_index()
-        print(f"   Label distribution:")
-        label_map = {0: 'SELL', 1: 'BUY', 2: 'HOLD'}
-        for label, count in label_counts.items():
-            label_name = label_map.get(label, f'Unknown({label})')
-            percentage = (count / len(df)) * 100
-            print(f"   - {label_name}: {count} ({percentage:.1f}%)")
+            # Count label distribution
+            label_counts = df['label'].value_counts().sort_index()
+            print(f"   Label distribution:")
+            label_map = {0: 'SELL', 1: 'BUY', 2: 'HOLD'}
+            for label, count in label_counts.items():
+                label_name = label_map.get(label, f'Unknown({label})')
+                percentage = (count / len(df)) * 100
+                print(f"   - {label_name}: {count} ({percentage:.1f}%)")
 
-        return df
+            return df
 
     def prepare_features_and_labels(self, df):
         """
