@@ -4,6 +4,11 @@ import numpy as np
 from datetime import datetime, timedelta, UTC
 import json
 from itertools import product
+import joblib
+import os
+
+# ML imports - check if model files exist
+ML_AVAILABLE = os.path.exists("models/random_forest_btcusd.pkl") and os.path.exists("models/scaler_btcusd.pkl")
 
 # Read credentials from mt5_auth.json
 with open("mt5_auth.json", "r") as f:
@@ -203,6 +208,178 @@ def compute_bollinger_bands(prices, period=20, stddev=2):
     lower = ma - stddev * std
     return ma, upper, lower
 
+# --- ML Backtest Function ---
+def run_ml_backtest(df, ml_config_path="ml_config.json"):
+    """
+    Run backtest using the trained ML model.
+    Returns total return in price units.
+    """
+    if not ML_AVAILABLE:
+        print("[ML Backtest] ML module not available")
+        return None, {}
+
+    # Load ML config
+    try:
+        with open(ml_config_path, "r") as f:
+            ml_config = json.load(f)
+    except FileNotFoundError:
+        print("[ML Backtest] ml_config.json not found")
+        return None, {}
+
+    # Load trained model and scaler
+    model_path = ml_config.get("paths", {}).get("model_file", "models/random_forest_btcusd.pkl")
+    scaler_path = ml_config.get("paths", {}).get("scaler_file", "models/scaler_btcusd.pkl")
+
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        print(f"[ML Backtest] Model or scaler not found. Train the model first.")
+        return None, {}
+
+    try:
+        model = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
+    except Exception as e:
+        print(f"[ML Backtest] Failed to load model: {e}")
+        return None, {}
+
+    # Get prediction thresholds (matching live trading logic)
+    confidence_threshold = ml_config.get("prediction", {}).get("confidence_threshold", 0.40)
+    min_prob_diff = ml_config.get("prediction", {}).get("min_probability_diff", 0.10)
+    max_hold_probability = ml_config.get("prediction", {}).get("max_hold_probability", 0.50)
+
+    # Engineer features for the entire dataset
+    df_copy = df.copy()
+    df_copy = df_copy.rename(columns={'time': 'time', 'open': 'open', 'high': 'high',
+                                       'low': 'low', 'close': 'close', 'tick_volume': 'tick_volume'})
+
+    # Calculate features manually (same as feature_engineering.py)
+    closes = df_copy['close'].values
+    highs = df_copy['high'].values
+    lows = df_copy['low'].values
+    volumes = df_copy['tick_volume'].values if 'tick_volume' in df_copy.columns else df_copy['real_volume'].values
+
+    # RSI
+    delta = pd.Series(closes).diff()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+
+    # MACD
+    exp1 = pd.Series(closes).ewm(span=12, adjust=False).mean()
+    exp2 = pd.Series(closes).ewm(span=26, adjust=False).mean()
+    macd_line = exp1 - exp2
+    macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+
+    # ATR
+    high_low = pd.Series(highs) - pd.Series(lows)
+    high_close = abs(pd.Series(highs) - pd.Series(closes).shift())
+    low_close = abs(pd.Series(lows) - pd.Series(closes).shift())
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = tr.rolling(window=14).mean()
+
+    # Bollinger Bands
+    bb_ma = pd.Series(closes).rolling(window=20).mean()
+    bb_std = pd.Series(closes).rolling(window=20).std()
+    bb_upper = bb_ma + 2 * bb_std
+    bb_lower = bb_ma - 2 * bb_std
+    bb_width = (bb_upper - bb_lower) / bb_ma
+
+    # Volume ratio
+    vol_ma = pd.Series(volumes).rolling(window=20).mean()
+    volume_ratio = pd.Series(volumes) / vol_ma
+
+    # Price changes
+    price_change_1 = pd.Series(closes).pct_change(1)
+    price_change_5 = pd.Series(closes).pct_change(5)
+
+    # Create features dataframe
+    features_df = pd.DataFrame({
+        'rsi_14': rsi,
+        'macd_line': macd_line,
+        'macd_signal': macd_signal,
+        'atr_14': atr,
+        'bb_upper': bb_upper,
+        'bb_lower': bb_lower,
+        'bb_width': bb_width,
+        'volume_ratio': volume_ratio,
+        'price_change_1min': price_change_1,
+        'price_change_5min': price_change_5
+    })
+
+    # Generate predictions
+    signals = np.zeros(len(df_copy))
+    confidences = np.zeros(len(df_copy))
+
+    # Start from index 50 to have enough data for features
+    for i in range(50, len(df_copy)):
+        try:
+            # Get features for this row
+            row_features = features_df.iloc[i:i+1].values
+
+            if np.isnan(row_features).any():
+                continue
+
+            # Scale features
+            row_scaled = scaler.transform(row_features)
+
+            # Get prediction and probabilities
+            # Model classes: 0=sell, 1=buy, 2=hold
+            probs = model.predict_proba(row_scaled)[0]
+            sell_prob = probs[0]
+            buy_prob = probs[1]
+            hold_prob = probs[2]
+
+            # CRITICAL: Respect HOLD signal when probability is high (matching live logic)
+            if hold_prob > max_hold_probability:
+                continue  # Skip this bar - HOLD signal too strong
+
+            # Determine signal based on BUY vs SELL only
+            if buy_prob > sell_prob:
+                signal_type = 'buy'
+                signal_confidence = buy_prob
+            else:
+                signal_type = 'sell'
+                signal_confidence = sell_prob
+
+            # Apply confidence threshold on the chosen signal
+            if signal_confidence < confidence_threshold:
+                continue
+
+            # Check probability difference between BUY and SELL
+            prob_diff = abs(buy_prob - sell_prob)
+            if prob_diff < min_prob_diff:
+                continue
+
+            # Valid signal
+            if signal_type == 'buy':
+                signals[i] = 1
+            else:
+                signals[i] = -1
+            confidences[i] = signal_confidence
+
+        except Exception as e:
+            continue
+
+    # Calculate returns
+    returns = pd.Series(closes).pct_change().shift(-1)
+    strategy_returns = pd.Series(signals).shift(1) * returns
+    total_return = strategy_returns.sum()
+
+    # Calculate stats
+    trades = np.sum(np.abs(np.diff(signals)) > 0)
+    avg_confidence = np.mean(confidences[confidences > 0]) if np.any(confidences > 0) else 0
+
+    ml_params = {
+        'confidence_threshold': confidence_threshold,
+        'min_probability_diff': min_prob_diff,
+        'max_hold_probability': max_hold_probability,
+        'total_trades': int(trades),
+        'avg_confidence': float(avg_confidence),
+        'total_return': float(total_return)
+    }
+
+    return total_return, ml_params
+
 # --- Multi-strategy backtest ---
 def run_all_strategies_backtest():
     end_date = datetime.now(UTC)
@@ -315,22 +492,38 @@ def run_all_strategies_backtest():
     results['bollinger'] = {'bollinger_period': best_boll[0], 'bollinger_stddev': best_boll[1], 'total_return': best_boll_result}
     print(f"Best Bollinger: period={best_boll[0]}, stddev={best_boll[1]}, return={best_boll_result/pip_size:.2f} pips")
 
+    # --- ML Random Forest ---
+    print("\n[ML Random Forest Backtest]")
+    if ML_AVAILABLE:
+        ml_return, ml_params = run_ml_backtest(df)
+        if ml_return is not None:
+            results['ml_random_forest'] = ml_params
+            print(f"ML Random Forest: return={ml_return/pip_size:.2f} pips, trades={ml_params.get('total_trades', 0)}, avg_conf={ml_params.get('avg_confidence', 0)*100:.1f}%")
+        else:
+            print("ML backtest failed - model may need training")
+    else:
+        print("ML module not available")
+
     # Save all best params/results
     with open("strategy_params.json", "w") as f:
         json.dump(results, f, indent=2)
     print("\nAll best parameters/results saved to strategy_params.json")
 
-    # --- AUTO-SELECT BEST STRATEGY ---
-    # Find the strategy with the highest total_return
-    best_strategy = None
-    best_return = -float('inf')
-
+    # --- STRATEGY RANKING (no auto-change) ---
     print("\n" + "="*50)
     print("STRATEGY PERFORMANCE RANKING")
     print("="*50)
 
+    # Get current strategy from config
+    with open("config.json", "r") as f:
+        current_config = json.load(f)
+    current_strategy = current_config.get("strategy", "unknown")
+
     # Sort strategies by return
     sorted_strategies = sorted(results.items(), key=lambda x: x[1].get('total_return', 0), reverse=True)
+
+    best_strategy = None
+    best_return = -float('inf')
 
     for rank, (strat_name, strat_data) in enumerate(sorted_strategies, 1):
         ret = strat_data.get('total_return', 0)
@@ -339,33 +532,20 @@ def run_all_strategies_backtest():
         if rank == 1 and ret > 0:
             best_strategy = strat_name
             best_return = ret
-            status = " <-- BEST (SELECTED)"
-        elif ret <= 0:
-            status = " (negative/zero return)"
+            status = " <-- BEST"
+        if strat_name == current_strategy:
+            status += " (CURRENT)"
+        if ret <= 0:
+            status += " (negative/zero)"
         print(f"  {rank}. {strat_name}: {ret_pips:.2f} pips{status}")
 
-    # Update config.json with the best strategy
-    if best_strategy and best_return > 0:
-        with open("config.json", "r") as f:
-            current_config = json.load(f)
-
-        old_strategy = current_config.get("strategy", "unknown")
-        current_config["strategy"] = best_strategy
-
-        with open("config.json", "w") as f:
-            json.dump(current_config, f, indent=2)
-
-        print("="*50)
-        print(f"AUTO-SELECTED: {best_strategy}")
-        print(f"Previous strategy: {old_strategy}")
-        print(f"Expected return: {best_return/pip_size:.2f} pips")
-        print("config.json has been updated!")
-        print("="*50)
-    else:
-        print("="*50)
-        print("WARNING: No profitable strategy found!")
-        print("Keeping current strategy in config.json")
-        print("="*50)
+    print("="*50)
+    print(f"Current strategy: {current_strategy}")
+    if best_strategy:
+        print(f"Best performing: {best_strategy} ({best_return/pip_size:.2f} pips)")
+    print("="*50)
+    print("NOTE: config.json NOT changed. Manually set strategy if needed.")
+    print("="*50)
 
 def run_all_strategies_forward_test(strategy_params):
     print("\n--- Forward Test Results (Most Recent Data) ---")
@@ -437,6 +617,17 @@ def run_all_strategies_forward_test(strategy_params):
         returns = pd.Series(signal).shift(1) * pd.Series(closes).pct_change().shift(-1)
         total_return = returns.sum()
         print(f"Bollinger Forward: period={period}, stddev={stddev}, return={total_return/pip_size:.2f} pips")
+
+    # ML Random Forest
+    ml = strategy_params.get('ml_random_forest', {})
+    if ml and ML_AVAILABLE:
+        ml_return, ml_fwd_params = run_ml_backtest(df)
+        if ml_return is not None:
+            print(f"ML Random Forest Forward: return={ml_return/pip_size:.2f} pips, trades={ml_fwd_params.get('total_trades', 0)}")
+        else:
+            print("ML Forward test failed")
+    elif not ML_AVAILABLE:
+        print("ML Forward: module not available")
 
 if __name__ == "__main__":
     print(f"--- Running Backtest Optimization ({backtest_period_days} days) ---")

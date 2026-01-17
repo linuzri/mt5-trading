@@ -1,22 +1,30 @@
 {
   "ma_crossover": {
-    "short_ma": 5,
-    "long_ma": 30,
-    "total_return": 0.010504747738958486
+    "short_ma": 10,
+    "long_ma": 20,
+    "total_return": 0.11736237284728068
   },
   "rsi": {
-    "rsi_period": 22,
-    "total_return": 0.04418282166481624
+    "rsi_period": 7,
+    "total_return": 0.18910338035061558
   },
   "macd": {
     "macd_fast": 10,
-    "macd_slow": 27,
-    "macd_signal": 11,
-    "total_return": 0.050697819058821425
+    "macd_slow": 25,
+    "macd_signal": 9,
+    "total_return": 0.02717103907951479
   },
   "bollinger": {
-    "bollinger_period": 22,
-    "bollinger_stddev": 2.5,
-    "total_return": 0.05390619060471569
+    "bollinger_period": 16,
+    "bollinger_stddev": 3,
+    "total_return": 0.00593250570091397
+  },
+  "ml_random_forest": {
+    "confidence_threshold": 0.4,
+    "min_probability_diff": 0.1,
+    "max_hold_probability": 0.5,
+    "total_trades": 1155,
+    "avg_confidence": 0.5435745365857906,
+    "total_return": 0.47956473220669893
   }
 }

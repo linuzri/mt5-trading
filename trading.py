@@ -273,6 +273,13 @@ try:
     total_losses = 0
     cumulative_pl = 0.0
 
+    # Daily trade limit tracking
+    daily_trade_count = 0
+    max_trades_per_day = 10  # Default, will be updated from ml_config if available
+    if strategy == "ml_random_forest" and ml_predictor is not None:
+        max_trades_per_day = ml_predictor.config.get('risk_management', {}).get('max_trades_per_day', 10)
+        print(f"[ML] Max trades per day: {max_trades_per_day}")
+
     # Track open positions to detect SL/TP closures
     tracked_positions = {}  # {ticket: {'direction': 'BUY'/'SELL', 'entry_price': float, 'confidence': float}}
 
@@ -613,6 +620,14 @@ try:
             ticket = pos.ticket
             entry_price = pos.price_open
 
+        # Check daily trade limit before executing any new trades
+        if trade_signal is not None and daily_trade_count >= max_trades_per_day:
+            msg = f"[LIMIT] Max daily trades reached ({daily_trade_count}/{max_trades_per_day}) - no new trades"
+            if last_filter_message != msg:
+                log_only(msg)
+                last_filter_message = msg
+            trade_signal = None  # Block the trade
+
         # Trading logic with management and notifications
         if trade_signal == "buy":
             if position_type is None:
@@ -644,6 +659,7 @@ try:
                     # Log account balance after successful BUY
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after BUY: ${balance:.2f}")
+                    daily_trade_count += 1  # Increment daily trade counter
                 else:
                     log_notify(f"BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
@@ -689,6 +705,7 @@ try:
                     # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
+                    daily_trade_count += 1  # Increment daily trade counter
                 else:
                     log_notify(f"Failed to close SELL and open BUY, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
@@ -721,6 +738,7 @@ try:
                     # Log account balance after successful SELL
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after SELL: ${balance:.2f}")
+                    daily_trade_count += 1  # Increment daily trade counter
                 else:
                     log_notify(f"SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
@@ -766,6 +784,7 @@ try:
                     # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
+                    daily_trade_count += 1  # Increment daily trade counter
                 else:
                     log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
@@ -857,13 +876,15 @@ try:
                 last_week_number = week
 
         def check_max_loss_profit():
-            global daily_pl, last_pl_date
+            global daily_pl, last_pl_date, daily_trade_count
             eastern = ZoneInfo("America/New_York")
             now_et = datetime.now(eastern)
             today = now_et.date()
             if last_pl_date != today:
                 daily_pl = 0
+                daily_trade_count = 0  # Reset daily trade count
                 last_pl_date = today
+                log_only(f"[RESET] New trading day - trade count reset")
             if abs(daily_pl) >= max_daily_loss:
                 send_telegram_message(f"[ALERT] Max daily loss reached: {daily_pl:.2f} USD. Trading paused.")
                 time.sleep(3600)  # Pause for 1 hour
