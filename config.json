@@ -1,6 +1,6 @@
 {
   "symbol": "BTCUSD",
-  "sl_pips": 75,
+  "sl_pips": 100,
   "tp_pips": 150,
   "atr_period": 14,
   "atr_multiplier": 1.5,
@@ -12,8 +12,8 @@
   "macd_fast": 12,
   "macd_slow": 26,
   "macd_signal": 9,
-  "timeframe": "M1",
-  "higher_timeframe": "M15",
+  "timeframe": "M5",
+  "higher_timeframe": "H1",
   "backtest_period_days": 30,
   "forward_test_period_days": 28,
   "max_daily_loss": 100,

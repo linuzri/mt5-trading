@@ -27,6 +27,8 @@ class ModelPredictor:
         self.scaler_path = self.config['paths']['scaler_file']
         self.confidence_threshold = self.config['prediction']['confidence_threshold']
         self.min_prob_diff = self.config['prediction']['min_probability_diff']
+        # New: Maximum HOLD probability before we respect the HOLD signal
+        self.max_hold_probability = self.config['prediction'].get('max_hold_probability', 0.50)
 
         self.model = None
         self.scaler = None
@@ -128,34 +130,47 @@ class ModelPredictor:
         """
         Get actionable trade signal with confidence filtering
 
+        Now properly respects HOLD signals when HOLD probability is high.
+
         Args:
             features_dict: Dictionary with feature names and values
 
         Returns:
-            signal: 'buy', 'sell', or None (if confidence too low)
+            signal: 'buy', 'sell', or None (if confidence too low or HOLD)
             confidence: Confidence score
             reason: Explanation of decision
         """
         prediction, confidence, probabilities = self.predict(features_dict)
 
-        # Check confidence threshold
-        if confidence < self.confidence_threshold:
-            return None, confidence, f"Confidence {confidence:.2%} below threshold {self.confidence_threshold:.2%}"
+        # Get all probabilities
+        buy_prob = probabilities['buy']
+        sell_prob = probabilities['sell']
+        hold_prob = probabilities['hold']
 
-        # Check probability difference (avoid near-ties)
-        sorted_probs = sorted(probabilities.values(), reverse=True)
-        prob_diff = sorted_probs[0] - sorted_probs[1]
+        # CRITICAL FIX: Respect HOLD signal when probability is high
+        if hold_prob > self.max_hold_probability:
+            return None, hold_prob, f"HOLD signal strong ({hold_prob:.1%} > {self.max_hold_probability:.0%}) - no trade"
 
+        # Determine signal based on BUY vs SELL
+        if buy_prob > sell_prob:
+            signal = 'buy'
+            signal_confidence = buy_prob
+        else:
+            signal = 'sell'
+            signal_confidence = sell_prob
+
+        # Check confidence threshold (on the chosen signal)
+        if signal_confidence < self.confidence_threshold:
+            return None, signal_confidence, f"Confidence {signal_confidence:.2%} below threshold {self.confidence_threshold:.2%}"
+
+        # Check probability difference between BUY and SELL
+        prob_diff = abs(buy_prob - sell_prob)
         if prob_diff < self.min_prob_diff:
-            return None, confidence, f"Probability difference {prob_diff:.2%} too small"
-
-        # Don't trade on HOLD signal
-        if prediction == 'hold':
-            return None, confidence, "Model predicts HOLD"
+            return None, signal_confidence, f"BUY/SELL difference {prob_diff:.2%} too small (buy:{buy_prob:.1%}, sell:{sell_prob:.1%})"
 
         # Valid trade signal
-        reason = f"Model: {prediction.upper()} with {confidence:.2%} confidence"
-        return prediction, confidence, reason
+        reason = f"Model: {signal.upper()} with {signal_confidence:.2%} confidence | Probabilities: sell:{sell_prob:.1%}, buy:{buy_prob:.1%}, hold:{hold_prob:.1%}"
+        return signal, signal_confidence, reason
 
     def batch_predict(self, features_df):
         """

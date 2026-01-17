@@ -21,68 +21,68 @@
   },
   "performance_metrics": {
     "cv_scores": [
-      0.5754310344827587,
-      0.5852122015915119,
-      0.5862068965517241,
-      0.5714522546419099,
-      0.5848806366047745
+      0.7744610281923715,
+      0.7844112769485904,
+      0.7562189054726368,
+      0.7562189054726368,
+      0.7694859038142621
     ],
-    "cv_mean": 0.5806366047745358,
-    "cv_std": 0.0060237246336782594,
+    "cv_mean": 0.7681592039800995,
+    "cv_std": 0.010869631580878236,
     "validation_metrics": {
-      "accuracy": 0.5805353550982516,
-      "precision": 0.6324533592782127,
-      "recall": 0.5805353550982516,
-      "f1_score": 0.594877374505076
+      "accuracy": 0.7695282289249806,
+      "precision": 0.8045206417121545,
+      "recall": 0.7695282289249806,
+      "f1_score": 0.7831870725172778
     },
     "test_metrics": {
-      "accuracy": 0.5823920779823611,
-      "precision": 0.6340874102433279,
-      "recall": 0.5823920779823611,
-      "f1_score": 0.5965141043799626
+      "accuracy": 0.7563805104408353,
+      "precision": 0.7999159151235554,
+      "recall": 0.7563805104408353,
+      "f1_score": 0.7728243548028201
     },
     "feature_importance": [
       {
-        "feature": "atr_14",
-        "importance": 0.2894149011077764
-      },
-      {
-        "feature": "bb_width",
-        "importance": 0.15894196172165753
+        "feature": "bb_upper",
+        "importance": 0.19192179242390697
       },
       {
         "feature": "bb_lower",
-        "importance": 0.11998108048592934
+        "importance": 0.15911638002183173
       },
       {
-        "feature": "bb_upper",
-        "importance": 0.11592453388401833
+        "feature": "atr_14",
+        "importance": 0.12357900878156192
       },
       {
         "feature": "macd_signal",
-        "importance": 0.0848134758252839
+        "importance": 0.10361280243107478
+      },
+      {
+        "feature": "bb_width",
+        "importance": 0.1034282272127225
       },
       {
         "feature": "macd_line",
-        "importance": 0.08070277572709146
+        "importance": 0.08886857786511236
       },
       {
         "feature": "rsi_14",
-        "importance": 0.044185234028498666
-      },
-      {
-        "feature": "price_change_5min",
-        "importance": 0.04071541348471136
+        "importance": 0.066655590642428
       },
       {
         "feature": "volume_ratio",
-        "importance": 0.03711724170492813
+        "importance": 0.06608752313243732
+      },
+      {
+        "feature": "price_change_5min",
+        "importance": 0.05783528734212009
       },
       {
         "feature": "price_change_1min",
-        "importance": 0.02820338203010497
+        "importance": 0.03889481014680436
       }
     ]
   },
-  "trained_at": "2026-01-12T21:54:19.846922"
+  "trained_at": "2026-01-17T09:39:30.609732"
 }
