@@ -48,7 +48,7 @@
   "prediction": {
     "confidence_threshold": 0.40,
     "min_probability_diff": 0.10,
-    "max_hold_probability": 0.50
+    "max_hold_probability": 0.55
   },
 
   "risk_management": {
