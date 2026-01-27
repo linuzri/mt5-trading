@@ -55,8 +55,15 @@ TIMEFRAME_MAP = {
 timeframe = TIMEFRAME_MAP.get(timeframe_str.upper(), mt5.TIMEFRAME_M5)
 
 # Define symbol and lot before the main loop (symbol is now configurable via config.json)
-symbol = config.get("symbol", "BTCUSD")
-lot = 0.01
+# Multi-symbol support: "symbols" list overrides single "symbol" if present
+symbols_list = config.get("symbols", [config.get("symbol", "BTCUSD")])
+symbol_configs = config.get("symbol_configs", {})
+symbol = symbols_list[0]  # Primary symbol for trading
+lot = symbol_configs.get(symbol, {}).get("lot", 0.01)
+
+if len(symbols_list) > 1:
+    print(f"[INFO] Multi-symbol configured: {symbols_list} (primary: {symbol})")
+    print(f"[INFO] Note: ML model currently trained for {symbol} only. Additional symbols require separate models.")
 
 # Define log_file, telegram_cfg, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID before the main loop
 log_file = "trade_notifications.log"
@@ -155,11 +162,83 @@ news_block_minutes = config.get("news_block_minutes", 15)  # Block trading this 
 higher_timeframe_str = config.get("higher_timeframe", "H1")
 higher_timeframe = TIMEFRAME_MAP.get(higher_timeframe_str.upper(), mt5.TIMEFRAME_H1)
 
-# --- News API Helper (placeholder, returns True if news is near) ---
+# --- News Filter: Forex Factory Economic Calendar ---
+_news_cache = {'events': [], 'last_fetch': None}
+_NEWS_CACHE_DURATION = timedelta(hours=1)
+
+# Map symbols to currencies affected by economic events
+_SYMBOL_CURRENCIES = {
+    'BTCUSD': ['USD'],
+    'ETHUSD': ['USD'],
+    'EURUSD': ['EUR', 'USD'],
+    'GBPUSD': ['GBP', 'USD'],
+    'USDJPY': ['USD', 'JPY'],
+    'XAUUSD': ['USD'],
+}
+
+def _fetch_news_calendar():
+    """Fetch high-impact economic events from Forex Factory (free, no API key needed)."""
+    global _news_cache
+    try:
+        resp = requests.get(
+            "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+            timeout=10
+        )
+        if resp.status_code == 200:
+            events = resp.json()
+            # Filter for high-impact events only
+            high_impact = []
+            for event in events:
+                if event.get('impact', '').lower() == 'high':
+                    try:
+                        # Parse event date/time (format: "2026-01-27T08:30:00-05:00" or similar)
+                        date_str = event.get('date', '')
+                        if date_str:
+                            event_time = datetime.fromisoformat(date_str)
+                            # Convert to UTC if timezone-aware
+                            if event_time.tzinfo is not None:
+                                event_time = event_time.astimezone(UTC).replace(tzinfo=None)
+                            high_impact.append({
+                                'time': event_time,
+                                'title': event.get('title', 'Unknown'),
+                                'country': event.get('country', ''),
+                                'currency': event.get('country', '').upper()
+                            })
+                    except (ValueError, TypeError):
+                        continue
+            _news_cache['events'] = high_impact
+            _news_cache['last_fetch'] = datetime.now(UTC)
+            log_only(f"[NEWS] Fetched {len(high_impact)} high-impact events this week")
+        else:
+            log_only(f"[NEWS] Failed to fetch calendar: HTTP {resp.status_code}")
+    except Exception as e:
+        log_only(f"[NEWS] Calendar fetch error: {e}")
+
 def is_high_impact_news_near(symbol, block_minutes=15):
-    # TODO: Integrate real news API (e.g., Forex Factory, Financial Modeling Prep, etc.)
-    # For now, always return False (no news block)
-    # You can later replace this with a real API call and time check
+    """Check if a high-impact news event is within block_minutes of now."""
+    global _news_cache
+
+    # Refresh cache if stale or empty
+    if _news_cache['last_fetch'] is None or \
+       (datetime.now(UTC) - _news_cache['last_fetch']) > _NEWS_CACHE_DURATION:
+        _fetch_news_calendar()
+
+    if not _news_cache['events']:
+        return False
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    relevant_currencies = _SYMBOL_CURRENCIES.get(symbol, ['USD'])
+
+    for event in _news_cache['events']:
+        # Check if event's currency is relevant to our symbol
+        if event['currency'] not in relevant_currencies:
+            continue
+        # Check if event is within block_minutes of now
+        time_diff = abs((event['time'] - now).total_seconds()) / 60
+        if time_diff <= block_minutes:
+            log_only(f"[NEWS] High-impact event nearby: {event['title']} ({event['currency']}) in {time_diff:.0f} min")
+            return True
+
     return False
 
 # --- Multi-timeframe trend helper ---
@@ -258,8 +337,29 @@ if strategy == "ml_random_forest":
         print(f"[ERROR] Failed to initialize ML predictor: {e}")
         sys.exit(1)
 
+# --- Signal handling for graceful shutdown ---
+import signal
+import os
+
+def shutdown_handler(signum, frame):
+    sig_name = signal.Signals(signum).name if hasattr(signal, 'Signals') else str(signum)
+    log_notify(f"[SHUTDOWN] Bot stopped by signal {sig_name} (PID: {os.getpid()})")
+    mt5.shutdown()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, shutdown_handler)
+signal.signal(signal.SIGTERM, shutdown_handler)
+
 # --- Trade Management Loop ---
 try:
+    # Log bot startup
+    account = mt5.account_info()
+    startup_balance = account.balance if account else 0
+    log_notify(f"[STARTUP] Bot started (PID: {os.getpid()}) | Strategy: {strategy} | Symbol: {symbol} | Balance: ${startup_balance:.2f}")
+    log_notify(f"[STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
+    if strategy == "ml_random_forest":
+        log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
+
     last_filter_message = None  # Track last filter message to avoid spamming
 
     # Trade logging setup
@@ -355,8 +455,10 @@ try:
 
         for ticket in closed_tickets:
             pos_info = tracked_positions[ticket]
-            # Get the deal history to find exit price and profit
-            deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
+            trade_logged = False
+
+            # Get the deal history to find exit price and profit (look back up to 7 days for safety)
+            deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=7), datetime.now(UTC))
             if deals:
                 # Find the closing deal for this position
                 closing_deal = None
@@ -394,6 +496,18 @@ try:
                     append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], exit_price, profit])
                     daily_pl += profit
                     check_max_loss_profit()
+                    trade_logged = True
+                else:
+                    log_notify(f"[WARN] Position {ticket} ({pos_info['direction']}) closed but no matching exit deal found in history")
+            else:
+                log_notify(f"[WARN] Position {ticket} ({pos_info['direction']}) closed but deal history unavailable")
+
+            if not trade_logged:
+                # Still log to CSV with estimated data so we don't lose the record
+                tick = mt5.symbol_info_tick(symbol)
+                est_exit = tick.bid if pos_info['direction'] == 'BUY' else tick.ask if tick else 0
+                log_notify(f"[WARN] Logging estimated close for {pos_info['direction']} position {ticket}, entry: {pos_info['entry_price']:.2f}")
+                append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], est_exit, "N/A"])
 
             # Remove from tracking
             del tracked_positions[ticket]
@@ -413,14 +527,25 @@ try:
         except Exception:
             now_et = datetime.now(UTC) - timedelta(hours=4)
         today_date = now_et.date()
+
+        # Reset daily trade counter at day boundary (fixes counter not resetting when no trades occur)
+        if last_pl_date is not None and last_pl_date != today_date:
+            daily_pl = 0
+            daily_trade_count = 0
+            last_pl_date = today_date
+            log_only(f"[RESET] New trading day ({today_date}) - daily trade count and P/L reset")
+        elif last_pl_date is None:
+            last_pl_date = today_date
+
         if is_daily_training_time() and (last_training_date != today_date):
             log_notify(f"[AUTOMATION] Daily ML training time (8am ET). Running train_ml_model.py...")
             result = subprocess.run([sys.executable, "train_ml_model.py", "--refresh"], capture_output=True, text=True)
             print(result.stdout)
             if result.returncode != 0:
-                print("[AUTOMATION] train_ml_model.py failed:", result.stderr)
+                log_notify(f"[AUTOMATION] train_ml_model.py failed: {result.stderr[:500]}")
+                last_training_date = today_date  # Don't retry endlessly on failure
             else:
-                print("[AUTOMATION] ML model training completed. Reloading model...")
+                log_notify("[AUTOMATION] ML model training completed. Reloading model...")
                 try:
                     # Reload the ML model with fresh training
                     if ml_predictor is not None:
@@ -428,7 +553,7 @@ try:
                     last_training_date = today_date
                     log_notify(f"[AUTOMATION] ML model retrained successfully")
                 except Exception as e:
-                    print("[AUTOMATION] Failed to reload ML model:", e)
+                    log_notify(f"[AUTOMATION] Failed to reload ML model: {e}")
         # (Re)initialize and ensure the symbol is available
         if not mt5.initialize(login=login, password=password, server=server):
             log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
@@ -895,5 +1020,14 @@ try:
         # Wait for 60 seconds before next check
         time.sleep(60)
         check_and_send_summaries()
+except Exception as e:
+    log_notify(f"[SHUTDOWN] Bot crashed with error: {e} (PID: {os.getpid()})")
+    raise
 finally:
+    try:
+        account = mt5.account_info()
+        final_balance = account.balance if account else 0
+        log_notify(f"[SHUTDOWN] Bot shutting down (PID: {os.getpid()}) | Final Balance: ${final_balance:.2f}")
+    except Exception:
+        log_only(f"[SHUTDOWN] Bot shutting down (PID: {os.getpid()}) | Balance unavailable")
     mt5.shutdown()

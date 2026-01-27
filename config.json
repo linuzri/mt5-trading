@@ -1,5 +1,9 @@
 {
   "symbol": "BTCUSD",
+  "symbols": ["BTCUSD"],
+  "symbol_configs": {
+    "BTCUSD": {"lot": 0.01, "sl_pips": 100, "tp_pips": 150}
+  },
   "sl_pips": 100,
   "tp_pips": 150,
   "atr_period": 14,
