@@ -15,7 +15,7 @@ import joblib
 import os
 from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     classification_report,
@@ -48,42 +48,39 @@ class ModelTrainer:
 
     def prepare_train_test_split(self, df, feature_cols, target_col):
         """
-        Split data into train, validation, and test sets
+        Split data into train, validation, and test sets using CHRONOLOGICAL order.
+
+        IMPORTANT: Time-series data must NOT be shuffled randomly. Future data must
+        never appear in the training set. We use chronological splits:
+          - Train: oldest 70% of data
+          - Validation: next 15%
+          - Test: newest 15%
 
         Args:
-            df: DataFrame with features and labels
+            df: DataFrame with features and labels (must be sorted by time)
             feature_cols: List of feature column names
             target_col: Target column name
 
         Returns:
             X_train, X_val, X_test, y_train, y_val, y_test
         """
-        print("[i] Splitting data into train/val/test sets...")
+        print("[i] Splitting data into train/val/test sets (chronological)...")
 
-        # Extract features and labels
+        # Extract features and labels — data must already be sorted by time
         X = df[feature_cols].values
         y = df[target_col].values
 
-        # First split: separate test set
-        X_temp, X_test, y_temp, y_test = train_test_split(
-            X, y,
-            test_size=self.test_size,
-            random_state=42,
-            stratify=y  # Maintain class distribution
-        )
+        n = len(X)
+        train_end = int(n * (1 - self.test_size - self.val_size))
+        val_end = int(n * (1 - self.test_size))
 
-        # Second split: separate train and validation
-        val_ratio = self.val_size / (1 - self.test_size)
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_temp, y_temp,
-            test_size=val_ratio,
-            random_state=42,
-            stratify=y_temp
-        )
+        X_train, y_train = X[:train_end], y[:train_end]
+        X_val, y_val = X[train_end:val_end], y[train_end:val_end]
+        X_test, y_test = X[val_end:], y[val_end:]
 
-        print(f"   Train set:      {len(X_train)} samples ({len(X_train)/len(X)*100:.1f}%)")
-        print(f"   Validation set: {len(X_val)} samples ({len(X_val)/len(X)*100:.1f}%)")
-        print(f"   Test set:       {len(X_test)} samples ({len(X_test)/len(X)*100:.1f}%)")
+        print(f"   Train set:      {len(X_train)} samples ({len(X_train)/n*100:.1f}%) [oldest]")
+        print(f"   Validation set: {len(X_val)} samples ({len(X_val)/n*100:.1f}%) [middle]")
+        print(f"   Test set:       {len(X_test)} samples ({len(X_test)/n*100:.1f}%) [newest]")
 
         # Store feature names
         self.feature_names = feature_cols
@@ -186,27 +183,33 @@ class ModelTrainer:
 
     def cross_validate(self, X_train, y_train):
         """
-        Perform cross-validation
+        Perform time-series cross-validation (walk-forward).
+
+        Uses TimeSeriesSplit instead of random k-fold to respect temporal ordering.
+        Each fold trains on past data and validates on the next chronological segment,
+        preventing future data leakage.
 
         Args:
-            X_train: Training features
+            X_train: Training features (chronologically ordered)
             y_train: Training labels
 
         Returns:
             CV scores
         """
-        print(f"\n[i] Performing {self.cv_folds}-fold cross-validation...")
+        print(f"\n[i] Performing {self.cv_folds}-fold TIME-SERIES cross-validation (walk-forward)...")
 
+        tscv = TimeSeriesSplit(n_splits=self.cv_folds)
         cv_scores = cross_val_score(
             self.model,
             X_train,
             y_train,
-            cv=self.cv_folds,
+            cv=tscv,
             scoring='accuracy'
         )
 
         print(f"   CV Scores: {cv_scores}")
         print(f"   Mean CV Score: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
+        print(f"   [NOTE] Walk-forward CV prevents future data leakage in time-series")
 
         return cv_scores
 
