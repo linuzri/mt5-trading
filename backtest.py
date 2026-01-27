@@ -65,6 +65,16 @@ lot = 0.01  # Example lot size for P/L calculation
 symbol_info = mt5.symbol_info(symbol)
 tick_value = symbol_info.trade_tick_value if symbol_info else 1.0
 
+# Spread and slippage modeling — critical for realistic backtesting
+# Estimated spread cost per trade (round-trip: entry + exit)
+# BTCUSD typical spread: $20-50 on Pepperstone M5; EURUSD: ~1 pip
+spread_config = config.get("backtest_spread", {})
+SPREAD_PIPS = spread_config.get("spread_pips", 0.0003 if symbol.endswith("USD") and symbol.startswith("BTC") else 0.00015)
+SLIPPAGE_PIPS = spread_config.get("slippage_pips", 0.0001)  # Additional slippage per trade
+COMMISSION_PER_LOT = spread_config.get("commission_per_lot", 0)  # Some brokers charge per-lot commission
+TOTAL_COST_PCT = SPREAD_PIPS + SLIPPAGE_PIPS  # Total cost as fraction of price per round-trip trade
+print(f"[BACKTEST] Spread model: spread={SPREAD_PIPS:.5f}, slippage={SLIPPAGE_PIPS:.5f}, total_cost={TOTAL_COST_PCT:.5f} ({TOTAL_COST_PCT*100:.3f}%)")
+
 
 def run_backtest():
     # Fetch historical M5 data using copy_rates_range for better reliability
@@ -82,11 +92,14 @@ def run_backtest():
         df['signal'] = 0
         df.loc[df['ma50'] > df['ma200'], 'signal'] = 1
         df.loc[df['ma50'] < df['ma200'], 'signal'] = -1
-        # Simulate P/L (very basic example)
+        # Simulate P/L with spread/slippage costs
         df['returns'] = df['close'].pct_change().shift(-1)  # next bar return
-        df['strategy'] = df['signal'].shift(1) * df['returns']
-        # Identify trades (when signal changes)
+        df['strategy_gross'] = df['signal'].shift(1) * df['returns']
+        # Identify trades (when signal changes) — spread cost applies on each trade entry
         df['trade'] = df['signal'].diff().fillna(0).abs() > 0
+        # Deduct spread + slippage cost on every trade
+        df['trade_cost'] = df['trade'].astype(float) * TOTAL_COST_PCT
+        df['strategy'] = df['strategy_gross'] - df['trade_cost']
         trades = df[df['trade'] & (df['signal'].shift(1) != 0)]
         print("Individual trade P/L results:")
         for idx in trades.index:
@@ -98,10 +111,17 @@ def run_backtest():
             # Convert to account currency (approximate)
             trade_pl_currency = trade_pl_raw * (df.loc[idx, 'close'] / pip_size) * tick_value * lot if not np.isnan(trade_pl_raw) else float('nan')
             print(f"{trade_time} | {'BUY' if trade_signal==1 else 'SELL'} | P/L: {trade_pl_pips:.2f} pips | {trade_pl_currency:.2f} {account_info.currency}")
+        total_return_gross = df['strategy_gross'].sum()
         total_return = df['strategy'].sum()
+        total_costs = df['trade_cost'].sum()
         total_return_pips = total_return / pip_size
         total_return_currency = total_return * (df['close'].iloc[-1] / pip_size) * tick_value * lot
-        print(f"\nBacktest total return: {total_return_pips:.2f} pips | {total_return_currency:.2f} {account_info.currency}")
+        total_costs_pips = total_costs / pip_size
+        num_trades = df['trade'].sum()
+        print(f"\nBacktest Results (with spread/slippage model):")
+        print(f"  Gross return:  {total_return_gross/pip_size:.2f} pips")
+        print(f"  Total costs:   -{total_costs_pips:.2f} pips ({num_trades:.0f} trades × {TOTAL_COST_PCT*100:.3f}%)")
+        print(f"  Net return:    {total_return_pips:.2f} pips | {total_return_currency:.2f} {account_info.currency}")
         print(df[['time', 'close', 'ma50', 'ma200', 'signal', 'strategy']].tail(10))
     else:
         print("Failed to get historical data for backtest.")

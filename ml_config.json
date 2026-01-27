@@ -28,10 +28,12 @@
 
   "labeling": {
     "method": "sltp_aware",
-    "lookahead_candles": 90,
-    "profit_threshold": 0.0020,
+    "lookahead_candles": 18,
+    "profit_threshold": 0.0015,
     "stop_loss_threshold": 0.0010,
-    "label_classes": ["buy", "sell", "hold"]
+    "label_classes": ["buy", "sell", "hold"],
+    "_comment_lookahead": "18 candles on M5 = 1.5 hours. Previous 90 candles (7.5h) was too long for scalping and produced noisy labels.",
+    "_comment_thresholds": "profit_threshold and stop_loss_threshold now aligned with config.json SL/TP ratio (1.5:1 TP:SL). At BTC ~$100K: SL=$100 (0.10%), TP=$150 (0.15%)."
   },
 
   "model_params": {
@@ -50,9 +52,10 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.35,
-    "min_probability_diff": 0.10,
-    "max_hold_probability": 0.65
+    "confidence_threshold": 0.65,
+    "min_probability_diff": 0.15,
+    "max_hold_probability": 0.55,
+    "_comment": "Raised confidence from 0.35 to 0.65 to filter out low-quality signals. Fewer trades but higher win rate."
   },
 
   "risk_management": {

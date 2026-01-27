@@ -9,6 +9,8 @@ import subprocess
 import sys
 import requests
 import csv
+import threading
+import os
 from collections import defaultdict
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
@@ -137,6 +139,8 @@ def is_daily_training_time():
     return now_et.hour >= 8 and now_et.hour < 9
 
 last_training_date = None
+_training_in_progress = False  # Track if background ML training is running
+_training_needs_reload = False  # Flag to reload model after background training completes
 
 # Load optimized parameters for the selected strategy if available
 try:
@@ -537,23 +541,44 @@ try:
         elif last_pl_date is None:
             last_pl_date = today_date
 
-        if is_daily_training_time() and (last_training_date != today_date):
-            log_notify(f"[AUTOMATION] Daily ML training time (8am ET). Running train_ml_model.py...")
-            result = subprocess.run([sys.executable, "train_ml_model.py", "--refresh"], capture_output=True, text=True)
-            print(result.stdout)
-            if result.returncode != 0:
-                log_notify(f"[AUTOMATION] train_ml_model.py failed: {result.stderr[:500]}")
-                last_training_date = today_date  # Don't retry endlessly on failure
-            else:
-                log_notify("[AUTOMATION] ML model training completed. Reloading model...")
+        if is_daily_training_time() and (last_training_date != today_date) and not _training_in_progress:
+            log_notify(f"[AUTOMATION] Daily ML training time (8am ET). Starting background training...")
+            last_training_date = today_date  # Mark immediately to prevent re-triggering
+
+            def _run_background_training():
+                """Run ML model training in a background thread to avoid blocking the trading loop."""
+                global _training_in_progress, _training_needs_reload
+                _training_in_progress = True
                 try:
-                    # Reload the ML model with fresh training
-                    if ml_predictor is not None:
-                        ml_predictor.load_model()
-                    last_training_date = today_date
-                    log_notify(f"[AUTOMATION] ML model retrained successfully")
+                    result = subprocess.run(
+                        [sys.executable, "train_ml_model.py", "--refresh"],
+                        capture_output=True, text=True, timeout=600  # 10 min timeout
+                    )
+                    print(result.stdout)
+                    if result.returncode != 0:
+                        log_notify(f"[AUTOMATION] train_ml_model.py failed: {result.stderr[:500]}")
+                    else:
+                        log_notify("[AUTOMATION] ML model training completed. Will reload on next cycle.")
+                        _training_needs_reload = True
+                except subprocess.TimeoutExpired:
+                    log_notify("[AUTOMATION] ML training timed out after 10 minutes")
                 except Exception as e:
-                    log_notify(f"[AUTOMATION] Failed to reload ML model: {e}")
+                    log_notify(f"[AUTOMATION] Background training error: {e}")
+                finally:
+                    _training_in_progress = False
+
+            training_thread = threading.Thread(target=_run_background_training, daemon=True)
+            training_thread.start()
+
+        # Check if background training finished and model needs reloading
+        if _training_needs_reload and not _training_in_progress:
+            try:
+                if ml_predictor is not None:
+                    ml_predictor.load_model()
+                log_notify(f"[AUTOMATION] ML model reloaded successfully after background training")
+            except Exception as e:
+                log_notify(f"[AUTOMATION] Failed to reload ML model: {e}")
+            _training_needs_reload = False
         # (Re)initialize and ensure the symbol is available
         if not mt5.initialize(login=login, password=password, server=server):
             log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
