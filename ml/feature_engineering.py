@@ -88,6 +88,47 @@ class FeatureEngineering:
 
         return price_change_1min, price_change_5min
 
+    def calculate_candlestick_patterns(self, df):
+        """
+        Calculate candlestick pattern features from OHLC data.
+
+        Returns:
+            candle_body_ratio: Body size relative to total range (0-1)
+            upper_shadow_ratio: Upper shadow relative to total range (0-1)
+            lower_shadow_ratio: Lower shadow relative to total range (0-1)
+            engulfing: 1=bullish engulfing, -1=bearish engulfing, 0=none
+        """
+        candle_range = df['high'] - df['low']
+        # Avoid division by zero for doji-like candles with zero range
+        safe_range = candle_range.replace(0, np.nan)
+
+        body = (df['close'] - df['open']).abs()
+        upper_shadow = df['high'] - df[['open', 'close']].max(axis=1)
+        lower_shadow = df[['open', 'close']].min(axis=1) - df['low']
+
+        candle_body_ratio = (body / safe_range).fillna(0)
+        upper_shadow_ratio = (upper_shadow / safe_range).fillna(0)
+        lower_shadow_ratio = (lower_shadow / safe_range).fillna(0)
+
+        # Engulfing pattern: current body fully contains previous body
+        prev_open = df['open'].shift(1)
+        prev_close = df['close'].shift(1)
+        curr_body_high = df[['open', 'close']].max(axis=1)
+        curr_body_low = df[['open', 'close']].min(axis=1)
+        prev_body_high = pd.concat([prev_open, prev_close], axis=1).max(axis=1)
+        prev_body_low = pd.concat([prev_open, prev_close], axis=1).min(axis=1)
+
+        bullish_engulf = (df['close'] > df['open']) & (prev_close < prev_open) & \
+                         (curr_body_low <= prev_body_low) & (curr_body_high >= prev_body_high)
+        bearish_engulf = (df['close'] < df['open']) & (prev_close > prev_open) & \
+                         (curr_body_low <= prev_body_low) & (curr_body_high >= prev_body_high)
+
+        engulfing = pd.Series(0, index=df.index)
+        engulfing[bullish_engulf] = 1
+        engulfing[bearish_engulf] = -1
+
+        return candle_body_ratio, upper_shadow_ratio, lower_shadow_ratio, engulfing
+
     def add_all_features(self, df):
         """
         Add all technical indicators and features to DataFrame
@@ -120,6 +161,10 @@ class FeatureEngineering:
 
         # Price changes
         df['price_change_1min'], df['price_change_5min'] = self.calculate_price_changes(df)
+
+        # Candlestick patterns
+        df['candle_body_ratio'], df['upper_shadow_ratio'], df['lower_shadow_ratio'], df['engulfing'] = \
+            self.calculate_candlestick_patterns(df)
 
         print(f"[OK] Added {len(self.feature_names)} features")
 
