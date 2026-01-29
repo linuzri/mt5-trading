@@ -52,10 +52,10 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.65,
-    "min_probability_diff": 0.15,
-    "max_hold_probability": 0.55,
-    "_comment": "Raised confidence from 0.35 to 0.65 to filter out low-quality signals. Fewer trades but higher win rate."
+    "confidence_threshold": 0.50,
+    "min_probability_diff": 0.12,
+    "max_hold_probability": 0.50,
+    "_comment": "2026-01-29: Lowered thresholds after 41h of no trades. Old: 65%/15%/55%. With 3-class model, 50% threshold is realistic for volatile BTC markets."
   },
 
   "risk_management": {
