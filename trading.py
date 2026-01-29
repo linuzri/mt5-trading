@@ -1001,7 +1001,9 @@ try:
         def send_trade_summary(period="daily"):
             if not trade_log:
                 return
-            total_profit = sum([t[4] for t in trade_log])
+            # Filter out entries with non-numeric profit (like "N/A") to avoid type error
+            numeric_profits = [t[4] for t in trade_log if isinstance(t[4], (int, float))]
+            total_profit = sum(numeric_profits) if numeric_profits else 0
             num_trades = len(trade_log)
             buys = sum(1 for t in trade_log if t[1] == "BUY")
             sells = sum(1 for t in trade_log if t[1] == "SELL")
