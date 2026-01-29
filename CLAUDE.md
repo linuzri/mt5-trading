@@ -178,3 +178,23 @@ Two logging mechanisms:
 - Monitor Telegram notifications for critical alerts and daily summaries
 - The bot pauses trading (1 hour sleep) when max daily loss/profit is reached
 - All trades are logged with timestamps for audit trail
+
+---
+
+## Changelog
+
+### 2026-01-29: ML Threshold Optimization
+**Problem:** Bot made 0 trades in 41 hours despite running continuously.
+
+**Root Cause:** ML confidence threshold (65%) was too high for a 3-class model. Actual model output was 29-52%, never reaching the threshold.
+
+**Changes to `ml_config.json`:**
+| Setting | Before | After | Rationale |
+|---------|--------|-------|-----------|
+| `confidence_threshold` | 0.65 | 0.50 | With 3-class model (buy/sell/hold), 50% is realistic for volatile BTC markets |
+| `min_probability_diff` | 0.15 | 0.12 | Maintain edge without being overly strict |
+| `max_hold_probability` | 0.55 | 0.50 | Trade when HOLD signal is uncertain |
+
+**Expected Result:** ~3-8 trades per day with reasonable signal quality.
+
+**Branch:** `enhance-ml-thresholds` → merged to `main`
