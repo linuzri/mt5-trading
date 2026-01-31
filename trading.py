@@ -496,50 +496,57 @@ try:
             pos_info = tracked_positions[ticket]
             trade_logged = False
 
-            # Get the deal history to find exit price and profit (look back up to 7 days for safety)
-            deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=7), datetime.now(UTC))
-            if deals:
-                # Find the closing deal for this position
-                closing_deal = None
-                for deal in sorted(deals, key=lambda d: d.time, reverse=True):
-                    if deal.position_id == ticket and deal.entry == 1:  # entry=1 means exit deal
-                        closing_deal = deal
-                        break
+            # Wait for MT5 to sync deal history (broker delay)
+            time.sleep(0.3)
 
+            # Get the deal history with retry logic (history may take time to sync)
+            closing_deal = None
+            for attempt in range(3):
+                deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=7), datetime.now(UTC))
+                if deals:
+                    # Find the closing deal for this position
+                    for deal in sorted(deals, key=lambda d: d.time, reverse=True):
+                        if deal.position_id == ticket and deal.entry == 1:  # entry=1 means exit deal
+                            closing_deal = deal
+                            break
                 if closing_deal:
-                    exit_price = closing_deal.price
-                    profit = closing_deal.profit
+                    break
+                # Wait before retry
+                if attempt < 2:
+                    time.sleep(0.2)
 
-                    # Determine close reason based on deal comment or profit
-                    close_reason = ""
-                    if closing_deal.comment:
-                        if "sl" in closing_deal.comment.lower() or "stop" in closing_deal.comment.lower():
-                            close_reason = "SL Hit"
-                        elif "tp" in closing_deal.comment.lower() or "take" in closing_deal.comment.lower():
-                            close_reason = "TP Hit"
-                        else:
-                            close_reason = closing_deal.comment
+            if closing_deal:
+                exit_price = closing_deal.price
+                profit = closing_deal.profit
+
+                # Determine close reason based on deal comment or profit
+                close_reason = ""
+                if closing_deal.comment:
+                    if "sl" in closing_deal.comment.lower() or "stop" in closing_deal.comment.lower():
+                        close_reason = "SL Hit"
+                    elif "tp" in closing_deal.comment.lower() or "take" in closing_deal.comment.lower():
+                        close_reason = "TP Hit"
                     else:
-                        # Infer from profit if comment not available
-                        close_reason = "TP Hit" if profit > 0 else "SL Hit"
-
-                    # Log the trade result
-                    log_trade_result(
-                        pos_info['direction'],
-                        pos_info['entry_price'],
-                        exit_price,
-                        profit,
-                        pos_info.get('confidence'),
-                        close_reason
-                    )
-                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], exit_price, profit])
-                    daily_pl += profit
-                    check_max_loss_profit()
-                    trade_logged = True
+                        close_reason = closing_deal.comment
                 else:
-                    log_notify(f"[WARN] Position {ticket} ({pos_info['direction']}) closed but no matching exit deal found in history")
+                    # Infer from profit if comment not available
+                    close_reason = "TP Hit" if profit > 0 else "SL Hit"
+
+                # Log the trade result
+                log_trade_result(
+                    pos_info['direction'],
+                    pos_info['entry_price'],
+                    exit_price,
+                    profit,
+                    pos_info.get('confidence'),
+                    close_reason
+                )
+                append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], exit_price, profit])
+                daily_pl += profit
+                check_max_loss_profit()
+                trade_logged = True
             else:
-                log_notify(f"[WARN] Position {ticket} ({pos_info['direction']}) closed but deal history unavailable")
+                log_notify(f"[WARN] Position {ticket} ({pos_info['direction']}) closed but no exit deal found after 3 retries")
 
             if not trade_logged:
                 # Still log to CSV with estimated data so we don't lose the record
