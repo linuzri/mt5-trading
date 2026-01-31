@@ -166,6 +166,11 @@ news_block_minutes = config.get("news_block_minutes", 15)  # Block trading this 
 higher_timeframe_str = config.get("higher_timeframe", "H1")
 higher_timeframe = TIMEFRAME_MAP.get(higher_timeframe_str.upper(), mt5.TIMEFRAME_H1)
 
+# --- Defensive Trading Configs ---
+max_spread_percent = config.get("max_spread_percent", 0.05)  # Max spread as % of price (0 = disabled)
+loss_cooldown_minutes = config.get("loss_cooldown_minutes", 15)  # Minutes to wait after a loss (0 = disabled)
+max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after X consecutive losses (0 = disabled)
+
 # --- News Filter: Forex Factory Economic Calendar ---
 _news_cache = {'events': [], 'last_fetch': None}
 _NEWS_CACHE_DURATION = timedelta(hours=1)
@@ -260,6 +265,23 @@ def get_higher_tf_trend(symbol, short_ma=10, long_ma=300):
         return "down"
     else:
         return None
+
+# --- Spread Filter ---
+def is_spread_too_wide(symbol, max_percent=0.05):
+    """Check if current spread is abnormally wide (sign of low liquidity or manipulation)."""
+    if max_percent <= 0:
+        return False  # Filter disabled
+    
+    tick = mt5.symbol_info_tick(symbol)
+    if tick is None or tick.ask == 0:
+        return True  # Can't get price, safer to skip
+    
+    spread = tick.ask - tick.bid
+    spread_percent = (spread / tick.ask) * 100
+    
+    if spread_percent > max_percent:
+        return True
+    return False
 
 # --- Get correct filling mode for symbol ---
 def get_filling_mode(symbol):
@@ -361,6 +383,8 @@ try:
     startup_balance = account.balance if account else 0
     log_notify(f"[STARTUP] Bot started (PID: {os.getpid()}) | Strategy: {strategy} | Symbol: {symbol} | Balance: ${startup_balance:.2f}")
     log_notify(f"[STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
+    if max_spread_percent > 0 or loss_cooldown_minutes > 0 or max_consecutive_losses > 0:
+        log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -376,6 +400,10 @@ try:
     total_wins = 0
     total_losses = 0
     cumulative_pl = 0.0
+    
+    # Defensive trading tracking
+    consecutive_losses = 0
+    last_loss_time = None  # datetime of last losing trade
 
     # Daily trade limit tracking
     daily_trade_count = 0
@@ -395,14 +423,17 @@ try:
 
     def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
         """Log trade result with statistics to both screen and Telegram"""
-        global total_wins, total_losses, cumulative_pl
+        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time
 
         # Update statistics
         if profit > 0:
             total_wins += 1
+            consecutive_losses = 0  # Reset consecutive losses on win
             result = "WIN"
         else:
             total_losses += 1
+            consecutive_losses += 1
+            last_loss_time = datetime.now(UTC)  # Track when the loss occurred
             result = "LOSS"
 
         cumulative_pl += profit
@@ -418,6 +449,10 @@ try:
         # Send to both console and Telegram
         log_notify(trade_msg)
         log_notify(stats_msg)
+        
+        # Alert if consecutive losses threshold reached
+        if max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
+            log_notify(f"[ALERT] {consecutive_losses} consecutive losses! Trading paused for 1 hour.")
 
     def sync_existing_positions():
         """Sync tracked_positions with actual open positions (for bot restart scenarios)"""
@@ -777,6 +812,45 @@ try:
                 log_only(msg)
                 last_filter_message = msg
             trade_signal = None  # Block the trade
+
+        # --- DEFENSIVE TRADING FILTERS ---
+        
+        # Check spread filter
+        if trade_signal is not None and max_spread_percent > 0:
+            if is_spread_too_wide(symbol, max_spread_percent):
+                tick = mt5.symbol_info_tick(symbol)
+                spread = tick.ask - tick.bid if tick else 0
+                spread_pct = (spread / tick.ask * 100) if tick and tick.ask > 0 else 0
+                msg = f"[FILTER] Spread too wide: {spread:.2f} ({spread_pct:.3f}%) > {max_spread_percent}% - no trade"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+        
+        # Check loss cooldown
+        if trade_signal is not None and loss_cooldown_minutes > 0 and last_loss_time is not None:
+            minutes_since_loss = (datetime.now(UTC) - last_loss_time).total_seconds() / 60
+            if minutes_since_loss < loss_cooldown_minutes:
+                remaining = loss_cooldown_minutes - minutes_since_loss
+                msg = f"[COOLDOWN] {remaining:.1f} min remaining after last loss - no trade"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+        
+        # Check consecutive losses circuit breaker
+        if trade_signal is not None and max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
+            msg = f"[CIRCUIT BREAKER] {consecutive_losses} consecutive losses - trading paused"
+            if last_filter_message != msg:
+                log_only(msg)
+                last_filter_message = msg
+            # Reset after 1 hour of pause
+            if last_loss_time is not None:
+                hours_since_loss = (datetime.now(UTC) - last_loss_time).total_seconds() / 3600
+                if hours_since_loss >= 1:
+                    consecutive_losses = 0
+                    log_notify(f"[CIRCUIT BREAKER] Reset after 1 hour cooldown. Trading resumed.")
+            trade_signal = None
 
         # Trading logic with management and notifications
         if trade_signal == "buy":

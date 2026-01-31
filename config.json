@@ -25,5 +25,13 @@
   "_min_atr": "0.0005",
   "min_atr": 0,
   "_comment": "Set min_atr to 0 to disable the volatility filter. This is a remark or comment for human readers only.",
-  "news_block_minutes": 30
+  "news_block_minutes": 30,
+
+  "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
+  "max_spread_percent": 0.05,
+  "_max_spread_comment": "Maximum spread as % of price. For BTCUSD at $100k, 0.05% = $50 max spread. Set to 0 to disable.",
+  "loss_cooldown_minutes": 15,
+  "_loss_cooldown_comment": "Minutes to wait after a losing trade before entering next trade. Set to 0 to disable.",
+  "max_consecutive_losses": 3,
+  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable."
 }
