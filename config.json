@@ -4,6 +4,17 @@
   "symbol_configs": {
     "BTCUSD": {"lot": 0.01, "sl_pips": 100, "tp_pips": 150}
   },
+  
+  "_position_sizing_comment": "Dynamic position sizing calculates lot based on account balance and risk per trade",
+  "dynamic_position_sizing": {
+    "enabled": false,
+    "risk_percent": 1.0,
+    "_risk_comment": "Percent of account to risk per trade (1.0 = 1%). Overrides fixed lot size when enabled.",
+    "min_lot": 0.01,
+    "max_lot": 0.10,
+    "_lot_limits_comment": "Safety limits - never go below min or above max regardless of calculation"
+  },
+
   "sl_pips": 100,
   "tp_pips": 150,
   "atr_period": 14,
