@@ -2,7 +2,7 @@
 Model Training Module for ML Trading Strategy
 
 This module handles:
-- Training Random Forest classifier
+- Training Random Forest or XGBoost classifiers
 - Model validation and performance metrics
 - Hyperparameter tuning
 - Saving/loading trained models
@@ -25,6 +25,13 @@ from sklearn.metrics import (
     recall_score,
     f1_score
 )
+
+try:
+    import xgboost as xgb
+    HAS_XGBOOST = True
+except ImportError:
+    HAS_XGBOOST = False
+    print("[WARN] XGBoost not installed. Run: pip install xgboost")
 
 
 class ModelTrainer:
@@ -128,6 +135,66 @@ class ModelTrainer:
         print("[OK] Model training complete")
 
         return self.model
+
+    def train_xgboost(self, X_train, y_train):
+        """
+        Train XGBoost classifier
+
+        Args:
+            X_train: Training features
+            y_train: Training labels
+
+        Returns:
+            Trained model
+        """
+        if not HAS_XGBOOST:
+            raise ImportError("XGBoost not installed. Run: pip install xgboost")
+
+        # XGBoost parameters optimized for trading
+        xgb_params = {
+            'n_estimators': self.model_params.get('n_estimators', 100),
+            'max_depth': self.model_params.get('max_depth', 6),
+            'learning_rate': self.model_params.get('learning_rate', 0.1),
+            'min_child_weight': self.model_params.get('min_child_weight', 3),
+            'subsample': self.model_params.get('subsample', 0.8),
+            'colsample_bytree': self.model_params.get('colsample_bytree', 0.8),
+            'gamma': self.model_params.get('gamma', 0.1),
+            'reg_alpha': self.model_params.get('reg_alpha', 0.1),
+            'reg_lambda': self.model_params.get('reg_lambda', 1.0),
+            'random_state': self.model_params.get('random_state', 42),
+            'n_jobs': -1,
+            'verbosity': 0
+        }
+
+        print(f"[i] Training XGBoost with {xgb_params['n_estimators']} estimators...")
+        print(f"   Learning rate: {xgb_params['learning_rate']}, Max depth: {xgb_params['max_depth']}")
+
+        # Calculate class weights for imbalanced data
+        from sklearn.utils.class_weight import compute_sample_weight
+        sample_weights = compute_sample_weight('balanced', y_train)
+
+        self.model = xgb.XGBClassifier(**xgb_params)
+        self.model.fit(X_train, y_train, sample_weight=sample_weights)
+
+        print("[OK] XGBoost training complete")
+
+        return self.model
+
+    def train_model(self, X_train, y_train):
+        """
+        Train model based on configured model_type
+
+        Args:
+            X_train: Training features
+            y_train: Training labels
+
+        Returns:
+            Trained model
+        """
+        if self.model_type == 'xgboost':
+            return self.train_xgboost(X_train, y_train)
+        else:
+            return self.train_random_forest(X_train, y_train)
 
     def evaluate_model(self, X, y, dataset_name=""):
         """
@@ -312,8 +379,8 @@ class ModelTrainer:
         # Scale features
         X_train, X_val, X_test = self.scale_features(X_train, X_val, X_test)
 
-        # Train model
-        self.train_random_forest(X_train, y_train)
+        # Train model (uses configured model_type: random_forest or xgboost)
+        self.train_model(X_train, y_train)
 
         # Cross-validation
         cv_scores = self.cross_validate(X_train, y_train)
