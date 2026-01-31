@@ -171,6 +171,88 @@ max_spread_percent = config.get("max_spread_percent", 0.05)  # Max spread as % o
 loss_cooldown_minutes = config.get("loss_cooldown_minutes", 15)  # Minutes to wait after a loss (0 = disabled)
 max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after X consecutive losses (0 = disabled)
 
+# --- Dynamic Position Sizing Configs ---
+position_sizing_config = config.get("dynamic_position_sizing", {})
+dynamic_sizing_enabled = position_sizing_config.get("enabled", False)
+risk_percent = position_sizing_config.get("risk_percent", 1.0)  # % of account to risk per trade
+min_lot_size = position_sizing_config.get("min_lot", 0.01)
+max_lot_size = position_sizing_config.get("max_lot", 0.10)
+
+def calculate_position_size(symbol, stop_loss_pips, account_balance=None):
+    """
+    Calculate position size based on risk percentage and stop loss.
+    
+    Args:
+        symbol: Trading symbol (e.g., BTCUSD)
+        stop_loss_pips: Stop loss distance in price units (not pips for crypto)
+        account_balance: Override account balance (uses MT5 balance if None)
+    
+    Returns:
+        lot_size: Position size respecting min/max limits
+    """
+    if not dynamic_sizing_enabled:
+        return lot  # Use fixed lot from config
+    
+    # Get account balance
+    if account_balance is None:
+        account = mt5.account_info()
+        if account is None:
+            return lot  # Fallback to fixed lot
+        account_balance = account.balance
+    
+    # Get symbol info for contract specifications
+    symbol_info = mt5.symbol_info(symbol)
+    if symbol_info is None:
+        return lot  # Fallback to fixed lot
+    
+    # Calculate risk amount
+    risk_amount = account_balance * (risk_percent / 100)
+    
+    # Get current price for calculation
+    tick = mt5.symbol_info_tick(symbol)
+    if tick is None or tick.ask == 0:
+        return lot
+    
+    current_price = tick.ask
+    
+    # For crypto CFDs like BTCUSD:
+    # 1 lot = 1 BTC worth of exposure
+    # profit/loss per lot = price_change
+    # So if SL is $100, loss per lot = $100
+    # To risk $500 with $100 SL: 500/100 = 5 lots... but that's massive
+    # 
+    # Actually for most brokers:
+    # Contract size * lot * point_value * points_moved = P/L
+    # 
+    # Simpler approach: risk_amount / stop_loss_pips = lot_size (approximately)
+    # This works when SL is in same currency as account
+    
+    try:
+        # Use trade contract size to calculate proper lot
+        contract_size = symbol_info.trade_contract_size
+        
+        # For BTCUSD: if SL = $100, and we want to risk $500
+        # We need the lot size where: lot * (SL as price movement) * some_factor = risk_amount
+        # 
+        # Simplified: lot_size = risk_amount / stop_loss_pips (works for USD-denominated pairs)
+        calculated_lot = risk_amount / stop_loss_pips if stop_loss_pips > 0 else lot
+        
+        # Round to symbol's lot step
+        lot_step = symbol_info.volume_step
+        calculated_lot = round(calculated_lot / lot_step) * lot_step
+        
+        # Enforce min/max limits
+        calculated_lot = max(min_lot_size, min(max_lot_size, calculated_lot))
+        
+        # Also enforce broker limits
+        calculated_lot = max(symbol_info.volume_min, min(symbol_info.volume_max, calculated_lot))
+        
+        return calculated_lot
+        
+    except Exception as e:
+        log_only(f"[POSITION SIZING] Error calculating lot: {e}, using fixed lot")
+        return lot
+
 # --- News Filter: Forex Factory Economic Calendar ---
 _news_cache = {'events': [], 'last_fetch': None}
 _NEWS_CACHE_DURATION = timedelta(hours=1)
@@ -385,6 +467,10 @@ try:
     log_notify(f"[STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
     if max_spread_percent > 0 or loss_cooldown_minutes > 0 or max_consecutive_losses > 0:
         log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
+    if dynamic_sizing_enabled:
+        log_notify(f"[STARTUP] Position Sizing: Dynamic ({risk_percent}% risk), Lot range: {min_lot_size}-{max_lot_size}")
+    else:
+        log_notify(f"[STARTUP] Position Sizing: Fixed lot = {lot}")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -852,6 +938,11 @@ try:
                     log_notify(f"[CIRCUIT BREAKER] Reset after 1 hour cooldown. Trading resumed.")
             trade_signal = None
 
+        # Calculate position size (dynamic or fixed)
+        trade_lot = calculate_position_size(symbol, sl_pips) if trade_signal else lot
+        if trade_signal and dynamic_sizing_enabled and trade_lot != lot:
+            log_only(f"[POSITION SIZE] Dynamic: {trade_lot:.4f} lots (Risk: {risk_percent}%, SL: ${sl_pips})")
+
         # Trading logic with management and notifications
         if trade_signal == "buy":
             if position_type is None:
@@ -859,7 +950,7 @@ try:
                 request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": symbol,
-                    "volume": lot,
+                    "volume": trade_lot,
                     "type": mt5.ORDER_TYPE_BUY,
                     "price": ask,
                     "sl": ask - sl_pips,
@@ -888,10 +979,12 @@ try:
                     log_notify(f"BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
                 # Open SELL, but signal is BUY: close SELL, open BUY
+                # Use existing position's volume for closing
+                existing_volume = positions[0].volume if positions else trade_lot
                 close_request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": symbol,
-                    "volume": lot,
+                    "volume": existing_volume,
                     "type": mt5.ORDER_TYPE_BUY,
                     "position": ticket,
                     "price": ask,
@@ -938,7 +1031,7 @@ try:
                 request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": symbol,
-                    "volume": lot,
+                    "volume": trade_lot,
                     "type": mt5.ORDER_TYPE_SELL,
                     "price": bid,
                     "sl": bid + sl_pips,
@@ -967,10 +1060,12 @@ try:
                     log_notify(f"SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
                 # Open BUY, but signal is SELL: close BUY, open SELL
+                # Use existing position's volume for closing
+                existing_volume = positions[0].volume if positions else trade_lot
                 close_request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": symbol,
-                    "volume": lot,
+                    "volume": existing_volume,
                     "type": mt5.ORDER_TYPE_SELL,
                     "position": ticket,
                     "price": bid,
