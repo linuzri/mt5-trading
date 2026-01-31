@@ -8,6 +8,8 @@ This module calculates technical indicators and features:
 - Bollinger Bands
 - Volume indicators
 - Price momentum features
+- Trend indicators (EMA crossovers, price vs MA)
+- Market regime detection (trending vs ranging)
 """
 
 import pandas as pd
@@ -129,6 +131,106 @@ class FeatureEngineering:
 
         return candle_body_ratio, upper_shadow_ratio, lower_shadow_ratio, engulfing
 
+    def calculate_trend_features(self, df):
+        """
+        Calculate trend-related features to detect market direction.
+        
+        Returns:
+            ema_20: 20-period EMA
+            ema_50: 50-period EMA
+            ema_cross: 1 if EMA20 > EMA50 (bullish), -1 if below (bearish)
+            price_vs_ema20: Price position relative to EMA20 (%)
+            price_vs_ema50: Price position relative to EMA50 (%)
+            trend_strength: ADX-like trend strength (0-100)
+        """
+        # EMAs
+        ema_20 = df['close'].ewm(span=20, adjust=False).mean()
+        ema_50 = df['close'].ewm(span=50, adjust=False).mean()
+        
+        # EMA crossover signal
+        ema_cross = pd.Series(0, index=df.index)
+        ema_cross[ema_20 > ema_50] = 1   # Bullish
+        ema_cross[ema_20 < ema_50] = -1  # Bearish
+        
+        # Price position relative to EMAs (normalized)
+        price_vs_ema20 = (df['close'] - ema_20) / ema_20
+        price_vs_ema50 = (df['close'] - ema_50) / ema_50
+        
+        # Trend strength (simplified ADX-like calculation)
+        # Uses directional movement over rolling window
+        plus_dm = df['high'].diff()
+        minus_dm = -df['low'].diff()
+        plus_dm[plus_dm < 0] = 0
+        minus_dm[minus_dm < 0] = 0
+        
+        tr = self.calculate_atr(df, period=14) * 14  # True range sum
+        plus_di = 100 * (plus_dm.rolling(14).sum() / tr.replace(0, np.nan)).fillna(0)
+        minus_di = 100 * (minus_dm.rolling(14).sum() / tr.replace(0, np.nan)).fillna(0)
+        
+        dx = 100 * (abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10))
+        trend_strength = dx.rolling(14).mean().fillna(0)
+        
+        return ema_cross, price_vs_ema20, price_vs_ema50, trend_strength
+
+    def calculate_regime_features(self, df):
+        """
+        Detect market regime (trending vs ranging).
+        
+        Returns:
+            regime: 1=trending, 0=ranging (based on BB width and ATR)
+            momentum_10: 10-period momentum (rate of change)
+            higher_high: 1 if current high > previous 5 highs
+            lower_low: 1 if current low < previous 5 lows
+        """
+        # Momentum (Rate of Change)
+        momentum_10 = df['close'].pct_change(10)
+        
+        # Higher highs / Lower lows (trend structure)
+        rolling_high = df['high'].rolling(5).max().shift(1)
+        rolling_low = df['low'].rolling(5).min().shift(1)
+        
+        higher_high = (df['high'] > rolling_high).astype(int)
+        lower_low = (df['low'] < rolling_low).astype(int)
+        
+        # Regime detection: trending if BB is expanding and price moving
+        bb_upper, bb_lower, bb_width = self.calculate_bollinger_bands(df)
+        bb_width_ma = bb_width.rolling(20).mean()
+        
+        # Trending = BB width expanding + strong momentum
+        is_trending = ((bb_width > bb_width_ma) & (abs(momentum_10) > 0.005)).astype(int)
+        
+        return is_trending, momentum_10, higher_high, lower_low
+
+    def calculate_multi_timeframe_bias(self, df):
+        """
+        Calculate higher timeframe trend bias using longer EMAs.
+        
+        Returns:
+            htf_bias: Overall higher timeframe bias (-1 to 1)
+            ema_200: 200-period EMA
+            price_vs_ema200: Price position relative to EMA200
+        """
+        # EMA 200 for longer-term trend
+        ema_200 = df['close'].ewm(span=200, adjust=False).mean()
+        price_vs_ema200 = (df['close'] - ema_200) / ema_200
+        
+        # Higher timeframe bias combines multiple signals
+        ema_50 = df['close'].ewm(span=50, adjust=False).mean()
+        ema_100 = df['close'].ewm(span=100, adjust=False).mean()
+        
+        # Score: +1 for each bullish condition, -1 for bearish
+        htf_bias = pd.Series(0.0, index=df.index)
+        htf_bias += (df['close'] > ema_50).astype(float) * 0.25
+        htf_bias += (df['close'] > ema_100).astype(float) * 0.25
+        htf_bias += (df['close'] > ema_200).astype(float) * 0.25
+        htf_bias += (ema_50 > ema_200).astype(float) * 0.25
+        htf_bias -= (df['close'] < ema_50).astype(float) * 0.25
+        htf_bias -= (df['close'] < ema_100).astype(float) * 0.25
+        htf_bias -= (df['close'] < ema_200).astype(float) * 0.25
+        htf_bias -= (ema_50 < ema_200).astype(float) * 0.25
+        
+        return htf_bias, price_vs_ema200
+
     def add_all_features(self, df):
         """
         Add all technical indicators and features to DataFrame
@@ -165,6 +267,18 @@ class FeatureEngineering:
         # Candlestick patterns
         df['candle_body_ratio'], df['upper_shadow_ratio'], df['lower_shadow_ratio'], df['engulfing'] = \
             self.calculate_candlestick_patterns(df)
+
+        # Trend features (NEW)
+        df['ema_cross'], df['price_vs_ema20'], df['price_vs_ema50'], df['trend_strength'] = \
+            self.calculate_trend_features(df)
+
+        # Market regime features (NEW)
+        df['is_trending'], df['momentum_10'], df['higher_high'], df['lower_low'] = \
+            self.calculate_regime_features(df)
+
+        # Higher timeframe bias (NEW)
+        df['htf_bias'], df['price_vs_ema200'] = \
+            self.calculate_multi_timeframe_bias(df)
 
         print(f"[OK] Added {len(self.feature_names)} features")
 

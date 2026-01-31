@@ -23,7 +23,17 @@
     "candle_body_ratio",
     "upper_shadow_ratio",
     "lower_shadow_ratio",
-    "engulfing"
+    "engulfing",
+    "ema_cross",
+    "price_vs_ema20",
+    "price_vs_ema50",
+    "trend_strength",
+    "is_trending",
+    "momentum_10",
+    "higher_high",
+    "lower_low",
+    "htf_bias",
+    "price_vs_ema200"
   ],
 
   "labeling": {
