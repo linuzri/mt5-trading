@@ -43,6 +43,8 @@ signal = model.predict(current_market_features)
 
 ## Features Used (10 Indicators)
 
+### Original Features (14)
+
 | Feature | Description | Why It Matters |
 |---------|-------------|----------------|
 | `rsi_14` | Relative Strength Index | Overbought/oversold |
@@ -55,6 +57,27 @@ signal = model.predict(current_market_features)
 | `volume_ratio` | Volume vs average | Buying pressure |
 | `price_change_1min` | 1-candle return | Recent momentum |
 | `price_change_5min` | 5-candle return | Short-term trend |
+| `candle_body_ratio` | Body size vs range | Candle strength |
+| `upper_shadow_ratio` | Upper wick ratio | Selling pressure |
+| `lower_shadow_ratio` | Lower wick ratio | Buying pressure |
+| `engulfing` | Engulfing pattern | Reversal signal |
+
+### Enhanced Features (10) - NEW
+
+| Feature | Description | Why It Matters |
+|---------|-------------|----------------|
+| `williams_r` | Williams %R oscillator | Momentum extremes (-100 to 0) |
+| `roc_10` | Rate of Change (10 periods) | Momentum strength |
+| `ema_diff` | EMA(9) vs EMA(21) difference | Trend strength |
+| `ema_trend` | EMA trend direction | Trend direction (1/-1/0) |
+| `atr_percentile` | ATR vs recent history | Volatility regime (high/low) |
+| `dist_from_high` | Distance from 20-period high | Resistance proximity |
+| `dist_from_low` | Distance from 20-period low | Support proximity |
+| `macd_histogram` | MACD line - signal | Momentum acceleration |
+| `hour_sin` | Hour of day (sine) | Session timing |
+| `hour_cos` | Hour of day (cosine) | Session timing |
+
+**Total: 24 features** for richer pattern recognition
 
 ## Installation & Setup
 

@@ -13,10 +13,11 @@ A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting mu
 
 ### Machine Learning Strategy
 - **Random Forest classifier** trained on 30 days of historical data
-- **10 technical indicators** as features (RSI, MACD, ATR, Bollinger Bands, etc.)
+- **24 technical indicators** as features (RSI, MACD, ATR, Bollinger Bands, Williams %R, EMA trend, etc.)
 - **Confidence-based trading** - Only trades when model confidence exceeds threshold
 - **Daily auto-retraining** - Model retrains every day at 8:00 AM ET with fresh data
 - **Class-balanced training** - Handles imbalanced BUY/SELL/HOLD labels
+- **Session-aware features (NEW)** - Hour encoding helps model learn time-of-day patterns
 
 ### Smart Optimization
 - **Daily auto-training** - ML model retrains every day at 8:00 AM US Eastern

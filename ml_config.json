@@ -23,8 +23,19 @@
     "candle_body_ratio",
     "upper_shadow_ratio",
     "lower_shadow_ratio",
-    "engulfing"
+    "engulfing",
+    "williams_r",
+    "roc_10",
+    "ema_diff",
+    "ema_trend",
+    "atr_percentile",
+    "dist_from_high",
+    "dist_from_low",
+    "macd_histogram",
+    "hour_sin",
+    "hour_cos"
   ],
+  "_features_comment": "24 features: 14 original + 10 enhanced (momentum, trend, volatility regime, time)",
 
   "labeling": {
     "method": "sltp_aware",

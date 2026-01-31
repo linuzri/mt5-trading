@@ -129,6 +129,75 @@ class FeatureEngineering:
 
         return candle_body_ratio, upper_shadow_ratio, lower_shadow_ratio, engulfing
 
+    def calculate_williams_r(self, df, period=14):
+        """Calculate Williams %R indicator (-100 to 0, oversold < -80, overbought > -20)"""
+        highest_high = df['high'].rolling(window=period).max()
+        lowest_low = df['low'].rolling(window=period).min()
+        
+        williams_r = -100 * (highest_high - df['close']) / (highest_high - lowest_low)
+        return williams_r.fillna(-50)  # Neutral value for NaN
+
+    def calculate_roc(self, df, period=10):
+        """Calculate Rate of Change (momentum indicator)"""
+        roc = ((df['close'] - df['close'].shift(period)) / df['close'].shift(period)) * 100
+        return roc.fillna(0)
+
+    def calculate_ema_trend(self, df, fast=9, slow=21):
+        """Calculate EMA trend indicator (1 = bullish, -1 = bearish, 0 = neutral)"""
+        ema_fast = df['close'].ewm(span=fast, adjust=False).mean()
+        ema_slow = df['close'].ewm(span=slow, adjust=False).mean()
+        
+        # Trend strength: how far apart are the EMAs (normalized by price)
+        ema_diff = (ema_fast - ema_slow) / df['close'] * 100
+        
+        # Trend direction: 1 for bullish, -1 for bearish
+        trend_direction = pd.Series(0, index=df.index)
+        trend_direction[ema_fast > ema_slow] = 1
+        trend_direction[ema_fast < ema_slow] = -1
+        
+        return ema_diff, trend_direction
+
+    def calculate_atr_percentile(self, df, period=14, lookback=100):
+        """Calculate ATR percentile (is current volatility high or low historically)"""
+        atr = self.calculate_atr(df, period)
+        atr_percentile = atr.rolling(window=lookback).apply(
+            lambda x: pd.Series(x).rank(pct=True).iloc[-1], raw=False
+        )
+        return atr_percentile.fillna(0.5)  # 0.5 = middle
+
+    def calculate_distance_from_extremes(self, df, period=20):
+        """Calculate distance from recent high/low (normalized)"""
+        highest_high = df['high'].rolling(window=period).max()
+        lowest_low = df['low'].rolling(window=period).min()
+        price_range = highest_high - lowest_low
+        
+        # Distance from high (0 = at high, 1 = at low)
+        dist_from_high = (highest_high - df['close']) / price_range
+        # Distance from low (0 = at low, 1 = at high)  
+        dist_from_low = (df['close'] - lowest_low) / price_range
+        
+        return dist_from_high.fillna(0.5), dist_from_low.fillna(0.5)
+
+    def calculate_macd_histogram(self, df, fast=12, slow=26, signal=9):
+        """Calculate MACD histogram (MACD line - signal line)"""
+        macd_line, macd_signal = self.calculate_macd(df, fast, slow, signal)
+        histogram = macd_line - macd_signal
+        return histogram
+
+    def calculate_hour_features(self, df):
+        """Calculate hour-based features for session awareness"""
+        if 'timestamp' in df.columns:
+            hour = pd.to_datetime(df['timestamp']).dt.hour
+        else:
+            # Assume index is timestamp
+            hour = pd.Series(range(len(df)), index=df.index) % 24  # Fallback
+        
+        # Cyclical encoding of hour (preserves continuity between 23 and 0)
+        hour_sin = np.sin(2 * np.pi * hour / 24)
+        hour_cos = np.cos(2 * np.pi * hour / 24)
+        
+        return hour_sin, hour_cos
+
     def add_all_features(self, df):
         """
         Add all technical indicators and features to DataFrame
@@ -166,7 +235,30 @@ class FeatureEngineering:
         df['candle_body_ratio'], df['upper_shadow_ratio'], df['lower_shadow_ratio'], df['engulfing'] = \
             self.calculate_candlestick_patterns(df)
 
-        print(f"[OK] Added {len(self.feature_names)} features")
+        # === NEW ENHANCED FEATURES ===
+        
+        # Williams %R (momentum oscillator)
+        df['williams_r'] = self.calculate_williams_r(df, period=14)
+        
+        # Rate of Change
+        df['roc_10'] = self.calculate_roc(df, period=10)
+        
+        # EMA trend
+        df['ema_diff'], df['ema_trend'] = self.calculate_ema_trend(df, fast=9, slow=21)
+        
+        # ATR percentile (volatility regime)
+        df['atr_percentile'] = self.calculate_atr_percentile(df, period=14, lookback=100)
+        
+        # Distance from recent high/low
+        df['dist_from_high'], df['dist_from_low'] = self.calculate_distance_from_extremes(df, period=20)
+        
+        # MACD histogram
+        df['macd_histogram'] = self.calculate_macd_histogram(df)
+        
+        # Hour features (cyclical)
+        df['hour_sin'], df['hour_cos'] = self.calculate_hour_features(df)
+
+        print(f"[OK] Added {len(self.feature_names)} features (configured) + enhanced features")
 
         return df
 
