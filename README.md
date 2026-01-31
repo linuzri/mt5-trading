@@ -28,6 +28,7 @@ A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting mu
 - **Trailing stop loss** - ATR-based trailing stop management
 - **Daily loss/profit limits** - Auto-pause when limits reached
 - **News event avoidance** - Placeholder for news API integration
+- **Dynamic position sizing (NEW)** - Calculate lot size based on account balance and risk percentage
 
 ### Defensive Trading (NEW)
 - **Spread filter** - Skips trades when spread exceeds threshold (protects against low liquidity)
@@ -124,6 +125,10 @@ python trading.py
 | `max_spread_percent` | Max spread as % of price (0=disabled) | `0.05` |
 | `loss_cooldown_minutes` | Minutes to wait after a loss (0=disabled) | `15` |
 | `max_consecutive_losses` | Pause after X consecutive losses (0=disabled) | `3` |
+| `dynamic_position_sizing.enabled` | Enable dynamic lot calculation | `false` |
+| `dynamic_position_sizing.risk_percent` | Percent of account to risk per trade | `1.0` |
+| `dynamic_position_sizing.min_lot` | Minimum lot size (safety floor) | `0.01` |
+| `dynamic_position_sizing.max_lot` | Maximum lot size (safety cap) | `0.10` |
 
 ## Machine Learning Strategy
 
