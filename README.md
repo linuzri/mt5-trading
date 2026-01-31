@@ -29,6 +29,11 @@ A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting mu
 - **Daily loss/profit limits** - Auto-pause when limits reached
 - **News event avoidance** - Placeholder for news API integration
 
+### Defensive Trading (NEW)
+- **Spread filter** - Skips trades when spread exceeds threshold (protects against low liquidity)
+- **Loss cooldown** - Waits X minutes after a losing trade before next entry (prevents revenge trading)
+- **Consecutive loss circuit breaker** - Pauses trading after X consecutive losses (protects against choppy markets)
+
 ### Notifications
 - **Telegram alerts** - Only for trades (BUY/SELL), not spam
 - **Trade statistics** - Win/loss count, win rate, and session P/L after each trade
@@ -116,6 +121,9 @@ python trading.py
 | `min_atr` | Minimum ATR to trade (0=disabled) | `0` |
 | `max_daily_loss` | Max daily loss before pause (USD) | `100` |
 | `max_daily_profit` | Max daily profit before pause (USD) | `200` |
+| `max_spread_percent` | Max spread as % of price (0=disabled) | `0.05` |
+| `loss_cooldown_minutes` | Minutes to wait after a loss (0=disabled) | `15` |
+| `max_consecutive_losses` | Pause after X consecutive losses (0=disabled) | `3` |
 
 ## Machine Learning Strategy
 
