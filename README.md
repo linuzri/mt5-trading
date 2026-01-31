@@ -29,10 +29,16 @@ A robust, fully automated MetaTrader 5 (MT5) trading bot in Python supporting mu
 - **Daily loss/profit limits** - Auto-pause when limits reached
 - **News event avoidance** - Placeholder for news API integration
 
-### Defensive Trading (NEW)
+### Defensive Trading
 - **Spread filter** - Skips trades when spread exceeds threshold (protects against low liquidity)
 - **Loss cooldown** - Waits X minutes after a losing trade before next entry (prevents revenge trading)
 - **Consecutive loss circuit breaker** - Pauses trading after X consecutive losses (protects against choppy markets)
+
+### Session-Aware Trading (NEW)
+- **Trading sessions** - Different behavior for Asian/European/American sessions
+- **Session-specific confidence** - Adjust confidence threshold per session (e.g., higher threshold during low-volume Asian session)
+- **Off-hours control** - Optionally disable trading during lowest-liquidity periods (21:00-00:00 UTC)
+- **Performance tracking** - Track win rate by session to optimize over time
 
 ### Notifications
 - **Telegram alerts** - Only for trades (BUY/SELL), not spam
@@ -124,6 +130,9 @@ python trading.py
 | `max_spread_percent` | Max spread as % of price (0=disabled) | `0.05` |
 | `loss_cooldown_minutes` | Minutes to wait after a loss (0=disabled) | `15` |
 | `max_consecutive_losses` | Pause after X consecutive losses (0=disabled) | `3` |
+| `session_trading.enabled` | Enable session-aware trading | `true` |
+| `session_trading.sessions.*.enabled` | Enable trading in specific session | `true` |
+| `session_trading.sessions.*.confidence_adjustment` | Add to confidence threshold in session | `0.05` |
 
 ## Machine Learning Strategy
 

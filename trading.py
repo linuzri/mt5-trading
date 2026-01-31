@@ -171,6 +171,53 @@ max_spread_percent = config.get("max_spread_percent", 0.05)  # Max spread as % o
 loss_cooldown_minutes = config.get("loss_cooldown_minutes", 15)  # Minutes to wait after a loss (0 = disabled)
 max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after X consecutive losses (0 = disabled)
 
+# --- Session-Aware Trading Configs ---
+session_config = config.get("session_trading", {})
+session_trading_enabled = session_config.get("enabled", False)
+session_definitions = session_config.get("sessions", {})
+track_session_performance = session_config.get("track_performance", True)
+
+def get_current_session():
+    """
+    Determine current trading session based on UTC hour.
+    Returns: (session_name, session_config) or (None, None) if no session matches
+    """
+    if not session_trading_enabled:
+        return None, None
+    
+    current_hour = datetime.now(UTC).hour
+    
+    # Check each defined session
+    for session_key, session_data in session_definitions.items():
+        if session_key == "off_hours":
+            continue  # Handle off_hours separately
+        
+        start = session_data.get("start_utc", 0)
+        end = session_data.get("end_utc", 24)
+        
+        # Handle sessions that wrap around midnight
+        if start <= end:
+            in_session = start <= current_hour < end
+        else:
+            in_session = current_hour >= start or current_hour < end
+        
+        if in_session:
+            return session_key, session_data
+    
+    # If no session matched, we're in off-hours
+    return "off_hours", session_definitions.get("off_hours", {"enabled": True, "confidence_adjustment": 0})
+
+def is_session_allowed():
+    """Check if trading is allowed in current session."""
+    session_name, session_data = get_current_session()
+    if session_data is None:
+        return True, None, 0  # Session trading disabled, allow all
+    
+    enabled = session_data.get("enabled", True)
+    confidence_adj = session_data.get("confidence_adjustment", 0)
+    
+    return enabled, session_name, confidence_adj
+
 # --- News Filter: Forex Factory Economic Calendar ---
 _news_cache = {'events': [], 'last_fetch': None}
 _NEWS_CACHE_DURATION = timedelta(hours=1)
@@ -385,6 +432,9 @@ try:
     log_notify(f"[STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
     if max_spread_percent > 0 or loss_cooldown_minutes > 0 or max_consecutive_losses > 0:
         log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
+    if session_trading_enabled:
+        enabled_sessions = [k for k, v in session_definitions.items() if v.get("enabled", True)]
+        log_notify(f"[STARTUP] Session Trading: Enabled sessions: {', '.join(enabled_sessions)}")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -404,6 +454,15 @@ try:
     # Defensive trading tracking
     consecutive_losses = 0
     last_loss_time = None  # datetime of last losing trade
+    
+    # Session performance tracking
+    session_stats = {
+        "asian": {"wins": 0, "losses": 0},
+        "european": {"wins": 0, "losses": 0},
+        "american": {"wins": 0, "losses": 0},
+        "off_hours": {"wins": 0, "losses": 0}
+    }
+    current_trade_session = None  # Track which session the current trade was opened in
 
     # Daily trade limit tracking
     daily_trade_count = 0
@@ -421,20 +480,26 @@ try:
             writer = csv.writer(f)
             writer.writerow(entry)
 
-    def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
+    def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason="", trade_session=None):
         """Log trade result with statistics to both screen and Telegram"""
-        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time
+        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time, session_stats
 
         # Update statistics
         if profit > 0:
             total_wins += 1
             consecutive_losses = 0  # Reset consecutive losses on win
             result = "WIN"
+            # Update session stats
+            if trade_session and trade_session in session_stats:
+                session_stats[trade_session]["wins"] += 1
         else:
             total_losses += 1
             consecutive_losses += 1
             last_loss_time = datetime.now(UTC)  # Track when the loss occurred
             result = "LOSS"
+            # Update session stats
+            if trade_session and trade_session in session_stats:
+                session_stats[trade_session]["losses"] += 1
 
         cumulative_pl += profit
         total_trades = total_wins + total_losses
@@ -443,7 +508,8 @@ try:
         # Format trade result message
         conf_str = f" | Confidence: {confidence:.1%}" if confidence else ""
         reason_str = f" ({close_reason})" if close_reason else ""
-        trade_msg = f"[TRADE {result}] {direction}{reason_str} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}"
+        session_str = f" | Session: {trade_session}" if trade_session else ""
+        trade_msg = f"[TRADE {result}] {direction}{reason_str} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}{session_str}"
         stats_msg = f"[STATS] Wins: {total_wins} | Losses: {total_losses} | Win Rate: {win_rate:.1f}% | Session P/L: ${cumulative_pl:.2f}"
 
         # Send to both console and Telegram
@@ -530,7 +596,8 @@ try:
                         exit_price,
                         profit,
                         pos_info.get('confidence'),
-                        close_reason
+                        close_reason,
+                        pos_info.get('session')
                     )
                     append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], exit_price, profit])
                     daily_pl += profit
@@ -851,6 +918,19 @@ try:
                     consecutive_losses = 0
                     log_notify(f"[CIRCUIT BREAKER] Reset after 1 hour cooldown. Trading resumed.")
             trade_signal = None
+        
+        # Check session filter
+        session_allowed, current_session_name, confidence_adjustment = is_session_allowed()
+        if trade_signal is not None and session_trading_enabled:
+            if not session_allowed:
+                msg = f"[SESSION] Trading disabled during {current_session_name} session"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+            else:
+                # Store current session for trade tracking
+                current_trade_session = current_session_name
 
         # Trading logic with management and notifications
         if trade_signal == "buy":
@@ -872,13 +952,15 @@ try:
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
+                    session_info = f" | Session: {current_session_name}" if session_trading_enabled and current_session_name else ""
+                    log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}{session_info}")
                     # Track this position for SL/TP detection
                     ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
                     tracked_positions[result.order] = {
                         'direction': 'BUY',
                         'entry_price': ask,
-                        'confidence': ml_conf
+                        'confidence': ml_conf,
+                        'session': current_session_name if session_trading_enabled else None
                     }
                     # Log account balance after successful BUY
                     balance = mt5.account_info().balance
@@ -907,15 +989,17 @@ try:
                     # Remove old position from tracking
                     if ticket in tracked_positions:
                         old_conf = tracked_positions[ticket].get('confidence')
+                        old_session = tracked_positions[ticket].get('session')
                         del tracked_positions[ticket]
                     else:
                         old_conf = None
+                        old_session = None
                     # Fetch last deal for profit/loss
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         # Log trade result with statistics
-                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, old_conf, "Reversal")
+                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, old_conf, "Reversal", old_session)
                         append_trade_log([str(datetime.now(UTC)), "SELL", entry_price, tick.bid, last_deal.profit])
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
@@ -924,7 +1008,8 @@ try:
                     tracked_positions[close_result.order] = {
                         'direction': 'BUY',
                         'entry_price': ask,
-                        'confidence': ml_conf
+                        'confidence': ml_conf,
+                        'session': current_session_name if session_trading_enabled else None
                     }
                     # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
@@ -951,13 +1036,15 @@ try:
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
+                    session_info = f" | Session: {current_session_name}" if session_trading_enabled and current_session_name else ""
+                    log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}{session_info}")
                     # Track this position for SL/TP detection
                     ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
                     tracked_positions[result.order] = {
                         'direction': 'SELL',
                         'entry_price': bid,
-                        'confidence': ml_conf
+                        'confidence': ml_conf,
+                        'session': current_session_name if session_trading_enabled else None
                     }
                     # Log account balance after successful SELL
                     balance = mt5.account_info().balance
@@ -986,15 +1073,17 @@ try:
                     # Remove old position from tracking
                     if ticket in tracked_positions:
                         old_conf = tracked_positions[ticket].get('confidence')
+                        old_session = tracked_positions[ticket].get('session')
                         del tracked_positions[ticket]
                     else:
                         old_conf = None
+                        old_session = None
                     # Fetch last deal for profit/loss
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
                         # Log trade result with statistics
-                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, old_conf, "Reversal")
+                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, old_conf, "Reversal", old_session)
                         append_trade_log([str(datetime.now(UTC)), "BUY", entry_price, tick.ask, last_deal.profit])
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
@@ -1003,7 +1092,8 @@ try:
                     tracked_positions[close_result.order] = {
                         'direction': 'SELL',
                         'entry_price': bid,
-                        'confidence': ml_conf
+                        'confidence': ml_conf,
+                        'session': current_session_name if session_trading_enabled else None
                     }
                     # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
