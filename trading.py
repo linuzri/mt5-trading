@@ -198,6 +198,13 @@ max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after 
 # --- EMA Trend Filter Configs ---
 enable_ema_trend_filter = config.get("enable_ema_trend_filter", True)  # Enable/disable EMA trend filter
 ema_fast_period = config.get("ema_fast_period", 50)  # Fast EMA period
+
+# --- Partial Profit Taking Configs ---
+partial_profit_config = config.get("partial_profit_taking", {})
+enable_partial_profit = partial_profit_config.get("enabled", False)
+partial_close_percent = partial_profit_config.get("close_percent", 50)  # % of position to close
+partial_trigger_rr = partial_profit_config.get("trigger_at_rr", 1.0)  # Trigger at 1:1 R:R
+partial_move_to_breakeven = partial_profit_config.get("move_sl_to_breakeven", True)
 ema_slow_period = config.get("ema_slow_period", 200)  # Slow EMA period
 
 # --- News Filter: Forex Factory Economic Calendar ---
@@ -326,6 +333,132 @@ def get_filling_mode(symbol):
     else:
         return mt5.ORDER_FILLING_RETURN
 
+# --- Partial Profit Taking ---
+# Track positions that have had partial profit taken (ticket -> True)
+partial_profit_positions = set()
+
+def check_partial_profit_taking(symbol, positions):
+    """
+    Check if any positions qualify for partial profit taking.
+    
+    When price moves 1R (1x risk/SL distance) in our favor:
+    1. Close X% of position (default 50%)
+    2. Move SL to breakeven for remaining position
+    3. Let the rest run to full TP
+    
+    Returns: None (modifies positions in place)
+    """
+    global partial_profit_positions
+    
+    if not enable_partial_profit or not positions:
+        return
+    
+    for pos in positions:
+        # Skip if already processed
+        if pos.ticket in partial_profit_positions:
+            continue
+        
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            continue
+        
+        entry_price = pos.price_open
+        current_price = tick.bid if pos.type == 0 else tick.ask  # BUY uses bid, SELL uses ask
+        sl_distance = abs(entry_price - pos.sl) if pos.sl else sl_pips
+        
+        # Calculate how far price has moved in our favor
+        if pos.type == 0:  # BUY
+            profit_distance = current_price - entry_price
+        else:  # SELL
+            profit_distance = entry_price - current_price
+        
+        # Calculate R multiple (how many times the risk distance)
+        r_multiple = profit_distance / sl_distance if sl_distance > 0 else 0
+        
+        # Check if we've reached the trigger R:R
+        if r_multiple >= partial_trigger_rr:
+            # Calculate volume to close
+            close_volume = round(pos.volume * (partial_close_percent / 100), 2)
+            remaining_volume = round(pos.volume - close_volume, 2)
+            
+            # Ensure minimum lot size
+            sym_info = mt5.symbol_info(symbol)
+            if sym_info:
+                close_volume = max(close_volume, sym_info.volume_min)
+                if close_volume >= pos.volume:
+                    # Can't close partial if it's already at minimum
+                    log_only(f"[PARTIAL] Position {pos.ticket} at minimum volume, skipping partial close")
+                    partial_profit_positions.add(pos.ticket)
+                    continue
+            
+            # Close partial position
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
+            close_price = tick.bid if pos.type == 0 else tick.ask
+            
+            close_request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": close_volume,
+                "type": close_type,
+                "position": pos.ticket,
+                "price": close_price,
+                "deviation": 20,
+                "magic": 234000,
+                "comment": f"partial profit {partial_close_percent}%",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": get_filling_mode(symbol),
+            }
+            
+            close_result = mt5.order_send(close_request)
+            
+            if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
+                direction = "BUY" if pos.type == 0 else "SELL"
+                profit_usd = (close_price - entry_price) * close_volume if pos.type == 0 else (entry_price - close_price) * close_volume
+                
+                log_notify(f"[PARTIAL PROFIT] Closed {partial_close_percent}% of {direction} | "
+                          f"Volume: {close_volume} | R: {r_multiple:.1f} | "
+                          f"Entry: {entry_price:.2f} | Exit: {close_price:.2f}")
+                
+                # Move SL to breakeven for remaining position
+                if partial_move_to_breakeven and remaining_volume > 0:
+                    # Small buffer (0.1% of entry) to account for spread
+                    breakeven_buffer = entry_price * 0.001
+                    new_sl = entry_price + breakeven_buffer if pos.type == 0 else entry_price - breakeven_buffer
+                    
+                    modify_request = {
+                        "action": mt5.TRADE_ACTION_SLTP,
+                        "position": pos.ticket,
+                        "sl": new_sl,
+                        "tp": pos.tp,
+                        "symbol": symbol,
+                        "magic": 234000,
+                        "comment": "breakeven after partial"
+                    }
+                    
+                    modify_result = mt5.order_send(modify_request)
+                    
+                    if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
+                        log_notify(f"[BREAKEVEN] SL moved to {new_sl:.2f} for remaining {remaining_volume} lots")
+                    else:
+                        log_only(f"[WARN] Failed to move SL to breakeven: {modify_result.retcode if modify_result else 'None'}")
+                
+                # Mark as processed
+                partial_profit_positions.add(pos.ticket)
+            else:
+                log_only(f"[WARN] Partial close failed: {close_result.retcode if close_result else 'None'}")
+
+def cleanup_partial_profit_tracking():
+    """Remove tickets that are no longer open from tracking."""
+    global partial_profit_positions
+    
+    current_positions = mt5.positions_get(symbol=symbol)
+    current_tickets = set()
+    if current_positions:
+        current_tickets = {pos.ticket for pos in current_positions}
+    
+    # Remove closed positions from tracking
+    partial_profit_positions = partial_profit_positions.intersection(current_tickets)
+
 # --- ATR filter helper ---
 def get_atr(rates, period=14):
     highs = rates['high']
@@ -416,6 +549,8 @@ try:
         log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
     if enable_ema_trend_filter:
         log_notify(f"[STARTUP] EMA Trend Filter: ENABLED (EMA{ema_fast_period}/EMA{ema_slow_period}) - BUY blocked in downtrend")
+    if enable_partial_profit:
+        log_notify(f"[STARTUP] Partial Profit: ENABLED - Close {partial_close_percent}% at {partial_trigger_rr}R, move SL to breakeven")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -664,6 +799,14 @@ try:
 
         # Check if any tracked positions were closed by SL/TP
         check_closed_positions()
+        
+        # Clean up partial profit tracking for closed positions
+        cleanup_partial_profit_tracking()
+        
+        # Check for partial profit taking opportunities
+        current_positions = mt5.positions_get(symbol=symbol)
+        if enable_partial_profit and current_positions:
+            check_partial_profit_taking(symbol, current_positions)
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)

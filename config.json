@@ -40,5 +40,14 @@
   "loss_cooldown_minutes": 15,
   "_loss_cooldown_comment": "Minutes to wait after a losing trade before entering next trade. Set to 0 to disable.",
   "max_consecutive_losses": 3,
-  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable."
+  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable.",
+
+  "_partial_profit_comment": "Partial Profit Taking: Close portion of position at 1R, move SL to breakeven, let rest run to TP",
+  "partial_profit_taking": {
+    "enabled": false,
+    "close_percent": 50,
+    "trigger_at_rr": 1.0,
+    "move_sl_to_breakeven": true
+  },
+  "_partial_profit_explanation": "When price moves 1x your risk (SL distance), close 50% and move SL to entry. Locks in profit while letting winners run."
 }
