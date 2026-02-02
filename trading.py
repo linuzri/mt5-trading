@@ -282,6 +282,231 @@ def calculate_position_size(symbol, stop_loss_pips, account_balance=None):
         log_only(f"[POSITION SIZING] Error calculating lot: {e}, using fixed lot")
         return lot
 
+# --- Session-Aware Trading Configs ---
+session_config = config.get("session_trading", {})
+session_trading_enabled = session_config.get("enabled", False)
+session_definitions = session_config.get("sessions", {})
+
+def get_current_session():
+    """
+    Determine which trading session we're in based on UTC hour.
+    
+    Returns:
+        tuple: (session_name, session_config) or (None, None) if off-hours
+    """
+    current_hour = datetime.now(UTC).hour
+    
+    # Check each session
+    for session_name, sess_cfg in session_definitions.items():
+        if session_name == "off_hours":
+            continue  # Handle separately
+        
+        start = sess_cfg.get("start_utc", 0)
+        end = sess_cfg.get("end_utc", 24)
+        
+        # Handle sessions that span midnight
+        if start <= end:
+            in_session = start <= current_hour < end
+        else:
+            in_session = current_hour >= start or current_hour < end
+        
+        if in_session:
+            return session_name, sess_cfg
+    
+    # If no named session matches, we're in off-hours
+    return "off_hours", session_definitions.get("off_hours", {"enabled": False})
+
+def is_session_trading_allowed():
+    """
+    Check if trading is allowed in the current session.
+    
+    Returns:
+        tuple: (allowed: bool, confidence_adjustment: float, session_name: str)
+    """
+    if not session_trading_enabled:
+        return True, 0.0, "N/A"
+    
+    session_name, sess_cfg = get_current_session()
+    
+    if sess_cfg is None:
+        return True, 0.0, "unknown"
+    
+    allowed = sess_cfg.get("enabled", True)
+    adjustment = sess_cfg.get("confidence_adjustment", 0.0)
+    
+    return allowed, adjustment, session_name
+
+# --- Partial Profit Taking Configs ---
+partial_profit_config = config.get("partial_profit_taking", {})
+enable_partial_profit = partial_profit_config.get("enabled", False)
+partial_close_percent = partial_profit_config.get("close_percent", 50)
+partial_trigger_rr = partial_profit_config.get("trigger_at_rr", 1.0)
+partial_move_to_breakeven = partial_profit_config.get("move_sl_to_breakeven", True)
+
+# Track positions that have had partial profit taken
+partial_profit_positions = set()
+
+def check_partial_profit_taking(symbol, positions, sl_pips_value):
+    """
+    Check if any positions qualify for partial profit taking.
+    """
+    global partial_profit_positions
+    
+    if not enable_partial_profit or not positions:
+        return
+    
+    for pos in positions:
+        if pos.ticket in partial_profit_positions:
+            continue
+        
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            continue
+        
+        entry_price = pos.price_open
+        current_price = tick.bid if pos.type == 0 else tick.ask
+        sl_distance = abs(entry_price - pos.sl) if pos.sl else sl_pips_value
+        
+        # Calculate profit distance
+        if pos.type == 0:  # BUY
+            profit_distance = current_price - entry_price
+        else:  # SELL
+            profit_distance = entry_price - current_price
+        
+        r_multiple = profit_distance / sl_distance if sl_distance > 0 else 0
+        
+        if r_multiple >= partial_trigger_rr:
+            close_volume = round(pos.volume * (partial_close_percent / 100), 2)
+            remaining_volume = round(pos.volume - close_volume, 2)
+            
+            sym_info = mt5.symbol_info(symbol)
+            if sym_info:
+                close_volume = max(close_volume, sym_info.volume_min)
+                if close_volume >= pos.volume:
+                    partial_profit_positions.add(pos.ticket)
+                    continue
+            
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
+            close_price = tick.bid if pos.type == 0 else tick.ask
+            
+            close_request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": close_volume,
+                "type": close_type,
+                "position": pos.ticket,
+                "price": close_price,
+                "deviation": 20,
+                "magic": 234000,
+                "comment": f"partial profit {partial_close_percent}%",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": get_filling_mode(symbol),
+            }
+            
+            close_result = mt5.order_send(close_request)
+            
+            if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
+                direction = "BUY" if pos.type == 0 else "SELL"
+                log_notify(f"[PARTIAL PROFIT] Closed {partial_close_percent}% of {direction} | "
+                          f"R: {r_multiple:.1f} | Entry: {entry_price:.2f} | Exit: {close_price:.2f}")
+                
+                if partial_move_to_breakeven and remaining_volume > 0:
+                    breakeven_buffer = entry_price * 0.001
+                    new_sl = entry_price + breakeven_buffer if pos.type == 0 else entry_price - breakeven_buffer
+                    
+                    modify_request = {
+                        "action": mt5.TRADE_ACTION_SLTP,
+                        "position": pos.ticket,
+                        "sl": new_sl,
+                        "tp": pos.tp,
+                        "symbol": symbol,
+                        "magic": 234000,
+                    }
+                    
+                    modify_result = mt5.order_send(modify_request)
+                    if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
+                        log_notify(f"[BREAKEVEN] SL moved to {new_sl:.2f}")
+                
+                partial_profit_positions.add(pos.ticket)
+
+def cleanup_partial_profit_tracking():
+    """Remove closed positions from tracking."""
+    global partial_profit_positions
+    current_positions = mt5.positions_get(symbol=symbol)
+    current_tickets = set(pos.ticket for pos in current_positions) if current_positions else set()
+    partial_profit_positions = partial_profit_positions.intersection(current_tickets)
+
+# --- Smart Exit Configs ---
+smart_exit_config = config.get("smart_exit", {})
+enable_smart_exit = smart_exit_config.get("enabled", False)
+max_hold_minutes = smart_exit_config.get("max_hold_minutes", 120)
+close_if_stagnant = smart_exit_config.get("close_if_stagnant", True)
+stagnant_threshold_percent = smart_exit_config.get("stagnant_threshold_percent", 0.02)
+
+def check_smart_exit(symbol, positions, tracked_positions):
+    """
+    Check if any positions should be closed based on smart exit rules.
+    """
+    if not enable_smart_exit or not positions:
+        return
+    
+    now = datetime.now(UTC)
+    
+    for pos in positions:
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            continue
+        
+        entry_price = pos.price_open
+        current_price = tick.bid if pos.type == 0 else tick.ask
+        
+        try:
+            position_open_time = datetime.fromtimestamp(pos.time, UTC)
+            minutes_held = (now - position_open_time).total_seconds() / 60
+        except Exception:
+            minutes_held = 0
+        
+        should_close = False
+        close_reason = ""
+        
+        if max_hold_minutes > 0 and minutes_held >= max_hold_minutes:
+            should_close = True
+            close_reason = f"Time limit ({minutes_held:.0f}min)"
+        
+        if not should_close and close_if_stagnant and minutes_held >= 30:
+            price_change_percent = abs((current_price - entry_price) / entry_price) * 100
+            if price_change_percent < stagnant_threshold_percent:
+                should_close = True
+                close_reason = f"Stagnant ({price_change_percent:.3f}%)"
+        
+        if should_close:
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
+            close_price = tick.bid if pos.type == 0 else tick.ask
+            
+            close_request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": pos.volume,
+                "type": close_type,
+                "position": pos.ticket,
+                "price": close_price,
+                "deviation": 20,
+                "magic": 234000,
+                "comment": f"smart exit",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": get_filling_mode(symbol),
+            }
+            
+            close_result = mt5.order_send(close_request)
+            
+            if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
+                direction = "BUY" if pos.type == 0 else "SELL"
+                log_notify(f"[SMART EXIT] {direction} closed | Reason: {close_reason} | "
+                          f"Entry: {entry_price:.2f} | Exit: {close_price:.2f}")
+                
+                if pos.ticket in tracked_positions:
+                    del tracked_positions[pos.ticket]
+
 # --- News Filter: Forex Factory Economic Calendar ---
 _news_cache = {'events': [], 'last_fetch': None}
 _NEWS_CACHE_DURATION = timedelta(hours=1)
@@ -502,6 +727,12 @@ try:
         log_notify(f"[STARTUP] Position Sizing: Dynamic ({risk_percent}% risk), Lot range: {min_lot_size}-{max_lot_size}")
     else:
         log_notify(f"[STARTUP] Position Sizing: Fixed lot = {lot}")
+    if session_trading_enabled:
+        log_notify(f"[STARTUP] Session Trading: ENABLED - Off-hours trading {'ON' if session_definitions.get('off_hours', {}).get('enabled', False) else 'OFF'}")
+    if enable_partial_profit:
+        log_notify(f"[STARTUP] Partial Profit: ENABLED - Close {partial_close_percent}% at {partial_trigger_rr}R, breakeven SL")
+    if enable_smart_exit:
+        log_notify(f"[STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -750,6 +981,17 @@ try:
 
         # Check if any tracked positions were closed by SL/TP
         check_closed_positions()
+        
+        # Cleanup partial profit tracking for closed positions
+        cleanup_partial_profit_tracking()
+        
+        # Check for partial profit and smart exit opportunities
+        current_positions = mt5.positions_get(symbol=symbol)
+        if current_positions:
+            if enable_partial_profit:
+                check_partial_profit_taking(symbol, current_positions, sl_pips)
+            if enable_smart_exit:
+                check_smart_exit(symbol, current_positions, tracked_positions)
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)
@@ -805,6 +1047,16 @@ try:
             if last_filter_message != msg:
                 log_only(msg)
                 last_filter_message = msg
+            continue
+        
+        # Session trading filter
+        session_allowed, session_conf_adj, current_session = is_session_trading_allowed()
+        if not session_allowed:
+            msg = f"[SESSION] Trading disabled during {current_session} session. Waiting..."
+            if last_filter_message != msg:
+                log_only(msg)
+                last_filter_message = msg
+            time.sleep(60)
             continue
         
         # EMA Trend Filter - detect overall market trend
@@ -883,8 +1135,17 @@ try:
                         trade_signal = None
                         continue
 
+                    # Apply session-based confidence adjustment
+                    original_threshold = ml_predictor.confidence_threshold
+                    if session_trading_enabled and session_conf_adj > 0:
+                        ml_predictor.confidence_threshold = original_threshold + session_conf_adj
+                        log_only(f"[SESSION] {current_session} session: confidence threshold raised to {ml_predictor.confidence_threshold:.0%}")
+                    
                     # Get ML prediction
                     signal, confidence, reason = ml_predictor.get_trade_signal(latest_features)
+                    
+                    # Restore original threshold
+                    ml_predictor.confidence_threshold = original_threshold
 
                     if signal is not None:
                         trade_signal = signal
