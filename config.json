@@ -20,7 +20,7 @@
   "atr_period": 14,
   "atr_multiplier": 1.5,
   "enable_trailing_stop": false,
-  "strategy": "ml_random_forest",
+  "strategy": "ml_xgboost",
   "bollinger_period": 20,
   "bollinger_stddev": 2,
   "rsi_period": 14,

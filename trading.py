@@ -17,7 +17,7 @@ try:
 except ImportError:
     from pytz import timezone as ZoneInfo  # fallback for older Python
 
-# ML imports (optional - only needed if using ml_random_forest strategy)
+# ML imports (optional - only needed if using ml_xgboost strategy)
 try:
     from ml.model_predictor import ModelPredictor
     from ml.feature_engineering import FeatureEngineering
@@ -680,7 +680,7 @@ def reload_config_and_strategy():
 ml_predictor = None
 ml_feature_eng = None
 
-if strategy == "ml_random_forest":
+if strategy == "ml_xgboost":
     if not ML_AVAILABLE:
         print("[ERROR] ML strategy selected but ML modules not available!")
         print("   Install dependencies: pip install scikit-learn joblib")
@@ -690,7 +690,7 @@ if strategy == "ml_random_forest":
         ml_predictor = ModelPredictor("ml_config.json")
         ml_feature_eng = FeatureEngineering("ml_config.json")
         ml_predictor.load_model()
-        print("[ML] Model loaded successfully for ml_random_forest strategy")
+        print("[ML] Model loaded successfully for ml_xgboost strategy")
     except FileNotFoundError as e:
         print(f"[ERROR] ML model not found: {e}")
         print("   Train the model first: python train_ml_model.py")
@@ -733,7 +733,7 @@ try:
         log_notify(f"[STARTUP] Partial Profit: ENABLED - Close {partial_close_percent}% at {partial_trigger_rr}R, breakeven SL")
     if enable_smart_exit:
         log_notify(f"[STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
-    if strategy == "ml_random_forest":
+    if strategy == "ml_xgboost":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
     last_filter_message = None  # Track last filter message to avoid spamming
@@ -756,7 +756,7 @@ try:
     # Daily trade limit tracking
     daily_trade_count = 0
     max_trades_per_day = 10  # Default, will be updated from ml_config if available
-    if strategy == "ml_random_forest" and ml_predictor is not None:
+    if strategy == "ml_xgboost" and ml_predictor is not None:
         max_trades_per_day = ml_predictor.config.get('risk_management', {}).get('max_trades_per_day', 10)
         print(f"[ML] Max trades per day: {max_trades_per_day}")
 
@@ -1102,7 +1102,7 @@ try:
                     trade_signal = "buy"
                 elif last_close < last_lower:
                     trade_signal = "sell"
-        elif strategy == "ml_random_forest":
+        elif strategy == "ml_xgboost":
             # Machine Learning strategy using trained Random Forest model
             if ml_predictor is not None and ml_feature_eng is not None:
                 try:
@@ -1289,7 +1289,7 @@ try:
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
                     # Track this position for SL/TP detection
-                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
+                    ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
                     tracked_positions[result.order] = {
                         'direction': 'BUY',
                         'entry_price': ask,
@@ -1337,7 +1337,7 @@ try:
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
                     # Track the new BUY position
-                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
+                    ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
                     tracked_positions[close_result.order] = {
                         'direction': 'BUY',
                         'entry_price': ask,
@@ -1370,7 +1370,7 @@ try:
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
                     # Track this position for SL/TP detection
-                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
+                    ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
                     tracked_positions[result.order] = {
                         'direction': 'SELL',
                         'entry_price': bid,
@@ -1418,7 +1418,7 @@ try:
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
                     # Track the new SELL position
-                    ml_conf = last_trade_confidence if strategy == "ml_random_forest" else None
+                    ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
                     tracked_positions[close_result.order] = {
                         'direction': 'SELL',
                         'entry_price': bid,
