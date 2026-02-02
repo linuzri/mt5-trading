@@ -844,13 +844,13 @@ try:
             pos_info = tracked_positions[ticket]
             trade_logged = False
 
-            # Wait for MT5 to sync deal history (broker delay)
-            time.sleep(0.3)
+            # Wait for MT5 to sync deal history (broker delay can be 1-3 seconds)
+            time.sleep(1.0)
 
             # Get the deal history with retry logic (history may take time to sync)
             closing_deal = None
-            for attempt in range(3):
-                deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=7), datetime.now(UTC))
+            for attempt in range(5):  # Increased from 3 to 5 attempts
+                deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                 if deals:
                     # Find the closing deal for this position
                     for deal in sorted(deals, key=lambda d: d.time, reverse=True):
@@ -859,9 +859,9 @@ try:
                             break
                 if closing_deal:
                     break
-                # Wait before retry
-                if attempt < 2:
-                    time.sleep(0.2)
+                # Wait before retry (exponential backoff)
+                if attempt < 4:
+                    time.sleep(0.5 * (attempt + 1))  # 0.5s, 1s, 1.5s, 2s
 
             if closing_deal:
                 exit_price = closing_deal.price
@@ -900,8 +900,23 @@ try:
                 # Still log to CSV with estimated data so we don't lose the record
                 tick = mt5.symbol_info_tick(symbol)
                 est_exit = tick.bid if pos_info['direction'] == 'BUY' else tick.ask if tick else 0
-                log_notify(f"[WARN] Logging estimated close for {pos_info['direction']} position {ticket}, entry: {pos_info['entry_price']:.2f}")
-                append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], est_exit, "N/A"])
+                
+                # Calculate estimated P/L from price difference
+                # For BUY: profit when exit > entry, for SELL: profit when exit < entry
+                symbol_info = mt5.symbol_info(symbol)
+                if symbol_info and est_exit > 0:
+                    price_diff = est_exit - pos_info['entry_price']
+                    if pos_info['direction'] == 'SELL':
+                        price_diff = -price_diff  # Invert for SELL trades
+                    
+                    # Get contract size and calculate approximate P/L
+                    contract_size = symbol_info.trade_contract_size
+                    est_profit = price_diff * lot * contract_size
+                    log_notify(f"[WARN] Logging estimated close for {pos_info['direction']} position {ticket}, entry: {pos_info['entry_price']:.2f}, est_exit: {est_exit:.2f}, est_profit: ${est_profit:.2f}")
+                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], est_exit, est_profit])
+                else:
+                    log_notify(f"[WARN] Logging estimated close for {pos_info['direction']} position {ticket}, entry: {pos_info['entry_price']:.2f} (no price data)")
+                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], est_exit, "N/A"])
 
             # Remove from tracking
             del tracked_positions[ticket]
