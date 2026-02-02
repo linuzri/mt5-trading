@@ -7,7 +7,7 @@
   
   "_position_sizing_comment": "Dynamic position sizing calculates lot based on account balance and risk per trade",
   "dynamic_position_sizing": {
-    "enabled": false,
+    "enabled": true,
     "risk_percent": 1.0,
     "_risk_comment": "Percent of account to risk per trade (1.0 = 1%). Overrides fixed lot size when enabled.",
     "min_lot": 0.01,
@@ -35,7 +35,7 @@
   "max_daily_profit": 200,
   "_min_atr": "0.0005",
   "min_atr": 0,
-  "_comment": "Set min_atr to 0 to disable the volatility filter. This is a remark or comment for human readers only.",
+  "_comment": "Set min_atr to 0 to disable the volatility filter.",
   "news_block_minutes": 30,
 
   "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
@@ -51,5 +51,56 @@
   "loss_cooldown_minutes": 15,
   "_loss_cooldown_comment": "Minutes to wait after a losing trade before entering next trade. Set to 0 to disable.",
   "max_consecutive_losses": 3,
-  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable."
+  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable.",
+
+  "_session_trading_comment": "Session-aware trading: Trade only during optimal market hours",
+  "session_trading": {
+    "enabled": true,
+    "sessions": {
+      "asian": {
+        "start_utc": 0,
+        "end_utc": 8,
+        "enabled": true,
+        "confidence_adjustment": 0.05,
+        "_comment": "Tokyo session - lower volume, add 5% to confidence threshold"
+      },
+      "european": {
+        "start_utc": 7,
+        "end_utc": 16,
+        "enabled": true,
+        "confidence_adjustment": 0,
+        "_comment": "London session - high volume, normal trading"
+      },
+      "american": {
+        "start_utc": 13,
+        "end_utc": 21,
+        "enabled": true,
+        "confidence_adjustment": 0,
+        "_comment": "New York session - high volatility, good for breakouts"
+      },
+      "off_hours": {
+        "enabled": false,
+        "confidence_adjustment": 0.10,
+        "_comment": "21:00-00:00 UTC - lowest liquidity, DISABLED by default"
+      }
+    }
+  },
+
+  "_partial_profit_comment": "Partial Profit Taking: Close portion of position at 1R, move SL to breakeven",
+  "partial_profit_taking": {
+    "enabled": true,
+    "close_percent": 50,
+    "trigger_at_rr": 1.0,
+    "move_sl_to_breakeven": true,
+    "_explanation": "When price moves 1x your risk (SL distance), close 50% and move SL to entry."
+  },
+
+  "_smart_exit_comment": "Smart Exit Logic: Time-based exit and stagnation detection",
+  "smart_exit": {
+    "enabled": true,
+    "max_hold_minutes": 120,
+    "close_if_stagnant": true,
+    "stagnant_threshold_percent": 0.02,
+    "_explanation": "Close if held > 2 hours OR price moved < 0.02% from entry after 30 min."
+  }
 }
