@@ -127,6 +127,30 @@ def compute_bollinger_bands(prices, period=20, stddev=2):
     lower = ma - stddev * std
     return ma, upper, lower
 
+def compute_ema(prices, period):
+    """Calculate Exponential Moving Average."""
+    return pd.Series(prices).ewm(span=period, adjust=False).mean()
+
+def get_ema_trend(prices, fast_period=50, slow_period=200):
+    """
+    Detect market trend using EMA crossover.
+    
+    Returns:
+        'UPTREND' if EMA50 > EMA200 (bullish)
+        'DOWNTREND' if EMA50 < EMA200 (bearish)
+        None if not enough data
+    """
+    if len(prices) < slow_period:
+        return None
+    
+    ema_fast = compute_ema(prices, fast_period).iloc[-1]
+    ema_slow = compute_ema(prices, slow_period).iloc[-1]
+    
+    if ema_fast > ema_slow:
+        return "UPTREND"
+    else:
+        return "DOWNTREND"
+
 # --- ML Model Training automation DAILY at 8:00 AM US Eastern ---
 def is_daily_training_time():
     """Check if it's time for daily ML model training (8am-9am ET every day)."""
@@ -170,6 +194,11 @@ higher_timeframe = TIMEFRAME_MAP.get(higher_timeframe_str.upper(), mt5.TIMEFRAME
 max_spread_percent = config.get("max_spread_percent", 0.05)  # Max spread as % of price (0 = disabled)
 loss_cooldown_minutes = config.get("loss_cooldown_minutes", 15)  # Minutes to wait after a loss (0 = disabled)
 max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after X consecutive losses (0 = disabled)
+
+# --- EMA Trend Filter Configs ---
+enable_ema_trend_filter = config.get("enable_ema_trend_filter", True)  # Enable/disable EMA trend filter
+ema_fast_period = config.get("ema_fast_period", 50)  # Fast EMA period
+ema_slow_period = config.get("ema_slow_period", 200)  # Slow EMA period
 
 # --- News Filter: Forex Factory Economic Calendar ---
 _news_cache = {'events': [], 'last_fetch': None}
@@ -385,6 +414,8 @@ try:
     log_notify(f"[STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
     if max_spread_percent > 0 or loss_cooldown_minutes > 0 or max_consecutive_losses > 0:
         log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
+    if enable_ema_trend_filter:
+        log_notify(f"[STARTUP] EMA Trend Filter: ENABLED (EMA{ema_fast_period}/EMA{ema_slow_period}) - BUY blocked in downtrend")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -689,6 +720,16 @@ try:
                 log_only(msg)
                 last_filter_message = msg
             continue
+        
+        # EMA Trend Filter - detect overall market trend
+        ema_trend = None
+        if enable_ema_trend_filter:
+            ema_trend = get_ema_trend(closes, ema_fast_period, ema_slow_period)
+            if ema_trend:
+                ema_fast_val = compute_ema(closes, ema_fast_period).iloc[-1]
+                ema_slow_val = compute_ema(closes, ema_slow_period).iloc[-1]
+                log_only(f"[TREND] EMA{ema_fast_period}: {ema_fast_val:.2f} | EMA{ema_slow_period}: {ema_slow_val:.2f} | Trend: {ema_trend}")
+        
         last_filter_message = None  # Reset if all filters pass
         # --- Strategy logic as before, but only take trade if M5 and H1 agree ---
         if strategy == "ma_crossover":
@@ -787,6 +828,21 @@ try:
             trade_signal = None
         # log_only(debug_msg)  # Commented out for future troubleshooting
         # log_only(f"[DEBUG] trade_signal={trade_signal}")  # Commented out for future troubleshooting
+
+        # --- EMA TREND FILTER: Block trades against the trend ---
+        if trade_signal is not None and enable_ema_trend_filter and ema_trend is not None:
+            if trade_signal == "buy" and ema_trend == "DOWNTREND":
+                msg = f"[TREND FILTER] BUY signal blocked - Market in DOWNTREND (EMA{ema_fast_period} < EMA{ema_slow_period})"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None  # Block the BUY trade in downtrend
+            elif trade_signal == "sell" and ema_trend == "UPTREND":
+                msg = f"[TREND FILTER] SELL signal blocked - Market in UPTREND (EMA{ema_fast_period} > EMA{ema_slow_period})"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None  # Block the SELL trade in uptrend
 
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
