@@ -40,5 +40,14 @@
   "loss_cooldown_minutes": 15,
   "_loss_cooldown_comment": "Minutes to wait after a losing trade before entering next trade. Set to 0 to disable.",
   "max_consecutive_losses": 3,
-  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable."
+  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable.",
+
+  "_smart_exit_comment": "Smart Exit Logic: Time-based exit and stagnation detection",
+  "smart_exit": {
+    "enabled": false,
+    "max_hold_minutes": 120,
+    "close_if_stagnant": true,
+    "stagnant_threshold_percent": 0.02
+  },
+  "_smart_exit_explanation": "Close position if held longer than max_hold_minutes. If close_if_stagnant=true, also close if price hasn't moved more than stagnant_threshold_percent from entry."
 }

@@ -200,6 +200,13 @@ enable_ema_trend_filter = config.get("enable_ema_trend_filter", True)  # Enable/
 ema_fast_period = config.get("ema_fast_period", 50)  # Fast EMA period
 ema_slow_period = config.get("ema_slow_period", 200)  # Slow EMA period
 
+# --- Smart Exit Configs ---
+smart_exit_config = config.get("smart_exit", {})
+enable_smart_exit = smart_exit_config.get("enabled", False)
+max_hold_minutes = smart_exit_config.get("max_hold_minutes", 120)  # Max time to hold a position
+close_if_stagnant = smart_exit_config.get("close_if_stagnant", True)
+stagnant_threshold_percent = smart_exit_config.get("stagnant_threshold_percent", 0.02)  # 0.02%
+
 # --- News Filter: Forex Factory Economic Calendar ---
 _news_cache = {'events': [], 'last_fetch': None}
 _NEWS_CACHE_DURATION = timedelta(hours=1)
@@ -326,6 +333,90 @@ def get_filling_mode(symbol):
     else:
         return mt5.ORDER_FILLING_RETURN
 
+# --- Smart Exit Logic ---
+def check_smart_exit(symbol, positions, tracked_positions):
+    """
+    Check if any positions should be closed based on smart exit rules:
+    
+    1. Time-based exit: Close if position held longer than max_hold_minutes
+    2. Stagnation exit: Close if price hasn't moved significantly from entry
+    
+    Returns: None (closes positions that meet criteria)
+    """
+    if not enable_smart_exit or not positions:
+        return
+    
+    now = datetime.now(UTC)
+    
+    for pos in positions:
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            continue
+        
+        entry_price = pos.price_open
+        current_price = tick.bid if pos.type == 0 else tick.ask
+        
+        # Calculate how long position has been open
+        try:
+            # MT5 position time is in seconds since epoch
+            position_open_time = datetime.fromtimestamp(pos.time, UTC)
+            minutes_held = (now - position_open_time).total_seconds() / 60
+        except Exception:
+            minutes_held = 0
+        
+        should_close = False
+        close_reason = ""
+        
+        # Check time-based exit
+        if max_hold_minutes > 0 and minutes_held >= max_hold_minutes:
+            should_close = True
+            close_reason = f"Time limit ({minutes_held:.0f}min > {max_hold_minutes}min)"
+        
+        # Check stagnation exit
+        if not should_close and close_if_stagnant and minutes_held >= 30:  # Only check after 30 min
+            price_change_percent = abs((current_price - entry_price) / entry_price) * 100
+            if price_change_percent < stagnant_threshold_percent:
+                should_close = True
+                close_reason = f"Stagnant ({price_change_percent:.3f}% < {stagnant_threshold_percent}%)"
+        
+        if should_close:
+            # Close the position
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
+            close_price = tick.bid if pos.type == 0 else tick.ask
+            
+            close_request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": pos.volume,
+                "type": close_type,
+                "position": pos.ticket,
+                "price": close_price,
+                "deviation": 20,
+                "magic": 234000,
+                "comment": f"smart exit: {close_reason[:20]}",
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": get_filling_mode(symbol),
+            }
+            
+            close_result = mt5.order_send(close_request)
+            
+            if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
+                direction = "BUY" if pos.type == 0 else "SELL"
+                profit = (close_price - entry_price) * pos.volume if pos.type == 0 else (entry_price - close_price) * pos.volume
+                
+                log_notify(f"[SMART EXIT] {direction} closed | Reason: {close_reason} | "
+                          f"Entry: {entry_price:.2f} | Exit: {close_price:.2f} | "
+                          f"Held: {minutes_held:.0f} min")
+                
+                # Get confidence from tracked positions if available
+                confidence = tracked_positions.get(pos.ticket, {}).get('confidence')
+                
+                # Remove from tracking
+                if pos.ticket in tracked_positions:
+                    del tracked_positions[pos.ticket]
+            else:
+                log_only(f"[WARN] Smart exit failed for {pos.ticket}: {close_result.retcode if close_result else 'None'}")
+
 # --- ATR filter helper ---
 def get_atr(rates, period=14):
     highs = rates['high']
@@ -416,6 +507,8 @@ try:
         log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
     if enable_ema_trend_filter:
         log_notify(f"[STARTUP] EMA Trend Filter: ENABLED (EMA{ema_fast_period}/EMA{ema_slow_period}) - BUY blocked in downtrend")
+    if enable_smart_exit:
+        log_notify(f"[STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, Stagnant check {'ON' if close_if_stagnant else 'OFF'}")
     if strategy == "ml_random_forest":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -664,6 +757,11 @@ try:
 
         # Check if any tracked positions were closed by SL/TP
         check_closed_positions()
+        
+        # Check for smart exit conditions (time-based, stagnation)
+        current_positions = mt5.positions_get(symbol=symbol)
+        if enable_smart_exit and current_positions:
+            check_smart_exit(symbol, current_positions, tracked_positions)
 
         # Check if market is open for trading
         symbol_info = mt5.symbol_info(symbol)
