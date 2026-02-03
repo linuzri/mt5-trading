@@ -1159,6 +1159,7 @@ try:
                             log_only(msg)
                             last_filter_message = msg
                         trade_signal = None
+                        time.sleep(60)
                         continue
 
                     # Apply session-based confidence adjustment
