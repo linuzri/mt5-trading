@@ -1314,6 +1314,13 @@ try:
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
+                elif result and result.retcode == 10031:
+                    # Error 10031 = "No changes" - likely already have a position
+                    recheck = mt5.positions_get(symbol=symbol)
+                    if recheck:
+                        log_only(f"[SKIP] BUY blocked - already have {len(recheck)} position(s) open")
+                    else:
+                        log_notify(f"BUY order failed, retcode = 10031 (no changes)")
                 else:
                     log_notify(f"BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
@@ -1395,6 +1402,13 @@ try:
                     balance = mt5.account_info().balance
                     log_notify(f"[BALANCE] Account balance after SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
+                elif result and result.retcode == 10031:
+                    # Error 10031 = "No changes" - likely already have a position
+                    recheck = mt5.positions_get(symbol=symbol)
+                    if recheck:
+                        log_only(f"[SKIP] SELL blocked - already have {len(recheck)} position(s) open")
+                    else:
+                        log_notify(f"SELL order failed, retcode = 10031 (no changes)")
                 else:
                     log_notify(f"SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
