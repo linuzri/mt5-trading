@@ -992,11 +992,14 @@ try:
             except Exception as e:
                 log_notify(f"[AUTOMATION] Failed to reload ML model: {e}")
             _training_needs_reload = False
-        # (Re)initialize and ensure the symbol is available
-        if not mt5.initialize(login=login, password=password, server=server):
-            log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
-            time.sleep(60)
-            continue
+        # Check MT5 connection - only initialize if not connected
+        terminal_info = mt5.terminal_info()
+        if terminal_info is None:
+            # Not connected, need to initialize
+            if not mt5.initialize(login=login, password=password, server=server):
+                log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
+                time.sleep(60)
+                continue
         if not mt5.symbol_select(symbol, True):
             log_only(f"[ERROR] Failed to select symbol {symbol}. Waiting...")
             time.sleep(60)
