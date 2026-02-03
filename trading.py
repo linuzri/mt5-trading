@@ -901,22 +901,30 @@ try:
                 tick = mt5.symbol_info_tick(symbol)
                 est_exit = tick.bid if pos_info['direction'] == 'BUY' else tick.ask if tick else 0
                 
-                # Calculate estimated P/L from price difference
-                # For BUY: profit when exit > entry, for SELL: profit when exit < entry
-                symbol_info = mt5.symbol_info(symbol)
-                if symbol_info and est_exit > 0:
-                    price_diff = est_exit - pos_info['entry_price']
-                    if pos_info['direction'] == 'SELL':
-                        price_diff = -price_diff  # Invert for SELL trades
-                    
-                    # Get contract size and calculate approximate P/L
-                    contract_size = symbol_info.trade_contract_size
-                    est_profit = price_diff * lot * contract_size
-                    log_notify(f"[WARN] Logging estimated close for {pos_info['direction']} position {ticket}, entry: {pos_info['entry_price']:.2f}, est_exit: {est_exit:.2f}, est_profit: ${est_profit:.2f}")
-                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], est_exit, est_profit])
+                # Validate tick data - if est_exit is wildly different from entry (>30%), it's garbage
+                entry_price = pos_info['entry_price']
+                price_diff_pct = abs(est_exit - entry_price) / entry_price * 100 if entry_price > 0 else 100
+                
+                if est_exit > 0 and price_diff_pct < 30:
+                    # Calculate estimated P/L from price difference
+                    symbol_info = mt5.symbol_info(symbol)
+                    if symbol_info:
+                        price_diff = est_exit - entry_price
+                        if pos_info['direction'] == 'SELL':
+                            price_diff = -price_diff  # Invert for SELL trades
+                        
+                        # Get contract size and calculate approximate P/L
+                        contract_size = symbol_info.trade_contract_size
+                        est_profit = price_diff * lot * contract_size
+                        log_only(f"[CLOSE] {pos_info['direction']} position {ticket} closed, entry: {entry_price:.2f}, est_exit: {est_exit:.2f}, est_profit: ${est_profit:.2f}")
+                        append_trade_log([str(datetime.now(UTC)), pos_info['direction'], entry_price, est_exit, est_profit])
+                    else:
+                        log_only(f"[CLOSE] {pos_info['direction']} position {ticket} closed, entry: {entry_price:.2f} (no symbol info)")
+                        append_trade_log([str(datetime.now(UTC)), pos_info['direction'], entry_price, est_exit, "N/A"])
                 else:
-                    log_notify(f"[WARN] Logging estimated close for {pos_info['direction']} position {ticket}, entry: {pos_info['entry_price']:.2f} (no price data)")
-                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], pos_info['entry_price'], est_exit, "N/A"])
+                    # Bad tick data - log without fake P/L
+                    log_only(f"[CLOSE] {pos_info['direction']} position {ticket} closed, entry: {entry_price:.2f} (tick data unreliable: {est_exit:.2f})")
+                    append_trade_log([str(datetime.now(UTC)), pos_info['direction'], entry_price, 0, "N/A"])
 
             # Remove from tracking
             del tracked_positions[ticket]
@@ -1315,12 +1323,8 @@ try:
                     log_notify(f"[BALANCE] Account balance after BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                 elif result and result.retcode == 10031:
-                    # Error 10031 = "No changes" - likely already have a position
-                    recheck = mt5.positions_get(symbol=symbol)
-                    if recheck:
-                        log_only(f"[SKIP] BUY blocked - already have {len(recheck)} position(s) open")
-                    else:
-                        log_notify(f"BUY order failed, retcode = 10031 (no changes)")
+                    # Error 10031 = "No changes" - likely already have a position (never notify)
+                    log_only(f"[SKIP] BUY order skipped - retcode 10031 (position likely exists)")
                 else:
                     log_notify(f"BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
@@ -1403,12 +1407,8 @@ try:
                     log_notify(f"[BALANCE] Account balance after SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                 elif result and result.retcode == 10031:
-                    # Error 10031 = "No changes" - likely already have a position
-                    recheck = mt5.positions_get(symbol=symbol)
-                    if recheck:
-                        log_only(f"[SKIP] SELL blocked - already have {len(recheck)} position(s) open")
-                    else:
-                        log_notify(f"SELL order failed, retcode = 10031 (no changes)")
+                    # Error 10031 = "No changes" - likely already have a position (never notify)
+                    log_only(f"[SKIP] SELL order skipped - retcode 10031 (position likely exists)")
                 else:
                     log_notify(f"SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
