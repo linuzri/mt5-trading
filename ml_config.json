@@ -76,7 +76,8 @@
 
   "risk_management": {
     "min_atr_threshold": 50,
-    "max_trades_per_day": 10,
+    "max_trades_per_day": 999,
+    "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
     "min_win_rate": 0.50
   },
 

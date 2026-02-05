@@ -2,21 +2,22 @@
   "symbol": "BTCUSD",
   "symbols": ["BTCUSD"],
   "symbol_configs": {
-    "BTCUSD": {"lot": 0.01, "sl_pips": 100, "tp_pips": 150}
+    "BTCUSD": {"lot": 0.01, "sl_pips": 200, "tp_pips": 300}
   },
   
-  "_position_sizing_comment": "Dynamic position sizing calculates lot based on account balance and risk per trade",
+  "_position_sizing_comment": "Dynamic position sizing - CONSERVATIVE settings",
   "dynamic_position_sizing": {
     "enabled": true,
-    "risk_percent": 1.0,
-    "_risk_comment": "Percent of account to risk per trade (1.0 = 1%). Overrides fixed lot size when enabled.",
+    "risk_percent": 0.5,
+    "_risk_comment": "Reduced from 1.0% to 0.5% for more conservative trading",
     "min_lot": 0.01,
-    "max_lot": 0.10,
-    "_lot_limits_comment": "Safety limits - never go below min or above max regardless of calculation"
+    "max_lot": 0.05,
+    "_lot_limits_comment": "Reduced max_lot from 0.10 to 0.05 for smaller position sizes"
   },
 
-  "sl_pips": 100,
-  "tp_pips": 150,
+  "sl_pips": 200,
+  "tp_pips": 300,
+  "_sltp_comment": "Wider stops ($200 SL, $300 TP) for volatile BTC market",
   "atr_period": 14,
   "atr_multiplier": 1.5,
   "enable_trailing_stop": false,
@@ -40,18 +41,18 @@
 
   "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
   
-  "_ema_trend_filter_comment": "EMA Trend Filter: Only trade WITH the trend. BUY blocked in downtrend, SELL blocked in uptrend.",
-  "enable_ema_trend_filter": true,
+  "_ema_trend_filter_comment": "EMA Trend Filter DISABLED - allowing bidirectional trading (BUY and SELL in any trend)",
+  "enable_ema_trend_filter": false,
   "ema_fast_period": 50,
   "ema_slow_period": 200,
   "_ema_explanation": "UPTREND = EMA50 > EMA200 (allow BUY). DOWNTREND = EMA50 < EMA200 (block BUY).",
   
   "max_spread_percent": 0.05,
   "_max_spread_comment": "Maximum spread as % of price. For BTCUSD at $100k, 0.05% = $50 max spread. Set to 0 to disable.",
-  "loss_cooldown_minutes": 15,
-  "_loss_cooldown_comment": "Minutes to wait after a losing trade before entering next trade. Set to 0 to disable.",
-  "max_consecutive_losses": 3,
-  "_max_consecutive_comment": "Pause trading for 1 hour after this many consecutive losses. Set to 0 to disable.",
+  "loss_cooldown_minutes": 30,
+  "_loss_cooldown_comment": "Increased from 15 to 30 min cooldown after loss",
+  "max_consecutive_losses": 2,
+  "_max_consecutive_comment": "Reduced from 3 to 2 - circuit breaker kicks in faster",
 
   "_session_trading_comment": "Session-aware trading: Trade only during optimal market hours",
   "session_trading": {
