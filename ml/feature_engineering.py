@@ -286,14 +286,14 @@ class FeatureEngineering:
 
     def create_labels_sltp_aware(self, df):
         """
-        Create trading labels based on SL/TP hits (CRITICAL FIX)
+        Create trading labels based on SL/TP hits - FIXED BALANCED LOGIC
 
-        Label logic:
-        - BUY (1): If TP hit before SL in lookahead period
-        - SELL (0): If SL hit before TP in lookahead period
-        - HOLD (2): Neither TP nor SL hit, or both hit at same time
+        Label logic (checks BOTH directions independently):
+        - BUY (1): Long TP hit before Long SL (profitable long)
+        - SELL (0): Short TP hit before Short SL (profitable short)
+        - HOLD (2): Neither direction is clearly profitable
 
-        This ensures model learns what actually makes money in live trading!
+        When BOTH directions would be profitable, choose the one that hits TP FIRST.
 
         Args:
             df: DataFrame with OHLC data
@@ -301,7 +301,7 @@ class FeatureEngineering:
         Returns:
             DataFrame with 'label' column
         """
-        print(f"[i] Creating SL/TP-aware labels (TP={self.profit_threshold:.2%}, SL={self.stop_loss_threshold:.2%})...")
+        print(f"[i] Creating BALANCED SL/TP-aware labels (TP={self.profit_threshold:.2%}, SL={self.stop_loss_threshold:.2%})...")
 
         df = df.copy()
         labels = []
@@ -312,8 +312,9 @@ class FeatureEngineering:
                 continue
 
             entry_price = df['close'].iloc[i]
-            future_highs = df['high'].iloc[i+1:i+self.lookahead_candles+1]
-            future_lows = df['low'].iloc[i+1:i+self.lookahead_candles+1]
+            future_data = df.iloc[i+1:i+self.lookahead_candles+1]
+            future_highs = future_data['high']
+            future_lows = future_data['low']
 
             # Calculate TP and SL price levels
             tp_price_long = entry_price * (1 + self.profit_threshold)
@@ -321,22 +322,48 @@ class FeatureEngineering:
             tp_price_short = entry_price * (1 - self.profit_threshold)
             sl_price_short = entry_price * (1 + self.stop_loss_threshold)
 
-            # Check LONG trade (BUY): TP hit before SL?
-            tp_hit_long = (future_highs >= tp_price_long).any()
-            sl_hit_long = (future_lows <= sl_price_long).any()
+            # --- Check LONG trade (BUY) ---
+            # Find first candle where TP or SL is hit
+            long_tp_candle = None
+            long_sl_candle = None
+            for j, (_, row) in enumerate(future_data.iterrows()):
+                if long_tp_candle is None and row['high'] >= tp_price_long:
+                    long_tp_candle = j
+                if long_sl_candle is None and row['low'] <= sl_price_long:
+                    long_sl_candle = j
+            
+            # Long is profitable if TP hit first (or TP hit and SL never hit)
+            long_profitable = False
+            if long_tp_candle is not None:
+                if long_sl_candle is None or long_tp_candle <= long_sl_candle:
+                    long_profitable = True
 
-            if tp_hit_long and not sl_hit_long:
-                labels.append(1)  # BUY
-            # Check SHORT trade (SELL): TP hit before SL?
-            elif not tp_hit_long and sl_hit_long:
-                # For short, we need price to drop to TP before rising to SL
-                tp_hit_short = (future_lows <= tp_price_short).any()
-                sl_hit_short = (future_highs >= sl_price_short).any()
+            # --- Check SHORT trade (SELL) ---
+            short_tp_candle = None
+            short_sl_candle = None
+            for j, (_, row) in enumerate(future_data.iterrows()):
+                if short_tp_candle is None and row['low'] <= tp_price_short:
+                    short_tp_candle = j
+                if short_sl_candle is None and row['high'] >= sl_price_short:
+                    short_sl_candle = j
+            
+            # Short is profitable if TP hit first (or TP hit and SL never hit)
+            short_profitable = False
+            if short_tp_candle is not None:
+                if short_sl_candle is None or short_tp_candle <= short_sl_candle:
+                    short_profitable = True
 
-                if tp_hit_short and not sl_hit_short:
-                    labels.append(0)  # SELL
+            # --- Determine final label ---
+            if long_profitable and short_profitable:
+                # Both profitable - choose the one that hits TP first
+                if long_tp_candle <= short_tp_candle:
+                    labels.append(1)  # BUY (long TP hit first)
                 else:
-                    labels.append(2)  # HOLD
+                    labels.append(0)  # SELL (short TP hit first)
+            elif long_profitable:
+                labels.append(1)  # BUY
+            elif short_profitable:
+                labels.append(0)  # SELL
             else:
                 labels.append(2)  # HOLD
 
