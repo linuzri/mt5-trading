@@ -33,7 +33,11 @@
     "higher_high",
     "lower_low",
     "htf_bias",
-    "price_vs_ema200"
+    "price_vs_ema200",
+    "consecutive_direction",
+    "price_velocity",
+    "range_position",
+    "drawdown_pct"
   ],
 
   "labeling": {

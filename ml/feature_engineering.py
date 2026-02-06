@@ -231,6 +231,48 @@ class FeatureEngineering:
         
         return htf_bias, price_vs_ema200
 
+    def calculate_crash_features(self, df):
+        """
+        Calculate features specifically designed to detect crashes/strong moves.
+        
+        Returns:
+            consecutive_direction: Count of consecutive same-direction candles (+ for green, - for red)
+            price_velocity: Rate of price change over 5 candles (negative = dropping fast)
+            range_position: Where price is in 24h range (0=at low, 1=at high)
+            drawdown_pct: Current drawdown from recent high (negative = in drawdown)
+        """
+        # Consecutive candles in same direction
+        candle_direction = (df['close'] > df['open']).astype(int) * 2 - 1  # 1=green, -1=red
+        
+        # Count consecutive same-direction candles
+        consecutive = pd.Series(0, index=df.index, dtype=float)
+        count = 0
+        prev_dir = 0
+        for i in range(len(df)):
+            curr_dir = candle_direction.iloc[i]
+            if curr_dir == prev_dir:
+                count += curr_dir  # Accumulate in direction
+            else:
+                count = curr_dir  # Reset
+            consecutive.iloc[i] = count
+            prev_dir = curr_dir
+        
+        # Price velocity (5-candle momentum, larger negative = crash)
+        price_velocity = df['close'].pct_change(5)
+        
+        # Position within 24h range (288 candles for M5)
+        rolling_high = df['high'].rolling(288, min_periods=50).max()
+        rolling_low = df['low'].rolling(288, min_periods=50).min()
+        range_size = rolling_high - rolling_low
+        range_position = (df['close'] - rolling_low) / range_size.replace(0, np.nan)
+        range_position = range_position.fillna(0.5)  # Default to middle if no range
+        
+        # Drawdown from recent high (negative when in drawdown)
+        rolling_peak = df['high'].rolling(50).max()
+        drawdown_pct = (df['close'] - rolling_peak) / rolling_peak
+        
+        return consecutive, price_velocity, range_position, drawdown_pct
+
     def add_all_features(self, df):
         """
         Add all technical indicators and features to DataFrame
@@ -279,6 +321,10 @@ class FeatureEngineering:
         # Higher timeframe bias (NEW)
         df['htf_bias'], df['price_vs_ema200'] = \
             self.calculate_multi_timeframe_bias(df)
+
+        # Crash detection features (NEW - Feb 6)
+        df['consecutive_direction'], df['price_velocity'], df['range_position'], df['drawdown_pct'] = \
+            self.calculate_crash_features(df)
 
         print(f"[OK] Added {len(self.feature_names)} features")
 
