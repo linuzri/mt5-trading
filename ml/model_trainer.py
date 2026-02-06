@@ -169,9 +169,13 @@ class ModelTrainer:
         print(f"[i] Training XGBoost with {xgb_params['n_estimators']} estimators...")
         print(f"   Learning rate: {xgb_params['learning_rate']}, Max depth: {xgb_params['max_depth']}")
 
-        # Calculate class weights for imbalanced data
-        from sklearn.utils.class_weight import compute_sample_weight
-        sample_weights = compute_sample_weight('balanced', y_train)
+        # SELL-BOOSTED class weights: Make SELL predictions more likely
+        # Class mapping: 0=SELL, 1=BUY, 2=HOLD
+        # Boost SELL by 2x, keep BUY at 1x, reduce HOLD to 0.5x
+        sell_boost = 2.0  # Increase to make model predict more SELLs
+        class_weight_map = {0: sell_boost, 1: 1.0, 2: 0.5}
+        sample_weights = np.array([class_weight_map[label] for label in y_train])
+        print(f"   Class weights: SELL={sell_boost}x, BUY=1.0x, HOLD=0.5x")
 
         self.model = xgb.XGBClassifier(**xgb_params)
         self.model.fit(X_train, y_train, sample_weight=sample_weights)
