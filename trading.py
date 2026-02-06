@@ -1563,8 +1563,8 @@ try:
                 daily_trade_count = 0  # Reset daily trade count
                 last_pl_date = today
                 log_only(f"[RESET] New trading day - trade count reset")
-            if abs(daily_pl) >= max_daily_loss:
-                send_telegram_message(f"[ALERT] Max daily loss reached: {daily_pl:.2f} USD. Trading paused.")
+            if daily_pl <= -max_daily_loss:
+                send_telegram_message(f"[ALERT] Max daily loss reached: {abs(daily_pl):.2f} USD. Trading paused.")
                 time.sleep(3600)  # Pause for 1 hour
             if daily_pl >= max_daily_profit:
                 send_telegram_message(f"[ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
