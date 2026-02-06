@@ -71,8 +71,40 @@
         .navbar-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 1.5rem;
         }
+
+        .account-balance {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: var(--bg-card);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .account-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .account-label {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .account-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--green);
+        }
+
+        .account-value.profit { color: var(--green); }
+        .account-value.loss { color: var(--red); }
 
         .last-updated {
             color: var(--text-secondary);
@@ -290,11 +322,29 @@
             background: var(--blue);
             border-color: var(--blue);
             color: white;
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
         }
 
         .chart-container {
             position: relative;
             height: 300px;
+        }
+
+        .chart-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 17, 23, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            z-index: 10;
         }
 
         /* Trades Table */
@@ -553,6 +603,20 @@
     <nav class="navbar">
         <h1>Trading Bot Monitor</h1>
         <div class="navbar-right">
+            <div class="account-balance">
+                <div class="account-item">
+                    <span class="account-label">Initial</span>
+                    <span class="account-value" id="initialFund">$50,000</span>
+                </div>
+                <div class="account-item">
+                    <span class="account-label">Current</span>
+                    <span class="account-value" id="currentFund">$0.00</span>
+                </div>
+                <div class="account-item">
+                    <span class="account-label">Total P/L</span>
+                    <span class="account-value" id="totalPnl">$0.00</span>
+                </div>
+            </div>
             <div class="last-updated">
                 <div class="refresh-indicator"></div>
                 <span id="lastUpdated">Loading...</span>
@@ -584,8 +648,12 @@
                         <button class="time-btn" data-days="30">Month</button>
                     </div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" style="position: relative;">
                     <canvas id="pnlChart"></canvas>
+                    <div id="chartLoading" class="chart-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Loading chart...</span>
+                    </div>
                 </div>
             </div>
         </section>
@@ -671,6 +739,21 @@
             }
         }
 
+        // Fetch and display account balance
+        async function renderAccountBalance() {
+            const data = await fetchData('/api/account');
+            if (!data) return;
+            
+            document.getElementById('initialFund').textContent = formatCurrency(data.initial);
+            document.getElementById('currentFund').textContent = formatCurrency(data.balance);
+            
+            const pnlEl = document.getElementById('totalPnl');
+            const isProfitable = data.pnl >= 0;
+            const arrow = isProfitable ? '▲' : '▼';
+            pnlEl.textContent = `${arrow} ${formatCurrency(Math.abs(data.pnl))} (${isProfitable ? '+' : ''}${data.pnl_pct}%)`;
+            pnlEl.className = `account-value ${isProfitable ? 'profit' : 'loss'}`;
+        }
+
         // Render bot cards
         async function renderBots() {
             const data = await fetchData('/api/bots');
@@ -680,7 +763,7 @@
             const grid = document.getElementById('botsGrid');
             
             grid.innerHTML = data.map(bot => {
-                const isProfitable = bot.pnl >= 0;
+                const isProfitable = bot.today_pnl >= 0;
                 const pnlClass = isProfitable ? 'profit' : 'loss';
                 const arrow = isProfitable ? '▲' : '▼';
                 const statusClass = `status-${bot.status}`;
@@ -699,23 +782,27 @@
                         </div>
                         <div class="bot-stats">
                             <div class="stat-item">
-                                <span class="stat-label">Initial Fund</span>
-                                <span class="stat-value">${formatCurrency(bot.initial_fund)}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Current Fund</span>
-                                <span class="stat-value ${pnlClass}">${formatCurrency(bot.current_fund)}</span>
-                            </div>
-                            <div class="stat-item" style="grid-column: span 2">
-                                <span class="stat-label">Profit / Loss</span>
+                                <span class="stat-label">Today's P/L</span>
                                 <div class="pnl-row">
                                     <span class="stat-value ${pnlClass}">
                                         <span class="pnl-arrow">${arrow}</span>
-                                        ${formatCurrency(Math.abs(bot.pnl))}
+                                        ${formatCurrency(Math.abs(bot.today_pnl))}
                                     </span>
-                                    <span class="pnl-percent ${pnlClass}">
-                                        ${isProfitable ? '+' : ''}${bot.pnl_pct.toFixed(2)}%
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Trades</span>
+                                <span class="stat-value">${bot.trades} <span style="font-size:0.75rem;color:var(--text-muted)">(${bot.wins}W / ${bot.losses}L)</span></span>
+                            </div>
+                            <div class="stat-item" style="grid-column: span 2">
+                                <span class="stat-label">Win Rate</span>
+                                <div class="pnl-row">
+                                    <span class="stat-value" style="color: ${bot.win_rate >= 50 ? 'var(--green)' : 'var(--red)'}">
+                                        ${bot.win_rate.toFixed(1)}%
                                     </span>
+                                    <div style="flex:1;height:6px;background:var(--bg-secondary);border-radius:3px;margin-left:1rem;">
+                                        <div style="width:${bot.win_rate}%;height:100%;background:${bot.win_rate >= 50 ? 'var(--green)' : 'var(--red)'};border-radius:3px;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -773,33 +860,46 @@
             ctx.stroke();
         }
 
-        // Render P/L chart
+        // Render P/L chart - Simple daily bars only
         async function renderPnLChart(days = 14) {
             const data = await fetchData(`/api/daily-pnl/${days}`);
             if (!data) return;
             
-            const ctx = document.getElementById('pnlChart').getContext('2d');
-            
-            // Get all dates
-            const dates = data.BTCUSD?.map(d => d.date) || [];
-            
-            // Prepare datasets
-            const datasets = Object.entries(data).map(([botKey, pnlData]) => {
-                const bot = botsData.find(b => b.key === botKey) || { color: '#888' };
-                return {
-                    label: botKey,
-                    data: pnlData.map(d => d.pnl),
-                    backgroundColor: pnlData.map(d => 
-                        d.pnl >= 0 ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)'
-                    ),
-                    borderColor: bot.color,
-                    borderWidth: 1
-                };
-            });
-
+            // Destroy existing chart AFTER data is fetched
             if (pnlChart) {
                 pnlChart.destroy();
+                pnlChart = null;
             }
+            
+            const ctx = document.getElementById('pnlChart').getContext('2d');
+            
+            // Get dates from BTCUSD (or first available bot)
+            const dates = data.BTCUSD?.map(d => d.date) || [];
+            
+            // Calculate TOTAL daily P/L (sum of all bots per day)
+            const totalDailyPnl = dates.map((date, i) => {
+                let total = 0;
+                Object.entries(data).forEach(([botKey, pnlData]) => {
+                    if (!botKey.startsWith('_') && pnlData[i]) {
+                        total += pnlData[i].pnl;
+                    }
+                });
+                return total;
+            });
+            
+            // Single dataset showing total daily P/L
+            const dataset = {
+                label: 'Daily P/L (All Bots)',
+                data: totalDailyPnl,
+                backgroundColor: totalDailyPnl.map(v => 
+                    v >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)'
+                ),
+                borderColor: totalDailyPnl.map(v => 
+                    v >= 0 ? '#22c55e' : '#ef4444'
+                ),
+                borderWidth: 2,
+                borderRadius: 4
+            };
 
             pnlChart = new Chart(ctx, {
                 type: 'bar',
@@ -808,7 +908,7 @@
                         const date = new Date(d);
                         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     }),
-                    datasets: datasets
+                    datasets: [dataset]
                 },
                 options: {
                     responsive: true,
@@ -819,11 +919,7 @@
                     },
                     plugins: {
                         legend: {
-                            position: 'top',
-                            labels: {
-                                color: '#a1a1aa',
-                                usePointStyle: true
-                            }
+                            display: false
                         },
                         tooltip: {
                             backgroundColor: '#21242d',
@@ -835,7 +931,7 @@
                                 label: function(context) {
                                     const value = context.raw;
                                     const sign = value >= 0 ? '+' : '';
-                                    return `${context.dataset.label}: ${sign}$${value.toFixed(2)}`;
+                                    return `Daily P/L: ${sign}$${value.toFixed(2)}`;
                                 }
                             }
                         }
@@ -969,18 +1065,31 @@
             }
         }
 
-        // Time toggle buttons
-        document.querySelectorAll('.time-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+        // Time toggle buttons - with loading state
+        document.addEventListener('click', async function(e) {
+            if (e.target.classList.contains('time-btn')) {
+                // Update button states
                 document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentDays = parseInt(btn.dataset.days);
-                renderPnLChart(currentDays);
-            });
+                e.target.classList.add('active');
+                
+                // Get new days value IMMEDIATELY
+                const days = parseInt(e.target.dataset.days);
+                currentDays = days;
+                
+                // Show loading overlay (keeps old chart visible underneath)
+                document.getElementById('chartLoading').style.display = 'flex';
+                
+                // Render new chart with explicit days value
+                await renderPnLChart(days);
+                
+                // Hide loading overlay
+                document.getElementById('chartLoading').style.display = 'none';
+            }
         });
 
         // Initial render
         async function init() {
+            await renderAccountBalance();
             await renderBots();
             await renderPnLChart(currentDays);
             await renderTrades();
@@ -990,6 +1099,7 @@
 
         // Refresh data
         async function refresh() {
+            await renderAccountBalance();
             await renderBots();
             await renderTrades();
             await renderLogs();

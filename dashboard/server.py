@@ -17,6 +17,10 @@ app = Flask(__name__, static_folder='.')
 CORS(app)
 
 # Bot configurations
+# Simple cache for balance history (expires after 30 seconds)
+_balance_cache = {}
+_cache_time = {}
+
 BOTS = {
     'BTCUSD': {
         'name': 'BTCUSD Bot',
@@ -163,26 +167,73 @@ def get_bot_status(bot_key):
     except Exception:
         return 'stopped'
 
+def get_balance_history(bot_key, days=30):
+    """Get daily balance from logs to calculate REAL P/L (with caching)"""
+    import time as time_module
+    
+    cache_key = bot_key
+    now = time_module.time()
+    
+    # Return cached data if fresh (30 seconds)
+    if cache_key in _balance_cache and cache_key in _cache_time:
+        if now - _cache_time[cache_key] < 30:
+            return _balance_cache[cache_key]
+    
+    bot = BOTS[bot_key]
+    log_path = os.path.join(bot['path'], 'trade_notifications.log')
+    
+    daily_balances = {}  # date -> last balance of that day
+    
+    if not os.path.exists(log_path):
+        return daily_balances
+    
+    try:
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if '[BALANCE]' in line:
+                    # Extract timestamp and balance
+                    match = re.search(r'^(\d{4}-\d{2}-\d{2}).*\$([0-9,]+\.?\d*)', line)
+                    if match:
+                        date = match.group(1)
+                        balance = float(match.group(2).replace(',', ''))
+                        daily_balances[date] = balance
+    except Exception as e:
+        print(f"Error reading balance history: {e}")
+    
+    # Cache the result
+    _balance_cache[cache_key] = daily_balances
+    _cache_time[cache_key] = now
+    
+    return daily_balances
+
 def get_daily_pnl(bot_key, days=30):
-    """Calculate daily P/L from trades"""
-    trades = parse_trade_log(bot_key)
-    daily_pnl = defaultdict(float)
+    """Calculate daily P/L from ACTUAL balance changes"""
+    balance_history = get_balance_history(bot_key, days + 5)  # Get extra days for calculation
     
-    cutoff = datetime.now() - timedelta(days=days)
+    if not balance_history:
+        # Fallback to empty data
+        result = []
+        for i in range(days):
+            date = (datetime.now() - timedelta(days=days-1-i)).strftime('%Y-%m-%d')
+            result.append({'date': date, 'pnl': 0})
+        return result
     
-    for trade in trades:
-        try:
-            # Parse timestamp
-            ts_str = trade['timestamp'].split('+')[0].split('.')[0]
-            ts = datetime.fromisoformat(ts_str)
-            
-            if ts >= cutoff:
-                date_key = ts.strftime('%Y-%m-%d')
-                daily_pnl[date_key] += trade['pnl']
-        except Exception:
-            continue
+    # Sort dates
+    sorted_dates = sorted(balance_history.keys())
     
-    # Fill in missing days with 0
+    # Calculate daily P/L from balance changes
+    daily_pnl = {}
+    prev_balance = None
+    
+    for date in sorted_dates:
+        balance = balance_history[date]
+        if prev_balance is not None:
+            daily_pnl[date] = balance - prev_balance
+        else:
+            daily_pnl[date] = 0  # First day, no previous balance
+        prev_balance = balance
+    
+    # Build result for requested days
     result = []
     for i in range(days):
         date = (datetime.now() - timedelta(days=days-1-i)).strftime('%Y-%m-%d')
@@ -251,16 +302,63 @@ def index():
 def dashboard():
     return send_from_directory('.', 'trading-dashboard.html')
 
+def get_today_stats(bot_key):
+    """Get today's trading stats for a bot"""
+    trades = parse_trade_log(bot_key)
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    today_trades = []
+    for trade in trades:
+        try:
+            ts_str = trade['timestamp'].split('+')[0].split('.')[0]
+            if ts_str.startswith(today):
+                today_trades.append(trade)
+        except:
+            continue
+    
+    wins = sum(1 for t in today_trades if t['pnl'] > 0)
+    losses = sum(1 for t in today_trades if t['pnl'] < 0)
+    total_pnl = sum(t['pnl'] for t in today_trades)
+    total_trades = len(today_trades)
+    win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+    
+    return {
+        'today_pnl': round(total_pnl, 2),
+        'trades': total_trades,
+        'wins': wins,
+        'losses': losses,
+        'win_rate': round(win_rate, 1)
+    }
+
+@app.route('/api/account')
+def api_account():
+    """Get account balance (shared across all bots)"""
+    # Get the most recent balance from any bot
+    latest_balance = 0
+    for bot_key in BOTS:
+        balance = get_current_balance(bot_key)
+        if balance > latest_balance:
+            latest_balance = balance
+    
+    initial_fund = 50000.0
+    total_pnl = latest_balance - initial_fund
+    pnl_pct = (total_pnl / initial_fund) * 100
+    
+    return jsonify({
+        'balance': round(latest_balance, 2),
+        'initial': initial_fund,
+        'pnl': round(total_pnl, 2),
+        'pnl_pct': round(pnl_pct, 2)
+    })
+
 @app.route('/api/bots')
 def api_bots():
     """Get all bot statuses and summary"""
     result = []
     
     for bot_key, bot in BOTS.items():
-        current_balance = get_current_balance(bot_key)
-        initial = bot['initial_fund']
-        pnl = current_balance - initial
-        pnl_pct = (pnl / initial) * 100 if initial > 0 else 0
+        # Get today's stats instead of total P/L
+        today_stats = get_today_stats(bot_key)
         
         # Get recent performance for sparkline
         daily = get_daily_pnl(bot_key, 7)
@@ -271,10 +369,11 @@ def api_bots():
             'name': bot['name'],
             'symbol': bot['symbol'],
             'status': get_bot_status(bot_key),
-            'initial_fund': initial,
-            'current_fund': round(current_balance, 2),
-            'pnl': round(pnl, 2),
-            'pnl_pct': round(pnl_pct, 2),
+            'today_pnl': today_stats['today_pnl'],
+            'trades': today_stats['trades'],
+            'wins': today_stats['wins'],
+            'losses': today_stats['losses'],
+            'win_rate': today_stats['win_rate'],
             'color': bot['color'],
             'sparkline': sparkline
         })
@@ -293,11 +392,35 @@ def api_daily_pnl():
 
 @app.route('/api/daily-pnl/<int:days>')
 def api_daily_pnl_range(days):
-    """Get daily P/L for specified days"""
+    """Get daily P/L for specified days with cumulative totals"""
     result = {}
     
     for bot_key in BOTS:
-        result[bot_key] = get_daily_pnl(bot_key, days)
+        daily = get_daily_pnl(bot_key, days)
+        
+        # Calculate cumulative P/L
+        cumulative = 0
+        for d in daily:
+            cumulative += d['pnl']
+            d['cumulative'] = round(cumulative, 2)
+        
+        result[bot_key] = daily
+    
+    # Also calculate total cumulative across all bots
+    all_dates = result.get('BTCUSD', [])
+    total_cumulative = []
+    running_total = 0
+    
+    for i, d in enumerate(all_dates):
+        day_total = sum(result[bot][i]['pnl'] for bot in result if i < len(result[bot]))
+        running_total += day_total
+        total_cumulative.append({
+            'date': d['date'],
+            'pnl': round(day_total, 2),
+            'cumulative': round(running_total, 2)
+        })
+    
+    result['_total'] = total_cumulative
     
     return jsonify(result)
 
