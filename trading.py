@@ -1297,8 +1297,16 @@ try:
         # Check if market is open for trading (prevents 10018 errors)
         if trade_signal:
             symbol_info = mt5.symbol_info(symbol)
-            if symbol_info is None or symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
-                msg = f"[MARKET] {symbol} not available for trading right now. Skipping."
+            symbol_tick = mt5.symbol_info_tick(symbol)
+            # Market is closed if: no symbol info, trade mode not full, OR tick is stale (>5 min old)
+            tick_age = int(time.time()) - symbol_tick.time if symbol_tick else 9999
+            market_closed = (
+                symbol_info is None or 
+                symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL or
+                tick_age > 300  # 5 minutes = stale tick = market closed
+            )
+            if market_closed:
+                msg = f"[MARKET] {symbol} not available for trading (tick age: {tick_age}s). Skipping."
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
