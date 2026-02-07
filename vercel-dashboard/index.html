@@ -815,35 +815,56 @@
                 const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
                 const order = ['BTCUSD', 'XAUUSD', 'EURUSD'];
                 
-                // Fetch bot status and sparkline data in parallel
-                const [data, sparkData] = await Promise.all([
+                // Get today's date in UTC
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Fetch bot status, today's trades, and sparkline data in parallel
+                const [statusData, todayTrades, sparkData] = await Promise.all([
                     supabaseFetch('bot_status', '?select=*'),
-                    supabaseFetch('daily_pnl', '?select=date,pnl&order=date.desc&limit=21') // 7 days x 3 bots
+                    supabaseFetch('trades', `?select=bot_name,profit&created_at=gte.${today}T00:00:00`),
+                    supabaseFetch('daily_pnl', '?select=date,pnl&order=date.desc&limit=21')
                 ]);
-                if (!data) return null;
+                if (!statusData) return null;
+                
+                // Calculate today's stats from actual trades
+                const todayStats = {};
+                order.forEach(b => { todayStats[b] = { pnl: 0, trades: 0, wins: 0 }; });
+                if (todayTrades) {
+                    todayTrades.forEach(t => {
+                        const bot = t.bot_name;
+                        if (todayStats[bot]) {
+                            const profit = parseFloat(t.profit) || 0;
+                            todayStats[bot].pnl += profit;
+                            todayStats[bot].trades++;
+                            if (profit > 0) todayStats[bot].wins++;
+                        }
+                    });
+                }
                 
                 // Build per-bot sparklines from daily_pnl
                 const sparklines = {};
                 if (sparkData) {
-                    // daily_pnl has combined data; use last 7 entries as sparkline for all bots
                     const last7 = sparkData.slice(0, 7).reverse();
                     order.forEach(b => { sparklines[b] = last7.map(d => parseFloat(d.pnl) || 0); });
                 }
                 
-                const sorted = data.sort((a, b) => order.indexOf(a.bot_name) - order.indexOf(b.bot_name));
-                return sorted.map(b => ({
-                    key: b.bot_name,
-                    name: b.bot_name + ' Bot',
-                    symbol: b.bot_name,
-                    status: b.status === 'online' ? 'running' : (b.status || 'stopped').toLowerCase(),
-                    today_pnl: parseFloat(b.today_pnl) || 0,
-                    trades: b.today_trades || 0,
-                    wins: b.today_wins || 0,
-                    losses: (b.today_trades || 0) - (b.today_wins || 0),
-                    win_rate: b.today_trades > 0 ? (b.today_wins / b.today_trades) * 100 : 0,
-                    sparkline: sparklines[b.bot_name] || [],
-                    color: botColors[b.bot_name] || '#3b82f6'
-                }));
+                const sorted = statusData.sort((a, b) => order.indexOf(a.bot_name) - order.indexOf(b.bot_name));
+                return sorted.map(b => {
+                    const stats = todayStats[b.bot_name] || { pnl: 0, trades: 0, wins: 0 };
+                    return {
+                        key: b.bot_name,
+                        name: b.bot_name + ' Bot',
+                        symbol: b.bot_name,
+                        status: b.status === 'online' ? 'running' : (b.status || 'stopped').toLowerCase(),
+                        today_pnl: Math.round(stats.pnl * 100) / 100,
+                        trades: stats.trades,
+                        wins: stats.wins,
+                        losses: stats.trades - stats.wins,
+                        win_rate: stats.trades > 0 ? Math.round((stats.wins / stats.trades) * 1000) / 10 : 0,
+                        sparkline: sparklines[b.bot_name] || [],
+                        color: botColors[b.bot_name] || '#3b82f6'
+                    };
+                });
             }
             
             // /api/daily-pnl/{days}
