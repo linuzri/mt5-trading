@@ -1,13 +1,16 @@
 """
 Sync script: Import local trade history to Supabase (clears + reimports)
 """
+import os
+from dotenv import load_dotenv
+load_dotenv()
 import requests
 import csv
 from datetime import datetime
 from collections import defaultdict
 
-SUPABASE_URL = "https://cxpablqwnwvacuvhcjen.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4cGFibHF3bnd2YWN1dmhjamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTQ2NTUsImV4cCI6MjA4NTk5MDY1NX0.IiA5SRPfoI9Y6ZaXTWcl4UmPwgzVJ7iBBRgXny4iGCE"
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://cxpablqwnwvacuvhcjen.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -121,3 +124,5 @@ if __name__ == "__main__":
     print("=" * 50)
     trades, days = import_all()
     print(f"\n✅ Sync complete: {trades} trades, {days} days")
+
+

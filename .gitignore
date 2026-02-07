@@ -89,3 +89,7 @@ trade_notifications.log
 
 # Training data (large files, regenerated locally)
 **/models/training_data_*.csv
+
+# Environment variables
+.env
+.env.*

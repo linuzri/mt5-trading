@@ -3,6 +3,10 @@ Supabase Sync Module
 Pushes trading data to Supabase for cloud dashboard
 """
 
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 import requests
 import json
 from datetime import datetime, timezone
@@ -11,8 +15,8 @@ import threading
 import queue
 
 # Supabase configuration
-SUPABASE_URL = "https://cxpablqwnwvacuvhcjen.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4cGFibHF3bnd2YWN1dmhjamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTQ2NTUsImV4cCI6MjA4NTk5MDY1NX0.IiA5SRPfoI9Y6ZaXTWcl4UmPwgzVJ7iBBRgXny4iGCE"
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://cxpablqwnwvacuvhcjen.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 # Headers for Supabase REST API
 HEADERS = {
@@ -204,3 +208,5 @@ if __name__ == "__main__":
     import time
     time.sleep(3)
     print("Done! Check Supabase dashboard for data.")
+
+
