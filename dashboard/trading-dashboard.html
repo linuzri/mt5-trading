@@ -745,7 +745,12 @@
             if (!data) return;
             
             document.getElementById('initialFund').textContent = formatCurrency(data.initial);
-            document.getElementById('currentFund').textContent = formatCurrency(data.balance);
+            
+            const currentFundEl = document.getElementById('currentFund');
+            currentFundEl.textContent = formatCurrency(data.balance);
+            // Color based on profit/loss vs initial
+            const isAboveInitial = data.balance >= data.initial;
+            currentFundEl.className = `account-value ${isAboveInitial ? 'profit' : 'loss'}`;
             
             const pnlEl = document.getElementById('totalPnl');
             const isProfitable = data.pnl >= 0;
