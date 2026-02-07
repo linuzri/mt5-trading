@@ -12,7 +12,7 @@ import queue
 
 # Supabase configuration
 SUPABASE_URL = "https://cxpablqwnwvacuvhcjen.supabase.co"
-SUPABASE_KEY = "sb_publishable_CRw8_utfWitLHJm1D-c6EQ_imq_VE1f"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4cGFibHF3bnd2YWN1dmhjamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTQ2NTUsImV4cCI6MjA4NTk5MDY1NX0.IiA5SRPfoI9Y6ZaXTWcl4UmPwgzVJ7iBBRgXny4iGCE"
 
 # Headers for Supabase REST API
 HEADERS = {
