@@ -49,10 +49,10 @@
   
   "max_spread_percent": 0.05,
   "_max_spread_comment": "Maximum spread as % of price. For BTCUSD at $100k, 0.05% = $50 max spread. Set to 0 to disable.",
-  "loss_cooldown_minutes": 30,
-  "_loss_cooldown_comment": "Increased from 15 to 30 min cooldown after loss",
-  "max_consecutive_losses": 2,
-  "_max_consecutive_comment": "Reduced from 3 to 2 - circuit breaker kicks in faster",
+  "loss_cooldown_minutes": 5,
+  "_loss_cooldown_comment": "DEMO MODE: Minimal cooldown for learning",
+  "max_consecutive_losses": 999,
+  "_max_consecutive_comment": "DEMO MODE: No circuit breaker limit",
 
   "_session_trading_comment": "Session-aware trading: Trade only during optimal market hours",
   "session_trading": {
@@ -80,9 +80,9 @@
         "_comment": "New York session - high volatility, good for breakouts"
       },
       "off_hours": {
-        "enabled": false,
+        "enabled": true,
         "confidence_adjustment": 0.10,
-        "_comment": "21:00-00:00 UTC - lowest liquidity, DISABLED by default"
+        "_comment": "DEMO MODE: 24/7 trading enabled"
       }
     }
   },
