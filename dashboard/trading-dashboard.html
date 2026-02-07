@@ -508,6 +508,19 @@
         .log-error { color: var(--red); background: var(--red-bg); }
         .log-trade { color: var(--cyan); }
         .log-balance { color: var(--green); }
+        
+        /* Colored log types */
+        .log-sell { color: #ef4444; }  /* Red - SELL signals */
+        .log-buy { color: #22c55e; }   /* Green - BUY signals */
+        .log-session { color: #eab308; }  /* Yellow - Session info */
+        .log-position { color: #06b6d4; }  /* Cyan - Position sizing */
+        .log-market { color: #f97316; }  /* Orange - Market warnings */
+        .log-filter { color: #71717a; }  /* Gray - Filtered/skipped */
+        .log-news { color: #a855f7; }  /* Purple - News */
+        .log-notify { color: #4ade80; font-weight: 600; }  /* Bright green - Trade executed */
+        .log-balance-info { color: #fbbf24; }  /* Gold - Balance info */
+        .log-nosignal { color: #52525b; }  /* Dim gray - No trade signal */
+        .log-failed { color: #ef4444; background: rgba(239, 68, 68, 0.1); }  /* Red bg - Errors */
 
         /* Scrollbar */
         ::-webkit-scrollbar {
@@ -1024,6 +1037,26 @@
         }
 
         // Render logs
+        // Determine log class based on message content
+        function getLogClass(message) {
+            const msg = message.toLowerCase();
+            
+            // Order matters - more specific matches first
+            if (msg.includes('[notify]')) return 'log-notify';
+            if (msg.includes('order failed') || msg.includes('failed')) return 'log-failed';
+            if (msg.includes('[ml] model: sell') || msg.includes('sell with')) return 'log-sell';
+            if (msg.includes('[ml] model: buy') || msg.includes('buy with')) return 'log-buy';
+            if (msg.includes('[balance]')) return 'log-balance-info';
+            if (msg.includes('[session]')) return 'log-session';
+            if (msg.includes('[position size]')) return 'log-position';
+            if (msg.includes('[market]')) return 'log-market';
+            if (msg.includes('[ml filter]') || msg.includes('[ml] confidence')) return 'log-filter';
+            if (msg.includes('[news]')) return 'log-news';
+            if (msg.includes('no trade signal')) return 'log-nosignal';
+            
+            return 'log-info';  // Default
+        }
+
         async function renderLogs() {
             const data = await fetchData('/api/logs');
             if (!data) return;
@@ -1047,7 +1080,7 @@
                     </div>
                     <div class="log-content" id="logs-${botKey}">
                         ${logs.map(log => `
-                            <div class="log-entry log-${log.level}">${log.message}</div>
+                            <div class="log-entry ${getLogClass(log.message)}">${log.message}</div>
                         `).join('')}
                     </div>
                 </div>
