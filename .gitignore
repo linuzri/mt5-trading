@@ -80,3 +80,12 @@ trade_log.csv
 
 # MD files
 CLAUDE.md
+
+# Windows artifacts
+nul
+
+# Notification logs
+trade_notifications.log
+
+# Training data (large files, regenerated locally)
+**/models/training_data_*.csv

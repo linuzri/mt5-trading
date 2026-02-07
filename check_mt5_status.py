@@ -1,5 +1,5 @@
 import json, MetaTrader5 as mt5, os, sys
-auth_path = r"C:\Users\Nazri Hussain\Projects\mt5-trading\mt5-trading\mt5_auth.json"
+auth_path = r"C:\Users\Nazri Hussain\Projects\mt5-trading\\btcusd\mt5_auth.json"
 with open(auth_path) as f:
     auth = json.load(f)
 if not mt5.initialize(login=auth.get('login'), password=auth.get('password'), server=auth.get('server')):
