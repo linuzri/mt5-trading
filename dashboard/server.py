@@ -25,7 +25,7 @@ BOTS = {
     'BTCUSD': {
         'name': 'BTCUSD Bot',
         'symbol': 'BTCUSD',
-        'path': r'C:\Users\Nazri Hussain\projects\mt5-trading\\btcusd',
+        'path': r'C:\Users\Nazri Hussain\projects\mt5-trading\btcusd',
         'initial_fund': 50000.0,
         'color': '#f7931a'  # Bitcoin orange
     },
@@ -465,4 +465,4 @@ if __name__ == '__main__':
     print("=" * 40)
     print("Access: http://localhost:5000")
     print("=" * 40)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
