@@ -1244,6 +1244,41 @@ try:
         # log_only(debug_msg)  # Commented out for future troubleshooting
         # log_only(f"[DEBUG] trade_signal={trade_signal}")  # Commented out for future troubleshooting
 
+        # --- TREND MOMENTUM CHECK: Override signal based on recent profitable trade streak ---
+        if trade_signal is not None and len(trade_log) >= 3:
+            # Check last 3 trades for momentum
+            recent = trade_log[-3:]
+            recent_directions = []
+            recent_profits = []
+            for t in recent:
+                try:
+                    direction = str(t[1]).lower()
+                    profit = float(t[4]) if t[4] not in ['N/A', '', None] else 0
+                    recent_directions.append(direction)
+                    recent_profits.append(profit)
+                except (IndexError, ValueError):
+                    pass
+            
+            if len(recent_directions) == 3 and len(recent_profits) == 3:
+                # If last 3 trades were all the same direction AND all profitable, continue that trend
+                all_same = len(set(recent_directions)) == 1
+                all_profitable = all(p > 0 for p in recent_profits)
+                
+                if all_same and all_profitable:
+                    streak_direction = recent_directions[0]
+                    if trade_signal != streak_direction:
+                        log_only(f"[MOMENTUM] Overriding {trade_signal.upper()} → {streak_direction.upper()} (last 3 trades: {streak_direction.upper()} streak, all profitable)")
+                        trade_signal = streak_direction
+                
+                # If last 3 trades were all losses in one direction, block that direction
+                all_losses = all(p < 0 for p in recent_profits)
+                if all_same and all_losses:
+                    losing_direction = recent_directions[0]
+                    if trade_signal == losing_direction:
+                        opposite = "sell" if losing_direction == "buy" else "buy"
+                        log_only(f"[MOMENTUM] Blocking {losing_direction.upper()} (3 consecutive losses). Switching to {opposite.upper()}")
+                        trade_signal = opposite
+
         # --- EMA TREND FILTER: Block trades against the trend ---
         if trade_signal is not None and enable_ema_trend_filter and ema_trend is not None:
             if trade_signal == "buy" and ema_trend == "DOWNTREND":
