@@ -1053,6 +1053,8 @@
             if (msg.includes('[ml filter]') || msg.includes('[ml] confidence')) return 'log-filter';
             if (msg.includes('[news]')) return 'log-news';
             if (msg.includes('no trade signal')) return 'log-nosignal';
+            if (msg.includes('[startup]') || msg.includes('[heartbeat]')) return 'log-session';
+            if (msg.includes('[ml filter]')) return 'log-filter';
             
             return 'log-info';  // Default
         }
