@@ -74,6 +74,34 @@
             gap: 1.5rem;
         }
 
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .github-link:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+            transform: translateY(-1px);
+        }
+
+        .github-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
         .account-balance {
             display: flex;
             align-items: center;
@@ -630,6 +658,10 @@
                     <span class="account-value" id="totalPnl">$0.00</span>
                 </div>
             </div>
+            <a href="https://github.com/linuzri/mt5-trading" target="_blank" rel="noopener" class="github-link">
+                <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                Source Code
+            </a>
             <div class="last-updated">
                 <div class="refresh-indicator"></div>
                 <span id="lastUpdated">Loading...</span>
@@ -1301,5 +1333,25 @@
         init();
         setInterval(refresh, REFRESH_INTERVAL);
     </script>
+    <!-- Footer -->
+    <footer style="background: var(--bg-secondary); border-top: 1px solid var(--border-color); padding: 1.5rem 2rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">MT5 Trading Bot</span>
+            <span style="color: var(--border-color);">•</span>
+            <a href="https://github.com/linuzri/mt5-trading" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                GitHub
+            </a>
+            <span style="color: var(--border-color);">•</span>
+            <a href="https://github.com/linuzri/mt5-trading#readme" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+                📖 README
+            </a>
+            <span style="color: var(--border-color);">•</span>
+            <a href="https://github.com/linuzri/mt5-trading/commits/main" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+                🔄 Changelog
+            </a>
+        </div>
+        <span style="color: var(--text-muted); font-size: 0.8rem;">Built with 🤖 + ☕</span>
+    </footer>
 </body>
 </html>
