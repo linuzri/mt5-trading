@@ -1071,7 +1071,10 @@
                 'EURUSD': '#0052b4'
             };
             
-            grid.innerHTML = Object.entries(data).map(([botKey, logs]) => `
+            const botOrder = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+            const orderedEntries = botOrder.filter(k => data[k]).map(k => [k, data[k]]);
+            
+            grid.innerHTML = orderedEntries.map(([botKey, logs]) => `
                 <div class="log-card">
                     <div class="log-header">
                         <div class="log-title">
