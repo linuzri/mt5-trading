@@ -1294,6 +1294,16 @@ try:
         if trade_signal and dynamic_sizing_enabled and trade_lot != lot:
             log_only(f"[POSITION SIZE] Dynamic: {trade_lot:.4f} lots (Risk: {risk_percent}%, SL: ${sl_pips})")
 
+        # Check if market is open for trading (prevents 10018 errors)
+        if trade_signal:
+            symbol_info = mt5.symbol_info(symbol)
+            if symbol_info is None or symbol_info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
+                msg = f"[MARKET] {symbol} not available for trading right now. Skipping."
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+
         # Trading logic with management and notifications
         if trade_signal == "buy":
             if position_type is None:
