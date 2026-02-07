@@ -25,7 +25,7 @@ BOTS = {
     'BTCUSD': {
         'name': 'BTCUSD Bot',
         'symbol': 'BTCUSD',
-        'path': r'C:\Users\Nazri Hussain\projects\mt5-trading\mt5-trading',
+        'path': r'C:\Users\Nazri Hussain\projects\mt5-trading\\btcusd',
         'initial_fund': 50000.0,
         'color': '#f7931a'  # Bitcoin orange
     },

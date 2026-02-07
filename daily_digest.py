@@ -15,7 +15,7 @@ from pathlib import Path
 # Bot configurations
 BOTS = {
     "BTCUSD": {
-        "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\mt5-trading",
+        "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\\btcusd",
         "trade_log": "trade_log.csv",
         "notification_log": "trade_notifications.log"
     },

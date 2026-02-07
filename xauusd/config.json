@@ -1,0 +1,91 @@
+{
+  "symbol": "XAUUSD",
+  "symbols": ["XAUUSD"],
+  "symbol_configs": {
+    "XAUUSD": {"lot": 0.01, "sl_pips": 40.0, "tp_pips": 60.0}
+  },
+  
+  "_position_sizing_comment": "Dynamic position sizing for XAUUSD (Gold) - CONSERVATIVE",
+  "dynamic_position_sizing": {
+    "enabled": true,
+    "risk_percent": 0.5,
+    "min_lot": 0.01,
+    "max_lot": 0.05
+  },
+
+  "sl_pips": 40.0,
+  "tp_pips": 60.0,
+  "_sltp_comment": "For XAUUSD: $40 SL, $60 TP - wider stops for volatile gold market",
+  
+  "atr_period": 14,
+  "atr_multiplier": 1.5,
+  "enable_trailing_stop": false,
+  "strategy": "ml_xgboost",
+  "bollinger_period": 20,
+  "bollinger_stddev": 2,
+  "rsi_period": 14,
+  "macd_fast": 12,
+  "macd_slow": 26,
+  "macd_signal": 9,
+  "timeframe": "M5",
+  "higher_timeframe": "H1",
+  "backtest_period_days": 30,
+  "forward_test_period_days": 28,
+  "max_daily_loss": 99999,
+  "max_daily_profit": 99999,
+  "min_atr": 0,
+  "news_block_minutes": 30,
+
+  "_ema_trend_filter_comment": "EMA Trend Filter DISABLED - allowing bidirectional trading (BUY and SELL in any trend)",
+  "enable_ema_trend_filter": false,
+  "ema_fast_period": 50,
+  "ema_slow_period": 200,
+  
+  "max_spread_percent": 0.03,
+  "_max_spread_comment": "Gold has tighter spreads than crypto, 0.03% max",
+  "loss_cooldown_minutes": 5,
+  "max_consecutive_losses": 999,
+  "_defensive_comment": "DEMO MODE: Minimal limits, let the bot learn",
+
+  "session_trading": {
+    "enabled": true,
+    "sessions": {
+      "asian": {
+        "start_utc": 0,
+        "end_utc": 8,
+        "enabled": true,
+        "confidence_adjustment": 0.05
+      },
+      "european": {
+        "start_utc": 7,
+        "end_utc": 16,
+        "enabled": true,
+        "confidence_adjustment": 0
+      },
+      "american": {
+        "start_utc": 13,
+        "end_utc": 21,
+        "enabled": true,
+        "confidence_adjustment": 0
+      },
+      "off_hours": {
+        "enabled": true,
+        "confidence_adjustment": 0.10
+      }
+    }
+  },
+
+  "partial_profit_taking": {
+    "enabled": true,
+    "close_percent": 50,
+    "trigger_at_rr": 1.0,
+    "move_sl_to_breakeven": true
+  },
+
+  "smart_exit": {
+    "enabled": true,
+    "max_hold_minutes": 120,
+    "close_if_stagnant": true,
+    "stagnant_threshold_percent": 0.02
+  }
+}

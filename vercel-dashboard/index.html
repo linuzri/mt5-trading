@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f1117;
+            --bg-secondary: #1a1d26;
+            --bg-card: #21242d;
+            --bg-hover: #2a2e38;
+            --border-color: #2d3139;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --green: #22c55e;
+            --green-bg: rgba(34, 197, 94, 0.1);
+            --red: #ef4444;
+            --red-bg: rgba(239, 68, 68, 0.1);
+            --yellow: #eab308;
+            --yellow-bg: rgba(234, 179, 8, 0.1);
+            --blue: #3b82f6;
+            --cyan: #06b6d4;
+            --btc-orange: #f7931a;
+            --gold: #ffd700;
+            --eu-blue: #0052b4;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .navbar h1::before {
+            content: '📊';
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .account-balance {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: var(--bg-card);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .account-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .account-label {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .account-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--green);
+        }
+
+        .account-value.profit { color: var(--green); }
+        .account-value.loss { color: var(--red); }
+
+        .last-updated {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .refresh-indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* Section Headers */
+        .section-header {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Cards Grid */
+        .bots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: var(--text-muted);
+            transform: translateY(-2px);
+        }
+
+        /* Bot Cards */
+        .bot-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .bot-name {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .bot-name h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .bot-symbol {
+            background: var(--bg-secondary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-running .status-dot { background: var(--green); }
+        .status-running { color: var(--green); }
+        
+        .status-paused .status-dot { background: var(--yellow); }
+        .status-paused { color: var(--yellow); }
+        
+        .status-stopped .status-dot { background: var(--red); }
+        .status-stopped { color: var(--red); }
+
+        .bot-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .stat-value.profit { color: var(--green); }
+        .stat-value.loss { color: var(--red); }
+
+        .pnl-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pnl-arrow {
+            font-size: 0.875rem;
+        }
+
+        .pnl-percent {
+            font-size: 0.875rem;
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+        }
+
+        .pnl-percent.profit {
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .pnl-percent.loss {
+            background: var(--red-bg);
+            color: var(--red);
+        }
+
+        /* Sparkline */
+        .sparkline-container {
+            height: 40px;
+            margin-top: 0.5rem;
+        }
+
+        /* Chart Section */
+        .chart-section {
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .time-toggle {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .time-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .time-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .time-btn.active {
+            background: var(--blue);
+            border-color: var(--blue);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 17, 23, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            z-index: 10;
+        }
+
+        /* Trades Table */
+        .trades-section {
+            margin-bottom: 2rem;
+        }
+
+        .table-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        td {
+            padding: 0.875rem 1rem;
+            font-size: 0.875rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tr:hover {
+            background: var(--bg-hover);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .side-buy {
+            color: var(--green);
+            font-weight: 600;
+        }
+
+        .side-sell {
+            color: var(--red);
+            font-weight: 600;
+        }
+
+        .trade-profit { 
+            color: var(--green);
+            background: var(--green-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .trade-loss { 
+            color: var(--red);
+            background: var(--red-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        /* Logs Section */
+        .logs-section {
+            margin-bottom: 2rem;
+        }
+
+        .logs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1rem;
+        }
+
+        .log-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 400px;
+        }
+
+        .log-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+        }
+
+        .log-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .log-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .clear-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            background: var(--red-bg);
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+            background: var(--bg-primary);
+        }
+
+        .log-entry {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            word-break: break-all;
+        }
+
+        .log-info { color: var(--text-muted); }
+        .log-warning { color: var(--yellow); background: var(--yellow-bg); }
+        .log-error { color: var(--red); background: var(--red-bg); }
+        .log-trade { color: var(--cyan); }
+        .log-balance { color: var(--green); }
+        
+        /* Colored log types */
+        .log-sell { color: #ef4444; }  /* Red - SELL signals */
+        .log-buy { color: #22c55e; }   /* Green - BUY signals */
+        .log-session { color: #eab308; }  /* Yellow - Session info */
+        .log-position { color: #06b6d4; }  /* Cyan - Position sizing */
+        .log-market { color: #f97316; }  /* Orange - Market warnings */
+        .log-filter { color: #a78bfa; }  /* Purple - Filtered/skipped */
+        .log-news { color: #a855f7; }  /* Purple - News */
+        .log-notify { color: #4ade80; font-weight: 600; }  /* Bright green - Trade executed */
+        .log-balance-info { color: #fbbf24; }  /* Gold - Balance info */
+        .log-nosignal { color: #52525b; }  /* Dim gray - No trade signal */
+        .log-failed { color: #ef4444; background: rgba(239, 68, 68, 0.1); }  /* Red bg - Errors */
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.75rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .bots-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .logs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .value-change {
+            animation: valueFlash 0.5s ease;
+        }
+
+        @keyframes valueFlash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <h1>Trading Bot Monitor</h1>
+        <div class="navbar-right">
+            <div class="account-balance">
+                <div class="account-item">
+                    <span class="account-label">Initial</span>
+                    <span class="account-value" id="initialFund">$50,000</span>
+                </div>
+                <div class="account-item">
+                    <span class="account-label">Current</span>
+                    <span class="account-value" id="currentFund">$0.00</span>
+                </div>
+                <div class="account-item">
+                    <span class="account-label">Total P/L</span>
+                    <span class="account-value" id="totalPnl">$0.00</span>
+                </div>
+            </div>
+            <div class="last-updated">
+                <div class="refresh-indicator"></div>
+                <span id="lastUpdated">Loading...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Bot Performance Cards -->
+        <section class="bots-section">
+            <h2 class="section-header">🤖 Robot Performance</h2>
+            <div class="bots-grid" id="botsGrid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading bots...
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Chart -->
+        <section class="chart-section">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 class="section-header" style="margin-bottom:0">📈 Daily P/L Performance</h2>
+                    <div class="time-toggle">
+                        <button class="time-btn" data-days="7">Week</button>
+                        <button class="time-btn active" data-days="14">2 Weeks</button>
+                        <button class="time-btn" data-days="30">Month</button>
+                    </div>
+                </div>
+                <div class="chart-container" style="position: relative;">
+                    <canvas id="pnlChart"></canvas>
+                    <div id="chartLoading" class="chart-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Loading chart...</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Active Trades -->
+        <section class="trades-section">
+            <div class="table-card">
+                <div class="table-header">
+                    <h2 class="section-header" style="margin-bottom:0">📋 Recent Trades</h2>
+                </div>
+                <div id="tradesTable">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading trades...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Logs -->
+        <section class="logs-section">
+            <h2 class="section-header">📜 Live Logs</h2>
+            <div class="logs-grid" id="logsGrid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading logs...
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://cxpablqwnwvacuvhcjen.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4cGFibHF3bnd2YWN1dmhjamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTQ2NTUsImV4cCI6MjA4NTk5MDY1NX0.IiA5SRPfoI9Y6ZaXTWcl4UmPwgzVJ7iBBRgXny4iGCE';
+        const REFRESH_INTERVAL = 30000;
+        
+        // State
+        let pnlChart = null;
+        let currentDays = 14;
+        let botsData = [];
+
+        // Supabase REST fetch helper
+        async function supabaseFetch(table, params = '') {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (e) {
+                console.error(`Supabase fetch ${table} failed:`, e);
+                return null;
+            }
+        }
+
+        // Format currency
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2
+            }).format(value);
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            if (!timestamp) return '-';
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return timestamp.substring(0, 19);
+            }
+        }
+
+        // Update last updated time
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = 
+                `Last updated: ${now.toLocaleTimeString()}`;
+        }
+
+        // Compatibility wrapper - translates old API calls to Supabase
+        async function fetchData(endpoint) {
+            // /api/account
+            if (endpoint === '/api/account') {
+                const data = await supabaseFetch('account_snapshots', '?select=*&order=created_at.desc&limit=1');
+                if (data && data.length > 0) {
+                    const a = data[0];
+                    const initial = parseFloat(a.initial_fund) || 50000;
+                    const balance = parseFloat(a.balance);
+                    const pnl = balance - initial;
+                    return {
+                        initial: initial,
+                        balance: balance,
+                        pnl: pnl,
+                        pnl_pct: ((pnl / initial) * 100).toFixed(2)
+                    };
+                }
+                return null;
+            }
+            
+            // /api/bots
+            if (endpoint === '/api/bots') {
+                const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
+                const order = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+                
+                // Fetch bot status and sparkline data in parallel
+                const [data, sparkData] = await Promise.all([
+                    supabaseFetch('bot_status', '?select=*'),
+                    supabaseFetch('daily_pnl', '?select=date,pnl&order=date.desc&limit=21') // 7 days x 3 bots
+                ]);
+                if (!data) return null;
+                
+                // Build per-bot sparklines from daily_pnl
+                const sparklines = {};
+                if (sparkData) {
+                    // daily_pnl has combined data; use last 7 entries as sparkline for all bots
+                    const last7 = sparkData.slice(0, 7).reverse();
+                    order.forEach(b => { sparklines[b] = last7.map(d => parseFloat(d.pnl) || 0); });
+                }
+                
+                const sorted = data.sort((a, b) => order.indexOf(a.bot_name) - order.indexOf(b.bot_name));
+                return sorted.map(b => ({
+                    key: b.bot_name,
+                    name: b.bot_name + ' Bot',
+                    symbol: b.bot_name,
+                    status: b.status === 'online' ? 'running' : (b.status || 'stopped').toLowerCase(),
+                    today_pnl: parseFloat(b.today_pnl) || 0,
+                    trades: b.today_trades || 0,
+                    wins: b.today_wins || 0,
+                    losses: (b.today_trades || 0) - (b.today_wins || 0),
+                    win_rate: b.today_trades > 0 ? (b.today_wins / b.today_trades) * 100 : 0,
+                    sparkline: sparklines[b.bot_name] || [],
+                    color: botColors[b.bot_name] || '#3b82f6'
+                }));
+            }
+            
+            // /api/daily-pnl/{days}
+            if (endpoint.startsWith('/api/daily-pnl/')) {
+                const days = parseInt(endpoint.split('/').pop()) || 14;
+                const data = await supabaseFetch('daily_pnl', `?select=*&order=date.desc&limit=${days}`);
+                if (!data) return {};
+                const sorted = data.reverse();
+                
+                // Build per-bot format matching local API: { BTCUSD: [{date, pnl, cumulative}], ... }
+                // Supabase daily_pnl is combined total, so put same data for all bots as "_total"
+                // and also as BTCUSD (since chart reads BTCUSD for dates)
+                const entries = sorted.map(d => ({
+                    date: d.date,
+                    pnl: parseFloat(d.pnl) || 0
+                }));
+                
+                // Fill missing dates in the range
+                const result = [];
+                const today = new Date();
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const found = entries.find(e => e.date === dateStr);
+                    const pnl = found ? found.pnl : 0;
+                    result.push({ date: dateStr, pnl: pnl });
+                }
+                
+                // Add cumulative
+                let cumulative = 0;
+                result.forEach(d => { cumulative += d.pnl; d.cumulative = Math.round(cumulative * 100) / 100; });
+                
+                return {
+                    BTCUSD: result,
+                    XAUUSD: result.map(d => ({ date: d.date, pnl: 0, cumulative: 0 })),
+                    EURUSD: result.map(d => ({ date: d.date, pnl: 0, cumulative: 0 })),
+                    _total: result
+                };
+            }
+            
+            // /api/trades/{bot}
+            if (endpoint.startsWith('/api/trades/')) {
+                const bot = endpoint.split('/').pop();
+                const data = await supabaseFetch('trades', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=20`);
+                if (!data) return [];
+                return data.map(t => ({
+                    timestamp: t.created_at || t.timestamp || '',
+                    side: t.side || t.direction || 'BUY',
+                    entry_price: parseFloat(t.entry_price) || 0,
+                    exit_price: parseFloat(t.exit_price) || 0,
+                    pnl: parseFloat(t.profit) || 0,
+                    bot: bot,
+                    symbol: bot
+                }));
+            }
+            
+            // /api/logs - fetch all bots in parallel for speed
+            if (endpoint === '/api/logs') {
+                const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+                const promises = bots.map(bot => 
+                    supabaseFetch('logs', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=30`)
+                );
+                const results = await Promise.all(promises);
+                const result = {};
+                bots.forEach((bot, i) => {
+                    result[bot] = (results[i] || []).map(l => {
+                        const msg = l.message || '';
+                        let level = 'info';
+                        if (msg.includes('[ERROR]') || msg.includes('[SHUTDOWN]')) level = 'error';
+                        else if (msg.includes('[WARN]')) level = 'warning';
+                        else if (msg.includes('[TRADE') || msg.includes('[NOTIFY]') || msg.includes('[CLOSE]')) level = 'trade';
+                        else if (msg.includes('[BALANCE]')) level = 'balance';
+                        else if (msg.includes('[ML]')) level = 'info';
+                        else if (msg.includes('[SESSION]')) level = 'info';
+                        else if (msg.includes('[MARKET]')) level = 'warning';
+                        else if (msg.includes('[STARTUP]')) level = 'info';
+                        else if (msg.includes('[POSITION')) level = 'info';
+                        return { message: msg, level: level, bot: bot };
+                    });
+                });
+                return result;
+            }
+            
+            return null;
+        }
+
+        // Fetch and display account balance
+        async function renderAccountBalance() {
+            const data = await fetchData('/api/account');
+            if (!data) return;
+            
+            document.getElementById('initialFund').textContent = formatCurrency(data.initial);
+            
+            const currentFundEl = document.getElementById('currentFund');
+            currentFundEl.textContent = formatCurrency(data.balance);
+            // Color based on profit/loss vs initial
+            const isAboveInitial = data.balance >= data.initial;
+            currentFundEl.className = `account-value ${isAboveInitial ? 'profit' : 'loss'}`;
+            
+            const pnlEl = document.getElementById('totalPnl');
+            const isProfitable = data.pnl >= 0;
+            const arrow = isProfitable ? '▲' : '▼';
+            pnlEl.textContent = `${arrow} ${formatCurrency(Math.abs(data.pnl))} (${isProfitable ? '+' : ''}${data.pnl_pct}%)`;
+            pnlEl.className = `account-value ${isProfitable ? 'profit' : 'loss'}`;
+        }
+
+        // Render bot cards
+        async function renderBots() {
+            const data = await fetchData('/api/bots');
+            if (!data) return;
+            
+            botsData = data;
+            const grid = document.getElementById('botsGrid');
+            
+            grid.innerHTML = data.map(bot => {
+                const isProfitable = bot.today_pnl >= 0;
+                const pnlClass = isProfitable ? 'profit' : 'loss';
+                const arrow = isProfitable ? '▲' : '▼';
+                const statusClass = `status-${bot.status}`;
+                
+                return `
+                    <div class="card bot-card fade-in" data-bot="${bot.key}">
+                        <div class="bot-card-header">
+                            <div class="bot-name">
+                                <h3>${bot.name}</h3>
+                                <span class="bot-symbol">${bot.symbol}</span>
+                            </div>
+                            <div class="status-indicator ${statusClass}">
+                                <span class="status-dot"></span>
+                                ${bot.status.toUpperCase()}
+                            </div>
+                        </div>
+                        <div class="bot-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Today's P/L</span>
+                                <div class="pnl-row">
+                                    <span class="stat-value ${pnlClass}">
+                                        <span class="pnl-arrow">${arrow}</span>
+                                        ${formatCurrency(Math.abs(bot.today_pnl))}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Trades</span>
+                                <span class="stat-value">${bot.trades} <span style="font-size:0.75rem;color:var(--text-muted)">(${bot.wins}W / ${bot.losses}L)</span></span>
+                            </div>
+                            <div class="stat-item" style="grid-column: span 2">
+                                <span class="stat-label">Win Rate</span>
+                                <div class="pnl-row">
+                                    <span class="stat-value" style="color: ${bot.win_rate >= 50 ? 'var(--green)' : 'var(--red)'}">
+                                        ${bot.win_rate.toFixed(1)}%
+                                    </span>
+                                    <div style="flex:1;height:6px;background:var(--bg-secondary);border-radius:3px;margin-left:1rem;">
+                                        <div style="width:${bot.win_rate}%;height:100%;background:${bot.win_rate >= 50 ? 'var(--green)' : 'var(--red)'};border-radius:3px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sparkline-container">
+                            <canvas id="sparkline-${bot.key}" height="40"></canvas>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Render sparklines
+            data.forEach(bot => {
+                renderSparkline(bot.key, bot.sparkline, bot.color);
+            });
+        }
+
+        // Render sparkline
+        function renderSparkline(botKey, data, color) {
+            const canvas = document.getElementById(`sparkline-${botKey}`);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.parentElement.clientWidth;
+            const height = 40;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            if (!data || data.length === 0) return;
+            
+            const max = Math.max(...data.map(Math.abs), 1);
+            const mid = height / 2;
+            const step = width / (data.length - 1 || 1);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            data.forEach((val, i) => {
+                const x = i * step;
+                const y = mid - (val / max) * (mid - 5);
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            
+            // Zero line
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(0, mid);
+            ctx.lineTo(width, mid);
+            ctx.stroke();
+        }
+
+        // Render P/L chart - Simple daily bars only
+        async function renderPnLChart(days = 14) {
+            const data = await fetchData(`/api/daily-pnl/${days}`);
+            if (!data) return;
+            
+            // Destroy existing chart AFTER data is fetched
+            if (pnlChart) {
+                pnlChart.destroy();
+                pnlChart = null;
+            }
+            
+            const ctx = document.getElementById('pnlChart').getContext('2d');
+            
+            // Get dates from BTCUSD (or first available bot)
+            const dates = data.BTCUSD?.map(d => d.date) || [];
+            
+            // Calculate TOTAL daily P/L (sum of all bots per day)
+            const totalDailyPnl = dates.map((date, i) => {
+                let total = 0;
+                Object.entries(data).forEach(([botKey, pnlData]) => {
+                    if (!botKey.startsWith('_') && pnlData[i]) {
+                        total += pnlData[i].pnl;
+                    }
+                });
+                return total;
+            });
+            
+            // Single dataset showing total daily P/L
+            const dataset = {
+                label: 'Daily P/L (All Bots)',
+                data: totalDailyPnl,
+                backgroundColor: totalDailyPnl.map(v => 
+                    v >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)'
+                ),
+                borderColor: totalDailyPnl.map(v => 
+                    v >= 0 ? '#22c55e' : '#ef4444'
+                ),
+                borderWidth: 2,
+                borderRadius: 4
+            };
+
+            pnlChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates.map(d => {
+                        const date = new Date(d);
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }),
+                    datasets: [dataset]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#21242d',
+                            titleColor: '#e4e4e7',
+                            bodyColor: '#a1a1aa',
+                            borderColor: '#2d3139',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const sign = value >= 0 ? '+' : '';
+                                    return `Daily P/L: ${sign}$${value.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255,255,255,0.05)'
+                            },
+                            ticks: {
+                                color: '#71717a'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255,255,255,0.05)'
+                            },
+                            ticks: {
+                                color: '#71717a',
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render trades table
+        async function renderTrades() {
+            const allTrades = [];
+            
+            for (const bot of ['BTCUSD', 'XAUUSD', 'EURUSD']) {
+                const trades = await fetchData(`/api/trades/${bot}`);
+                if (trades) {
+                    allTrades.push(...trades);
+                }
+            }
+            
+            // Sort by timestamp descending
+            allTrades.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            
+            const container = document.getElementById('tradesTable');
+            
+            if (allTrades.length === 0) {
+                container.innerHTML = '<div class="no-data">No recent trades</div>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bot</th>
+                            <th>Symbol</th>
+                            <th>Side</th>
+                            <th>Entry Price</th>
+                            <th>Exit Price</th>
+                            <th>P/L</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${allTrades.slice(0, 15).map(trade => {
+                            const isProfitable = trade.pnl >= 0;
+                            const sideClass = trade.side === 'BUY' ? 'side-buy' : 'side-sell';
+                            const pnlClass = isProfitable ? 'trade-profit' : 'trade-loss';
+                            
+                            return `
+                                <tr class="fade-in">
+                                    <td>${trade.bot}</td>
+                                    <td>${trade.symbol}</td>
+                                    <td class="${sideClass}">${trade.side}</td>
+                                    <td>${trade.entry_price.toFixed(2)}</td>
+                                    <td>${trade.exit_price.toFixed(2)}</td>
+                                    <td><span class="${pnlClass}">${isProfitable ? '+' : ''}$${trade.pnl.toFixed(2)}</span></td>
+                                    <td>${formatTime(trade.timestamp)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Render logs
+        // Determine log class based on message content
+        function getLogClass(message) {
+            const msg = message.toLowerCase();
+            
+            // Order matters - more specific matches first
+            if (msg.includes('[notify]')) return 'log-notify';
+            if (msg.includes('order failed') || msg.includes('failed')) return 'log-failed';
+            if (msg.includes('[ml] model: sell') || msg.includes('sell with')) return 'log-sell';
+            if (msg.includes('[ml] model: buy') || msg.includes('buy with')) return 'log-buy';
+            if (msg.includes('[balance]')) return 'log-balance-info';
+            if (msg.includes('[session]')) return 'log-session';
+            if (msg.includes('[position size]')) return 'log-position';
+            if (msg.includes('[market]')) return 'log-market';
+            if (msg.includes('[ml filter]') || msg.includes('[ml] confidence')) return 'log-filter';
+            if (msg.includes('[news]')) return 'log-news';
+            if (msg.includes('no trade signal')) return 'log-nosignal';
+            if (msg.includes('[startup]') || msg.includes('[heartbeat]')) return 'log-session';
+            if (msg.includes('[ml filter]')) return 'log-filter';
+            
+            return 'log-info';  // Default
+        }
+
+        async function renderLogs() {
+            const data = await fetchData('/api/logs');
+            if (!data) return;
+            
+            const grid = document.getElementById('logsGrid');
+            
+            const colors = {
+                'BTCUSD': '#f7931a',
+                'XAUUSD': '#ffd700',
+                'EURUSD': '#0052b4'
+            };
+            
+            grid.innerHTML = Object.entries(data).map(([botKey, logs]) => `
+                <div class="log-card">
+                    <div class="log-header">
+                        <div class="log-title">
+                            <span class="log-color-dot" style="background:${colors[botKey]}"></span>
+                            ${botKey} Logs
+                        </div>
+                        <button class="clear-btn" onclick="clearLogs('${botKey}')">Clear</button>
+                    </div>
+                    <div class="log-content" id="logs-${botKey}">
+                        ${logs.map(log => `
+                            <div class="log-entry ${getLogClass(log.message)}">${log.message}</div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            
+            // Auto-scroll to bottom
+            Object.keys(data).forEach(botKey => {
+                const container = document.getElementById(`logs-${botKey}`);
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
+        }
+
+        // Clear logs for a bot
+        function clearLogs(botKey) {
+            const container = document.getElementById(`logs-${botKey}`);
+            if (container) {
+                container.innerHTML = '<div class="log-entry log-info">Logs cleared</div>';
+            }
+        }
+
+        // Time toggle buttons - with loading state
+        document.addEventListener('click', async function(e) {
+            if (e.target.classList.contains('time-btn')) {
+                // Update button states
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Get new days value IMMEDIATELY
+                const days = parseInt(e.target.dataset.days);
+                currentDays = days;
+                
+                // Show loading overlay (keeps old chart visible underneath)
+                document.getElementById('chartLoading').style.display = 'flex';
+                
+                // Render new chart with explicit days value
+                await renderPnLChart(days);
+                
+                // Hide loading overlay
+                document.getElementById('chartLoading').style.display = 'none';
+            }
+        });
+
+        // Initial render - parallel for speed
+        async function init() {
+            await Promise.allSettled([
+                renderAccountBalance(),
+                renderBots(),
+                renderPnLChart(currentDays),
+                renderTrades(),
+                renderLogs()
+            ]);
+            updateTimestamp();
+        }
+
+        // Refresh data - parallel for speed
+        async function refresh() {
+            await Promise.allSettled([
+                renderAccountBalance(),
+                renderBots(),
+                renderTrades(),
+                renderLogs()
+            ]);
+            updateTimestamp();
+        }
+
+        // Start
+        init();
+        setInterval(refresh, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>
