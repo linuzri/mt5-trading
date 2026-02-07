@@ -12,6 +12,14 @@ import csv
 import threading
 import os
 from collections import defaultdict
+
+# Supabase sync for cloud dashboard
+try:
+    import supabase_sync
+    SUPABASE_ENABLED = True
+except ImportError:
+    SUPABASE_ENABLED = False
+    print("[INFO] Supabase sync not available")
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
 except ImportError:
@@ -91,12 +99,18 @@ def log_notify(message):
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
     send_telegram_message(message)
+    # Push to Supabase for cloud dashboard
+    if SUPABASE_ENABLED:
+        supabase_sync.push_log(symbol, f"{datetime.now(UTC).isoformat()} {message}")
 
 def log_only(message):
     """Log to console and file only (NO Telegram)."""
     print(message)
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
+    # Push important logs to Supabase (filter out noise)
+    if SUPABASE_ENABLED and any(tag in message for tag in ['[ML]', '[NOTIFY]', '[BALANCE]', '[SESSION]', '[MARKET]', '[POSITION']):
+        supabase_sync.push_log(symbol, f"{datetime.now(UTC).isoformat()} {message}")
 
 # Hourly heartbeat tracking
 last_heartbeat_hour = None
@@ -797,6 +811,33 @@ try:
         # Send to both console and Telegram
         log_notify(trade_msg)
         log_notify(stats_msg)
+        
+        # Push trade to Supabase for cloud dashboard
+        if SUPABASE_ENABLED:
+            supabase_sync.push_trade(
+                bot_name=symbol,
+                symbol=symbol,
+                direction=direction,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                profit=profit,
+                confidence=confidence
+            )
+            # Update bot status
+            supabase_sync.update_bot_status(
+                bot_name=symbol,
+                status="online",
+                today_pnl=daily_pl,
+                today_trades=daily_trade_count,
+                today_wins=total_wins
+            )
+            # Push account snapshot
+            try:
+                account = mt5.account_info()
+                if account:
+                    supabase_sync.push_account_snapshot(account.balance, account.equity, 50000)
+            except:
+                pass
         
         # Alert if consecutive losses threshold reached
         if max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
