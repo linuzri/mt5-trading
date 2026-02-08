@@ -209,6 +209,23 @@ max_spread_percent = config.get("max_spread_percent", 0.05)  # Max spread as % o
 loss_cooldown_minutes = config.get("loss_cooldown_minutes", 15)  # Minutes to wait after a loss (0 = disabled)
 max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after X consecutive losses (0 = disabled)
 
+# --- [VOLATILITY] ATR Spike Filter Configs ---
+volatility_filter_enabled = config.get("volatility_filter_enabled", True)
+volatility_atr_rolling_period = config.get("volatility_atr_rolling_period", 20)  # Rolling average window for ATR
+volatility_atr_multiplier = config.get("volatility_atr_multiplier", 2.0)  # Skip when ATR > multiplier * rolling avg
+
+# --- [COOLDOWN] Adaptive Cooldown Configs ---
+adaptive_cooldown_enabled = config.get("adaptive_cooldown_enabled", True)
+adaptive_cooldown_base_minutes = config.get("adaptive_cooldown_base_minutes", 5)  # Starting cooldown
+adaptive_cooldown_increment_minutes = config.get("adaptive_cooldown_increment_minutes", 5)  # Added per consecutive loss
+adaptive_cooldown_max_minutes = config.get("adaptive_cooldown_max_minutes", 30)  # Cap
+
+# --- [CRASH] Crash Detector Configs ---
+crash_detector_enabled = config.get("crash_detector_enabled", True)
+crash_price_change_percent = config.get("crash_price_change_percent", 3.0)  # % price change threshold
+crash_lookback_minutes = config.get("crash_lookback_minutes", 15)  # Window to check for crash
+crash_halt_minutes = config.get("crash_halt_minutes", 30)  # How long to halt after crash detected
+
 # --- EMA Trend Filter Configs ---
 enable_ema_trend_filter = config.get("enable_ema_trend_filter", True)  # Enable/disable EMA trend filter
 ema_fast_period = config.get("ema_fast_period", 50)  # Fast EMA period
@@ -657,6 +674,34 @@ def get_atr(rates, period=14):
     atr = pd.Series(tr).rolling(window=period).mean().iloc[-1]
     return atr
 
+def get_atr_rolling_average(rates, atr_period=14, rolling_period=20):
+    """Calculate rolling average of ATR values over `rolling_period` bars."""
+    highs = rates['high']
+    lows = rates['low']
+    closes = rates['close']
+    prev_closes = np.roll(closes, 1)
+    tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_closes), np.abs(lows - prev_closes)))
+    atr_series = pd.Series(tr).rolling(window=atr_period).mean()
+    rolling_avg = atr_series.rolling(window=rolling_period).mean().iloc[-1]
+    current_atr = atr_series.iloc[-1]
+    return current_atr, rolling_avg
+
+def check_crash_condition(symbol, lookback_minutes, threshold_percent, timeframe_val):
+    """Check if price moved more than threshold_percent in lookback_minutes."""
+    utc_now = datetime.now(UTC)
+    # Fetch enough bars to cover lookback_minutes
+    rates = mt5.copy_rates_from(symbol, timeframe_val, utc_now, lookback_minutes + 5)
+    if rates is None or len(rates) < 2:
+        return False, 0.0
+    closes = np.array([bar[4] for bar in rates])
+    # Compare current price to price lookback_minutes ago
+    current_price = closes[-1]
+    old_price = closes[0]
+    if old_price == 0:
+        return False, 0.0
+    pct_change = abs((current_price - old_price) / old_price) * 100
+    return pct_change >= threshold_percent, pct_change
+
 # --- Function to reload configuration after backtest ---
 def reload_config_and_strategy():
     """Reload config.json and strategy_params.json after backtest completes."""
@@ -747,6 +792,12 @@ try:
         log_notify(f"[STARTUP] Partial Profit: ENABLED - Close {partial_close_percent}% at {partial_trigger_rr}R, breakeven SL")
     if enable_smart_exit:
         log_notify(f"[STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
+    if volatility_filter_enabled:
+        log_notify(f"[STARTUP] [VOLATILITY] Filter: ENABLED (ATR rolling={volatility_atr_rolling_period}, spike threshold={volatility_atr_multiplier}x)")
+    if adaptive_cooldown_enabled:
+        log_notify(f"[STARTUP] [COOLDOWN] Adaptive: ENABLED (base={adaptive_cooldown_base_minutes}min, increment={adaptive_cooldown_increment_minutes}min, max={adaptive_cooldown_max_minutes}min)")
+    if crash_detector_enabled:
+        log_notify(f"[STARTUP] [CRASH] Detector: ENABLED (threshold={crash_price_change_percent}%, lookback={crash_lookback_minutes}min, halt={crash_halt_minutes}min)")
     if strategy == "ml_xgboost":
         log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -767,6 +818,10 @@ try:
     consecutive_losses = 0
     last_loss_time = None  # datetime of last losing trade
 
+    # [CRASH] Crash detector state
+    crash_mode_active = False
+    crash_mode_until = None  # datetime when crash mode expires
+
     # Daily trade limit tracking
     daily_trade_count = 0
     max_trades_per_day = 10  # Default, will be updated from ml_config if available
@@ -785,7 +840,7 @@ try:
 
     def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
         """Log trade result with statistics to both screen and Telegram"""
-        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time
+        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time, crash_mode_active, crash_mode_until
 
         # Update statistics
         if profit > 0:
@@ -1351,6 +1406,68 @@ try:
                     last_filter_message = msg
                 trade_signal = None
         
+        # [VOLATILITY] ATR spike filter
+        if trade_signal is not None and volatility_filter_enabled:
+            try:
+                # Need enough bars for ATR rolling average
+                needed_bars = atr_period + volatility_atr_rolling_period + 5
+                vol_rates = mt5.copy_rates_from(symbol, timeframe, datetime.now(UTC), needed_bars)
+                if vol_rates is not None and len(vol_rates) >= needed_bars:
+                    vol_rates_df = pd.DataFrame(vol_rates)
+                    current_atr, rolling_avg_atr = get_atr_rolling_average(vol_rates_df, atr_period, volatility_atr_rolling_period)
+                    if not np.isnan(rolling_avg_atr) and rolling_avg_atr > 0 and current_atr > volatility_atr_multiplier * rolling_avg_atr:
+                        msg = f"[VOLATILITY] ATR spike detected: current={current_atr:.2f}, avg={rolling_avg_atr:.2f}, threshold={volatility_atr_multiplier}x — skipping trade"
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
+                        trade_signal = None
+            except Exception as e:
+                log_only(f"[VOLATILITY] Error checking ATR spike: {e}")
+
+        # [COOLDOWN] Adaptive cooldown based on consecutive losses
+        if trade_signal is not None and adaptive_cooldown_enabled and last_loss_time is not None and consecutive_losses > 0:
+            cooldown_minutes = min(
+                adaptive_cooldown_base_minutes + (consecutive_losses - 1) * adaptive_cooldown_increment_minutes,
+                adaptive_cooldown_max_minutes
+            )
+            minutes_since_loss = (datetime.now(UTC) - last_loss_time).total_seconds() / 60
+            if minutes_since_loss < cooldown_minutes:
+                remaining = cooldown_minutes - minutes_since_loss
+                msg = f"[COOLDOWN] Adaptive cooldown: {remaining:.1f}min remaining ({cooldown_minutes}min for {consecutive_losses} consecutive losses)"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+
+        # [CRASH] Crash detector — halt trading on extreme price moves
+        if crash_detector_enabled:
+            # Check if crash mode is active and should be deactivated
+            if crash_mode_active and crash_mode_until is not None:
+                if datetime.now(UTC) >= crash_mode_until:
+                    crash_mode_active = False
+                    crash_mode_until = None
+                    log_notify(f"[CRASH] Crash mode DEACTIVATED — resuming normal trading")
+
+            # Check for new crash condition (use M1 for precise minute-level detection)
+            if not crash_mode_active:
+                try:
+                    is_crash, pct_change = check_crash_condition(symbol, crash_lookback_minutes, crash_price_change_percent, mt5.TIMEFRAME_M1)
+                    if is_crash:
+                        crash_mode_active = True
+                        crash_mode_until = datetime.now(UTC) + timedelta(minutes=crash_halt_minutes)
+                        log_notify(f"[CRASH] Crash mode ACTIVATED — price moved {pct_change:.2f}% in {crash_lookback_minutes}min. Halting trades for {crash_halt_minutes}min until {crash_mode_until.strftime('%H:%M:%S')} UTC")
+                except Exception as e:
+                    log_only(f"[CRASH] Error checking crash condition: {e}")
+
+            # Block trades if crash mode is active
+            if trade_signal is not None and crash_mode_active:
+                remaining = (crash_mode_until - datetime.now(UTC)).total_seconds() / 60 if crash_mode_until else 0
+                msg = f"[CRASH] Trade blocked — crash mode active ({remaining:.1f}min remaining)"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+
         # Check consecutive losses circuit breaker
         if trade_signal is not None and max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
             msg = f"[CIRCUIT BREAKER] {consecutive_losses} consecutive losses - trading paused"
