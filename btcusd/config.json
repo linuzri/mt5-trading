@@ -42,7 +42,7 @@
   "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
   
   "_ema_trend_filter_comment": "EMA Trend Filter DISABLED - allowing bidirectional trading (BUY and SELL in any trend)",
-  "enable_ema_trend_filter": false,
+  "enable_ema_trend_filter": true,
   "ema_fast_period": 50,
   "ema_slow_period": 200,
   "_ema_explanation": "UPTREND = EMA50 > EMA200 (allow BUY). DOWNTREND = EMA50 < EMA200 (block BUY).",
