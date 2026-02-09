@@ -1384,10 +1384,6 @@
             const html = `
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                     <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Balance</div>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${entry.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
-                    </div>
-                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
                         <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total P/L</div>
                         <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor};">${pnlSign}$${entry.total_pnl.toFixed(2)}</div>
                     </div>
