@@ -42,8 +42,14 @@ eurusd/trading.py  ─┘
 
 - **Momentum Filter:** Check `check_trend_momentum()` in trading.py. Uses last 3 trades to continue streaks or block losing directions.
 - **Session Trading:** Asian (00:00-08:00 UTC), EU (08:00-14:00), US (14:00-21:00). Each has different confidence thresholds.
-- **Cooldown:** Minimum wait between trades to prevent overtrading.
+- **Cooldown:** Minimum wait between trades to prevent overtrading. BTCUSD: 5min, EURUSD: 10min.
 - **Circuit Breaker:** Currently disabled (set to 999) to allow demo learning.
+- **Volatility Filter (BTCUSD):** Skips trades when ATR > 2x rolling 20-period average.
+- **Adaptive Cooldown (BTCUSD):** 5min base, +5min per consecutive loss (max 30min), resets on win.
+- **Crash Detector (BTCUSD):** Halts trading 30min if price moves >3% in 15 minutes.
+- **EMA Trend Filter (BTCUSD, EURUSD):** Only BUY in uptrend, only SELL in downtrend.
+- **Partial Profit Taking:** All bots close 50% at 1:1 RR, move SL to breakeven. Note: may not trigger on XAUUSD at minimum lot (0.05) due to lot size constraints.
+- **Smart Exit (EURUSD):** Closes stagnant trades after 60min if price moved <0.003%.
 
 ## Development Guidelines
 
@@ -59,8 +65,34 @@ eurusd/trading.py  ─┘
 - **Vercel:** Static dashboard reading from Supabase REST API. Auto-deploys when `vercel-dashboard/` changes.
 - **Vercel ignore step:** `git diff --quiet HEAD^ HEAD -- .` (skips deploy if dashboard unchanged)
 
+## Bot-Specific Settings
+
+### BTCUSD
+- Model: Random Forest | Confidence: 55% (65% off-hours) | EMA filter: ON
+- Smart filters: volatility, adaptive cooldown, crash detector
+- 24/7 trading (crypto never sleeps)
+
+### XAUUSD  
+- Model: XGBoost | SL: $40 | TP: $60
+- Partial profit may not work at 0.05 lots (min lot constraint)
+- Market hours: Mon-Fri only (closes Fri 22:00 UTC, opens Sun 22:00 UTC)
+
+### EURUSD
+- Model: XGBoost | Confidence: 55% | Timeframe: M1 (scalping)
+- SL: 15 pips | TP: 20 pips (tightened for slow forex)
+- EMA filter: ON | Cooldown: 10min | Smart exit: 60min max hold
+- Market hours: Mon-Fri only
+
+## Dashboard
+
+- **Local:** `dashboard/server.py` → http://localhost:5000
+- **Cloud:** https://trade-bot-hq.vercel.app (Vercel + Supabase)
+- **Daily P/L chart:** Stacked bars per bot — BTCUSD (orange), XAUUSD (gold), EURUSD (blue)
+
 ## Common Issues
 
 - **MT5 error 10018:** Market closed. Bot handles this with market hours check.
 - **ML bias:** Models can learn directional bias from trending markets. Fix with class weighting (SELL=2x, BUY=1x, HOLD=0.5x).
 - **Spread spikes:** During low liquidity, spreads widen. Spread filter catches this.
+- **Supabase sync drift:** Real-time push can fail silently. A cron job re-syncs every 30 min.
+- **EURUSD stagnant trades:** Forex moves slowly. Smart exit closes dead trades after 60min.
