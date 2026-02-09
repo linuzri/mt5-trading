@@ -1,8 +1,7 @@
 [
   {
-    "date": "2025-02-07",
-    "summary": "**Rough day for the bot.** Heavy losses driven by BTCUSD's poor win rate.\n\n- **BTCUSD:** 115 trades with only 34.8% win rate — heavy SELL bias that didn't pay off as BTC consolidated sideways\n- **XAUUSD:** Flat day, minimal activity\n- **EURUSD:** Not active\n\n**Key Issues:**\n- SELL bias too aggressive — bot opened short positions into support levels\n- No smart filtering in place yet; every signal was traded\n- Drawdown accelerated in the Asian session when volume was thin\n\n**Lessons:** Need to add win-rate-based filters and reduce position frequency. 115 trades/day is way too many.",
-    "balance": 9922.00,
+    "date": "2026-02-07",
+    "summary": "**Rough day — BTCUSD overtrading into a crash.**\n\n- **BTCUSD:** 115 trades with only 34.8% win rate — heavy SELL bias while BTC dropped from ~$70.5K to ~$61K before recovering to ~$69.6K\n- **XAUUSD:** No trades\n- **EURUSD:** No trades\n\n**Key Issues:**\n- 115 trades in a day = death by a thousand cuts (commissions + spread)\n- Bot kept fighting the crash instead of stepping aside\n- No smart filtering in place yet\n\n**Actions Taken:** Added volatility filter, adaptive cooldown, and crash detector (PR #17)",
     "total_pnl": -78.00,
     "total_trades": 115,
     "btcusd_pnl": -78.00,
@@ -10,23 +9,21 @@
     "eurusd_pnl": 0.00
   },
   {
-    "date": "2025-02-08",
-    "summary": "**Smaller loss — smart filters starting to help.**\n\n- **BTCUSD:** 54 trades (down from 115!) with 29.2% win rate — still below breakeven but frequency cut in half\n- **XAUUSD:** Light activity, small gains\n- **EURUSD:** Not active\n\n**What Changed:**\n- Added smart entry filters to reduce noise trades\n- Trade count dropped 53% vs yesterday — filters are working\n- Win rate still low but average loss per trade improved\n\n**Observations:**\n- The 29.2% WR suggests signal quality still needs work\n- But cutting trade count from 115→54 saved significant capital\n- Bot is learning to be more selective",
-    "balance": 9895.00,
+    "date": "2026-02-08",
+    "summary": "**Smaller loss — smart filters starting to help.**\n\n- **BTCUSD:** 54 trades (down from 115!) with 29.2% win rate — frequency cut in half\n- **XAUUSD:** No trades (weekend, market closed)\n- **EURUSD:** 1 trade, small loss\n\n**What Changed:**\n- Smart filters (PR #17) reduced trade count 53%\n- Average loss per trade improved\n- Still too many losing SELL trades into a rising market\n\n**Actions Taken:** Re-enabled EMA trend filter, retrained ML model (accuracy 51.2% → 55.3%), raised confidence to 55% (PR #18)",
     "total_pnl": -27.00,
-    "total_trades": 54,
-    "btcusd_pnl": -30.00,
-    "xauusd_pnl": 3.00,
-    "eurusd_pnl": 0.00
+    "total_trades": 55,
+    "btcusd_pnl": -26.00,
+    "xauusd_pnl": 0.00,
+    "eurusd_pnl": -1.00
   },
   {
-    "date": "2025-02-09",
-    "summary": "**Best day yet! 🚀 XAUUSD carried hard.**\n\n- **XAUUSD:** Star performer — caught multiple big moves during London/NY sessions with excellent entries\n- **BTCUSD:** Still struggling with win rate, but losses contained thanks to filters\n- **EURUSD:** Not active\n\n**Highlights:**\n- XAUUSD landed several high-conviction trades with strong risk:reward\n- Gold volatility during NFP aftermath created perfect conditions\n- BTCUSD filters continued to limit damage despite poor signal quality\n\n**Net Result:** +$249 — first solidly green day!\n- XAUUSD did the heavy lifting\n- BTCUSD drag was minimized by smart filters\n- Overall account recovered most of the week's losses",
-    "balance": 10144.00,
+    "date": "2026-02-09",
+    "summary": "**Best day yet! 🚀 XAUUSD carried hard.**\n\n- **XAUUSD:** Star performer — two big SELL wins (~$126 each) during gold pullback. 7 breakevens from partial profit + SL-to-breakeven strategy working perfectly\n- **BTCUSD:** 22 trades, 27% WR, still BUY-heavy in a downtrend. -$17.82\n- **EURUSD:** 7 trades, 57% WR — best win rate! Quiet but clean. Scalp tuning applied (PR #19)\n\n**Highlights:**\n- Partial profit taking working on XAUUSD — locking gains then riding risk-free\n- Fixed P/L logging for partial closes (PR #22) — dashboard now shows real profits\n- EURUSD scalp tuning deployed: tighter SL/TP, M1 timeframe\n\n**Net Result:** +$249 — first solidly green day!",
     "total_pnl": 249.00,
-    "total_trades": 67,
-    "btcusd_pnl": -35.00,
-    "xauusd_pnl": 284.00,
-    "eurusd_pnl": 0.00
+    "total_trades": 71,
+    "btcusd_pnl": -17.82,
+    "xauusd_pnl": 259.04,
+    "eurusd_pnl": 8.50
   }
 ]
