@@ -87,7 +87,7 @@ eurusd/trading.py  ─┘
 
 - **Local:** `dashboard/server.py` → http://localhost:5000
 - **Cloud:** https://trade-bot-hq.vercel.app (Vercel + Supabase)
-- **Daily P/L chart:** Stacked bars per bot — BTCUSD (orange), XAUUSD (gold), EURUSD (blue)
+- **Daily P/L chart:** Single green/red bars (total P/L). Hover tooltip shows per-bot breakdown (BTCUSD, XAUUSD, EURUSD).
 
 ## Common Issues
 
