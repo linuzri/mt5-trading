@@ -870,40 +870,59 @@
             // /api/daily-pnl/{days}
             if (endpoint.startsWith('/api/daily-pnl/')) {
                 const days = parseInt(endpoint.split('/').pop()) || 14;
-                const data = await supabaseFetch('daily_pnl', `?select=*&order=date.desc&limit=${days}`);
-                if (!data) return {};
-                const sorted = data.reverse();
+                const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
                 
-                // Build per-bot format matching local API: { BTCUSD: [{date, pnl, cumulative}], ... }
-                // Supabase daily_pnl is combined total, so put same data for all bots as "_total"
-                // and also as BTCUSD (since chart reads BTCUSD for dates)
-                const entries = sorted.map(d => ({
-                    date: d.date,
-                    pnl: parseFloat(d.pnl) || 0
-                }));
-                
-                // Fill missing dates in the range
-                const result = [];
+                // Build date range
                 const today = new Date();
-                for (let i = days - 1; i >= 0; i--) {
-                    const d = new Date(today);
-                    d.setDate(d.getDate() - i);
-                    const dateStr = d.toISOString().split('T')[0];
-                    const found = entries.find(e => e.date === dateStr);
-                    const pnl = found ? found.pnl : 0;
-                    result.push({ date: dateStr, pnl: pnl });
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - days + 1);
+                const startStr = startDate.toISOString().split('T')[0];
+                
+                // Fetch all closed trades in the date range (has bot_name + profit + created_at)
+                const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startStr}T00:00:00&order=created_at.asc`);
+                
+                // Group trades by bot and date
+                const botDayPnl = {}; // { BTCUSD: { '2025-02-06': 100, ... }, ... }
+                bots.forEach(b => { botDayPnl[b] = {}; });
+                
+                if (trades) {
+                    trades.forEach(t => {
+                        const bot = t.bot_name;
+                        if (!botDayPnl[bot]) return;
+                        const date = (t.created_at || '').substring(0, 10);
+                        if (!date) return;
+                        botDayPnl[bot][date] = (botDayPnl[bot][date] || 0) + (parseFloat(t.profit) || 0);
+                    });
                 }
                 
-                // Add cumulative
-                let cumulative = 0;
-                result.forEach(d => { cumulative += d.pnl; d.cumulative = Math.round(cumulative * 100) / 100; });
+                // Build result arrays per bot with filled dates
+                const result = {};
+                bots.forEach(bot => {
+                    const entries = [];
+                    let cumulative = 0;
+                    for (let i = 0; i < days; i++) {
+                        const d = new Date(today);
+                        d.setDate(d.getDate() - days + 1 + i);
+                        const dateStr = d.toISOString().split('T')[0];
+                        const pnl = Math.round((botDayPnl[bot][dateStr] || 0) * 100) / 100;
+                        cumulative += pnl;
+                        entries.push({ date: dateStr, pnl, cumulative: Math.round(cumulative * 100) / 100 });
+                    }
+                    result[bot] = entries;
+                });
                 
-                return {
-                    BTCUSD: result,
-                    XAUUSD: result.map(d => ({ date: d.date, pnl: 0, cumulative: 0 })),
-                    EURUSD: result.map(d => ({ date: d.date, pnl: 0, cumulative: 0 })),
-                    _total: result
-                };
+                // Build _total
+                const totalEntries = [];
+                let totalCum = 0;
+                for (let i = 0; i < days; i++) {
+                    const date = result.BTCUSD[i].date;
+                    const dayTotal = bots.reduce((sum, b) => sum + result[b][i].pnl, 0);
+                    totalCum += dayTotal;
+                    totalEntries.push({ date, pnl: Math.round(dayTotal * 100) / 100, cumulative: Math.round(totalCum * 100) / 100 });
+                }
+                result._total = totalEntries;
+                
+                return result;
             }
             
             // /api/trades/{bot}
@@ -1078,46 +1097,35 @@
             ctx.stroke();
         }
 
-        // Render P/L chart - Simple daily bars only
+        // Render P/L chart - Stacked bars per bot
         async function renderPnLChart(days = 14) {
             const data = await fetchData(`/api/daily-pnl/${days}`);
             if (!data) return;
             
-            // Destroy existing chart AFTER data is fetched
             if (pnlChart) {
                 pnlChart.destroy();
                 pnlChart = null;
             }
             
             const ctx = document.getElementById('pnlChart').getContext('2d');
-            
-            // Get dates from BTCUSD (or first available bot)
             const dates = data.BTCUSD?.map(d => d.date) || [];
             
-            // Calculate TOTAL daily P/L (sum of all bots per day)
-            const totalDailyPnl = dates.map((date, i) => {
-                let total = 0;
-                Object.entries(data).forEach(([botKey, pnlData]) => {
-                    if (!botKey.startsWith('_') && pnlData[i]) {
-                        total += pnlData[i].pnl;
-                    }
-                });
-                return total;
-            });
-            
-            // Single dataset showing total daily P/L
-            const dataset = {
-                label: 'Daily P/L (All Bots)',
-                data: totalDailyPnl,
-                backgroundColor: totalDailyPnl.map(v => 
-                    v >= 0 ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)'
-                ),
-                borderColor: totalDailyPnl.map(v => 
-                    v >= 0 ? '#22c55e' : '#ef4444'
-                ),
-                borderWidth: 2,
-                borderRadius: 4
+            const botColors = {
+                BTCUSD: { bg: 'rgba(247, 147, 26, 0.85)', border: '#f7931a' },
+                XAUUSD: { bg: 'rgba(255, 215, 0, 0.85)', border: '#ffd700' },
+                EURUSD: { bg: 'rgba(0, 82, 180, 0.85)', border: '#0052b4' }
             };
+            
+            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+            
+            const datasets = bots.map(bot => ({
+                label: bot,
+                data: (data[bot] || []).map(d => d.pnl),
+                backgroundColor: botColors[bot].bg,
+                borderColor: botColors[bot].border,
+                borderWidth: 1,
+                borderRadius: 2
+            }));
 
             pnlChart = new Chart(ctx, {
                 type: 'bar',
@@ -1126,7 +1134,7 @@
                         const date = new Date(d);
                         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     }),
-                    datasets: [dataset]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
@@ -1137,7 +1145,14 @@
                     },
                     plugins: {
                         legend: {
-                            display: false
+                            display: true,
+                            labels: {
+                                color: '#a1a1aa',
+                                usePointStyle: true,
+                                pointStyle: 'rectRounded',
+                                padding: 16,
+                                font: { size: 12 }
+                            }
                         },
                         tooltip: {
                             backgroundColor: '#21242d',
@@ -1146,32 +1161,36 @@
                             borderColor: '#2d3139',
                             borderWidth: 1,
                             callbacks: {
+                                afterTitle: function(tooltipItems) {
+                                    const idx = tooltipItems[0].dataIndex;
+                                    const total = bots.reduce((sum, bot) => {
+                                        const val = data[bot]?.[idx]?.pnl || 0;
+                                        return sum + val;
+                                    }, 0);
+                                    const sign = total >= 0 ? '+' : '';
+                                    return `Total: ${sign}$${total.toFixed(2)}`;
+                                },
                                 label: function(context) {
                                     const value = context.raw;
+                                    if (value === 0) return null;
                                     const sign = value >= 0 ? '+' : '';
-                                    return `Daily P/L: ${sign}$${value.toFixed(2)}`;
+                                    return ` ${context.dataset.label}: ${sign}$${value.toFixed(2)}`;
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
-                            grid: {
-                                color: 'rgba(255,255,255,0.05)'
-                            },
-                            ticks: {
-                                color: '#71717a'
-                            }
+                            stacked: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#71717a' }
                         },
                         y: {
-                            grid: {
-                                color: 'rgba(255,255,255,0.05)'
-                            },
+                            stacked: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
                             ticks: {
                                 color: '#71717a',
-                                callback: function(value) {
-                                    return '$' + value;
-                                }
+                                callback: function(value) { return '$' + value; }
                             }
                         }
                     }
