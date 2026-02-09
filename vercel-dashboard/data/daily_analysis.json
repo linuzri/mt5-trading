@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2025-02-07",
+    "summary": "**Rough day for the bot.** Heavy losses driven by BTCUSD's poor win rate.\n\n- **BTCUSD:** 115 trades with only 34.8% win rate — heavy SELL bias that didn't pay off as BTC consolidated sideways\n- **XAUUSD:** Flat day, minimal activity\n- **EURUSD:** Not active\n\n**Key Issues:**\n- SELL bias too aggressive — bot opened short positions into support levels\n- No smart filtering in place yet; every signal was traded\n- Drawdown accelerated in the Asian session when volume was thin\n\n**Lessons:** Need to add win-rate-based filters and reduce position frequency. 115 trades/day is way too many.",
+    "balance": 9922.00,
+    "total_pnl": -78.00,
+    "total_trades": 115,
+    "btcusd_pnl": -78.00,
+    "xauusd_pnl": 0.00,
+    "eurusd_pnl": 0.00
+  },
+  {
+    "date": "2025-02-08",
+    "summary": "**Smaller loss — smart filters starting to help.**\n\n- **BTCUSD:** 54 trades (down from 115!) with 29.2% win rate — still below breakeven but frequency cut in half\n- **XAUUSD:** Light activity, small gains\n- **EURUSD:** Not active\n\n**What Changed:**\n- Added smart entry filters to reduce noise trades\n- Trade count dropped 53% vs yesterday — filters are working\n- Win rate still low but average loss per trade improved\n\n**Observations:**\n- The 29.2% WR suggests signal quality still needs work\n- But cutting trade count from 115→54 saved significant capital\n- Bot is learning to be more selective",
+    "balance": 9895.00,
+    "total_pnl": -27.00,
+    "total_trades": 54,
+    "btcusd_pnl": -30.00,
+    "xauusd_pnl": 3.00,
+    "eurusd_pnl": 0.00
+  },
+  {
+    "date": "2025-02-09",
+    "summary": "**Best day yet! 🚀 XAUUSD carried hard.**\n\n- **XAUUSD:** Star performer — caught multiple big moves during London/NY sessions with excellent entries\n- **BTCUSD:** Still struggling with win rate, but losses contained thanks to filters\n- **EURUSD:** Not active\n\n**Highlights:**\n- XAUUSD landed several high-conviction trades with strong risk:reward\n- Gold volatility during NFP aftermath created perfect conditions\n- BTCUSD filters continued to limit damage despite poor signal quality\n\n**Net Result:** +$249 — first solidly green day!\n- XAUUSD did the heavy lifting\n- BTCUSD drag was minimized by smart filters\n- Overall account recovered most of the week's losses",
+    "balance": 10144.00,
+    "total_pnl": 249.00,
+    "total_trades": 67,
+    "btcusd_pnl": -35.00,
+    "xauusd_pnl": 284.00,
+    "eurusd_pnl": 0.00
+  }
+]
