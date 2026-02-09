@@ -1,91 +1,87 @@
 {
-  "model_type": "xgboost",
-  "symbol": "EURUSD",
-  "timeframe": "M5",
-
-  "data_collection": {
-    "training_period_days": 30,
-    "lookback_candles": 100,
-    "min_data_points": 8000
-  },
-
-  "features": [
-    "rsi_14",
-    "macd_line",
-    "macd_signal",
-    "atr_14",
-    "bb_upper",
-    "bb_lower",
-    "bb_width",
-    "volume_ratio",
-    "price_change_1min",
-    "price_change_5min",
-    "candle_body_ratio",
-    "upper_shadow_ratio",
-    "lower_shadow_ratio",
-    "engulfing",
-    "ema_cross",
-    "price_vs_ema20",
-    "price_vs_ema50",
-    "trend_strength",
-    "is_trending",
-    "momentum_10",
-    "higher_high",
-    "lower_low",
-    "htf_bias",
-    "price_vs_ema200",
-    "consecutive_direction",
-    "price_velocity",
-    "range_position",
-    "drawdown_pct"
-  ],
-
-  "labeling": {
-    "method": "sltp_aware",
-    "lookahead_candles": 18,
-    "profit_threshold": 0.0005,
-    "stop_loss_threshold": 0.0003,
-    "label_classes": ["buy", "sell", "hold"],
-    "_comment": "EURUSD: Lower thresholds (0.05% TP, 0.03% SL) for slower forex moves"
-  },
-
-  "model_params": {
-    "n_estimators": 200,
-    "max_depth": 6,
-    "learning_rate": 0.05,
-    "min_child_weight": 3,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "gamma": 0.1,
-    "reg_alpha": 0.1,
-    "reg_lambda": 1.0,
-    "random_state": 42
-  },
-
-  "training": {
-    "test_size": 0.15,
-    "validation_size": 0.15,
-    "retrain_frequency_days": 7,
-    "cross_validation_folds": 5
-  },
-
-  "prediction": {
-    "confidence_threshold": 0.50,
-    "min_probability_diff": 0.12,
-    "max_hold_probability": 0.50
-  },
-
-  "risk_management": {
-    "min_atr_threshold": 0.0003,
-    "max_trades_per_day": 999,
-    "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
-    "min_win_rate": 0.50
-  },
-
-  "paths": {
-    "model_file": "models/xgboost_eurusd.pkl",
-    "scaler_file": "models/scaler_eurusd.pkl",
-    "training_data": "models/training_data_eurusd.csv",
-    "performance_log": "models/ml_performance_eurusd.csv"
-  }
+    "model_type": "xgboost",
+    "symbol": "EURUSD",
+    "timeframe": "M5",
+    "data_collection": {
+        "training_period_days": 30,
+        "lookback_candles": 100,
+        "min_data_points": 8000
+    },
+    "features": [
+        "rsi_14",
+        "macd_line",
+        "macd_signal",
+        "atr_14",
+        "bb_upper",
+        "bb_lower",
+        "bb_width",
+        "volume_ratio",
+        "price_change_1min",
+        "price_change_5min",
+        "candle_body_ratio",
+        "upper_shadow_ratio",
+        "lower_shadow_ratio",
+        "engulfing",
+        "ema_cross",
+        "price_vs_ema20",
+        "price_vs_ema50",
+        "trend_strength",
+        "is_trending",
+        "momentum_10",
+        "higher_high",
+        "lower_low",
+        "htf_bias",
+        "price_vs_ema200",
+        "consecutive_direction",
+        "price_velocity",
+        "range_position",
+        "drawdown_pct"
+    ],
+    "labeling": {
+        "method": "sltp_aware",
+        "lookahead_candles": 18,
+        "profit_threshold": 0.0005,
+        "stop_loss_threshold": 0.0003,
+        "label_classes": [
+            "buy",
+            "sell",
+            "hold"
+        ],
+        "_comment": "EURUSD: Lower thresholds (0.05% TP, 0.03% SL) for slower forex moves"
+    },
+    "model_params": {
+        "n_estimators": 200,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "min_child_weight": 3,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "gamma": 0.1,
+        "reg_alpha": 0.1,
+        "reg_lambda": 1.0,
+        "random_state": 42
+    },
+    "training": {
+        "test_size": 0.15,
+        "validation_size": 0.15,
+        "retrain_frequency_days": 7,
+        "cross_validation_folds": 5
+    },
+    "prediction": {
+        "confidence_threshold": 0.55,
+        "min_probability_diff": 0.12,
+        "max_hold_probability": 0.5
+    },
+    "risk_management": {
+        "min_atr_threshold": 0.0003,
+        "max_trades_per_day": 999,
+        "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
+        "min_win_rate": 0.5
+    },
+    "paths": {
+        "model_file": "models/xgboost_eurusd.pkl",
+        "scaler_file": "models/scaler_eurusd.pkl",
+        "training_data": "models/training_data_eurusd.csv",
+        "performance_log": "models/ml_performance_eurusd.csv"
+    }
 }
