@@ -703,6 +703,21 @@
             </div>
         </section>
 
+        <!-- Daily Analysis -->
+        <section class="chart-section" id="dailyAnalysisSection">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 class="section-header" style="margin-bottom:0">📊 Daily Analysis</h2>
+                    <select id="analysisDateSelect" style="background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.85rem; font-family: inherit; cursor: pointer; outline: none;">
+                        <option>Loading...</option>
+                    </select>
+                </div>
+                <div id="analysisContent" style="padding: 0.5rem 0;">
+                    <div class="loading"><div class="spinner"></div>Loading analysis...</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Active Trades -->
         <section class="trades-section">
             <div class="table-card">
@@ -1353,8 +1368,73 @@
             updateTimestamp();
         }
 
+        // --- Daily Analysis ---
+        let analysisData = [];
+
+        function renderMarkdown(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n- /g, '\n• ')
+                .replace(/\n/g, '<br>');
+        }
+
+        function renderAnalysis(entry) {
+            const pnlColor = entry.total_pnl >= 0 ? 'var(--green)' : 'var(--red)';
+            const pnlSign = entry.total_pnl >= 0 ? '+' : '';
+            const html = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Balance</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${entry.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                    </div>
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total P/L</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor};">${pnlSign}$${entry.total_pnl.toFixed(2)}</div>
+                    </div>
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Trades</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">${entry.total_trades}</div>
+                    </div>
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">BTC</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: ${entry.btcusd_pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${entry.btcusd_pnl >= 0 ? '+' : ''}$${entry.btcusd_pnl.toFixed(2)}</div>
+                    </div>
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">XAU</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: ${entry.xauusd_pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${entry.xauusd_pnl >= 0 ? '+' : ''}$${entry.xauusd_pnl.toFixed(2)}</div>
+                    </div>
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">EUR</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: ${entry.eurusd_pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${entry.eurusd_pnl >= 0 ? '+' : ''}$${entry.eurusd_pnl.toFixed(2)}</div>
+                    </div>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7;">
+                    ${renderMarkdown(entry.summary)}
+                </div>
+            `;
+            document.getElementById('analysisContent').innerHTML = html;
+        }
+
+        async function loadDailyAnalysis() {
+            try {
+                const resp = await fetch('data/daily_analysis.json?' + Date.now());
+                analysisData = await resp.json();
+                analysisData.sort((a, b) => b.date.localeCompare(a.date));
+                const select = document.getElementById('analysisDateSelect');
+                select.innerHTML = analysisData.map(e => `<option value="${e.date}">${e.date}</option>`).join('');
+                select.addEventListener('change', () => {
+                    const entry = analysisData.find(e => e.date === select.value);
+                    if (entry) renderAnalysis(entry);
+                });
+                if (analysisData.length > 0) renderAnalysis(analysisData[0]);
+            } catch (err) {
+                document.getElementById('analysisContent').innerHTML = '<div style="color: var(--text-muted); padding: 1rem;">No analysis data available yet.</div>';
+            }
+        }
+
         // Start
         init();
+        loadDailyAnalysis();
         setInterval(refresh, REFRESH_INTERVAL);
     </script>
     <!-- Footer -->
