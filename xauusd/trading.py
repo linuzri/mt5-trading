@@ -421,8 +421,42 @@ def check_partial_profit_taking(symbol, positions, sl_pips_value):
             
             if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
                 direction = "BUY" if pos.type == 0 else "SELL"
+                
+                # Calculate partial profit from the closing deal
+                partial_profit = 0.0
+                try:
+                    import time as _time
+                    _time.sleep(0.5)  # Allow deal to settle
+                    deals = mt5.history_deals_get(position=pos.ticket)
+                    if deals:
+                        closing_deal = deals[-1]
+                        partial_profit = closing_deal.profit
+                except Exception:
+                    pass
+                
+                # Fallback: estimate profit from price difference
+                if partial_profit == 0.0:
+                    sym_info_profit = mt5.symbol_info(symbol)
+                    if sym_info_profit:
+                        contract_size = sym_info_profit.trade_contract_size
+                        if pos.type == 0:  # BUY
+                            partial_profit = (close_price - entry_price) * close_volume * contract_size
+                        else:  # SELL
+                            partial_profit = (entry_price - close_price) * close_volume * contract_size
+                
                 log_notify(f"[PARTIAL PROFIT] Closed {partial_close_percent}% of {direction} | "
-                          f"R: {r_multiple:.1f} | Entry: {entry_price:.2f} | Exit: {close_price:.2f}")
+                          f"R: {r_multiple:.1f} | Entry: {entry_price:.2f} | Exit: {close_price:.2f} | P/L: ${partial_profit:.2f}")
+                
+                # Store partial close info for logging by caller
+                if not hasattr(check_partial_profit_taking, '_partial_closes'):
+                    check_partial_profit_taking._partial_closes = []
+                check_partial_profit_taking._partial_closes.append({
+                    'direction': direction,
+                    'entry_price': entry_price,
+                    'exit_price': close_price,
+                    'profit': partial_profit,
+                    'volume': close_volume,
+                })
                 
                 if partial_move_to_breakeven and remaining_volume > 0:
                     breakeven_buffer = entry_price * 0.001
@@ -1056,7 +1090,13 @@ try:
         current_positions = mt5.positions_get(symbol=symbol)
         if current_positions:
             if enable_partial_profit:
+                check_partial_profit_taking._partial_closes = []
                 check_partial_profit_taking(symbol, current_positions, sl_pips)
+                for pc in check_partial_profit_taking._partial_closes:
+                    append_trade_log([str(datetime.now(UTC)), pc['direction'], pc['entry_price'], pc['exit_price'], pc['profit']])
+                    daily_pl += pc['profit']
+                    log_trade_result(pc['direction'], pc['entry_price'], pc['exit_price'], pc['profit'], close_reason="Partial TP")
+                    check_max_loss_profit()
             if enable_smart_exit:
                 check_smart_exit(symbol, current_positions, tracked_positions)
 
