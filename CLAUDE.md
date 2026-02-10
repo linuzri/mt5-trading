@@ -61,9 +61,12 @@ eurusd/trading.py  ─┘
 
 ## Cloud Infrastructure
 
-- **Supabase:** Stores trades, bot status, daily P/L. Bots push data after each trade.
+- **Supabase:** Stores trades, bot status, daily P/L, daily analysis. Bots push data after each trade.
+- **Supabase Tables:** trades, daily_pnl, daily_analysis, bot_status, account_snapshots, logs
+- **Supabase Management API:** Available for schema changes (token in .env as SUPABASE_MGMT_TOKEN)
 - **Vercel:** Static dashboard reading from Supabase REST API. Auto-deploys when `vercel-dashboard/` changes.
 - **Vercel ignore step:** `git diff --quiet HEAD^ HEAD -- .` (skips deploy if dashboard unchanged)
+- **Daily Analysis:** `save_daily_analysis.py` writes to Supabase `daily_analysis` table + JSON backup. Dashboard reads from Supabase.
 
 ## Bot-Specific Settings
 
@@ -95,4 +98,5 @@ eurusd/trading.py  ─┘
 - **ML bias:** Models can learn directional bias from trending markets. Fix with class weighting (SELL=2x, BUY=1x, HOLD=0.5x).
 - **Spread spikes:** During low liquidity, spreads widen. Spread filter catches this.
 - **Supabase sync drift:** Real-time push can fail silently. A cron job re-syncs every 30 min.
+- **Supabase schema changes:** Use Management API (`SUPABASE_MGMT_TOKEN` in .env) to run SQL. Direct psycopg2 connection doesn't work with Supabase pooler.
 - **EURUSD stagnant trades:** Forex moves slowly. Smart exit closes dead trades after 60min.
