@@ -1245,10 +1245,12 @@ try:
 
                     # VOLATILITY FILTER: Check ATR threshold
                     current_atr = latest_features.get('atr_14', 0)
-                    min_atr_threshold = ml_predictor.config.get('risk_management', {}).get('min_atr_threshold', 50)
+                    # For forex pairs, ATR is in price units (e.g. 0.0005 for EURUSD)
+                    # Default 0 disables the filter; config overrides per-bot
+                    min_atr_threshold = ml_predictor.config.get('risk_management', {}).get('min_atr_threshold', 0)
 
-                    if current_atr < min_atr_threshold:
-                        msg = f"[ML FILTER] ATR {current_atr:.1f} below threshold {min_atr_threshold}. Skipping trade."
+                    if min_atr_threshold > 0 and current_atr < min_atr_threshold:
+                        msg = f"[ML FILTER] ATR {current_atr} below threshold {min_atr_threshold}. Skipping trade."
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg
