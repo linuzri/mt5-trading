@@ -1413,7 +1413,7 @@
 
         async function loadDailyAnalysis() {
             try {
-                const resp = await fetch('data/daily_analysis.json?' + Date.now());
+                const resp = await supabaseFetch('daily_analysis', '?select=*&order=date.desc');
                 analysisData = await resp.json();
                 analysisData.sort((a, b) => b.date.localeCompare(a.date));
                 const select = document.getElementById('analysisDateSelect');
