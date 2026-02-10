@@ -29,6 +29,7 @@ mt5-trading/
 │   └── index.html
 ├── ecosystem.config.js  # PM2 process manager config
 ├── daily_digest.py      # End-of-day performance summary
+├── save_daily_analysis.py # Save daily AI analysis to Supabase + JSON
 └── sync_to_supabase.py  # Historical data sync to cloud
 ```
 
@@ -41,6 +42,7 @@ mt5-trading/
 - **Spread Filter:** Skips trades when spread exceeds threshold
 - **Market Hours Check:** Prevents orders during maintenance breaks
 - **Supabase Sync:** Real-time trade data pushed to cloud for dashboard
+- **Daily Analysis:** AI-generated daily trading analysis stored in Supabase
 
 ## Quick Start
 
@@ -100,6 +102,17 @@ pm2 logs bot-btcusd       # View BTCUSD logs
 pm2 restart bot-xauusd    # Restart Gold bot
 pm2 stop all              # Stop everything
 ```
+
+## Supabase Tables
+
+| Table | Description |
+|-------|-------------|
+| `trades` | All closed trades (entry/exit price, P/L, direction) |
+| `daily_pnl` | Daily aggregate P/L, trade count, win count |
+| `daily_analysis` | AI-generated daily trading analysis with per-bot breakdown |
+| `bot_status` | Real-time bot status snapshots |
+| `account_snapshots` | Account balance history |
+| `logs` | Bot activity logs |
 
 ## License
 
