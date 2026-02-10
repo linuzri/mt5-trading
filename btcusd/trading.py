@@ -997,6 +997,19 @@ try:
                 exit_price = closing_deal.price
                 profit = closing_deal.profit
 
+                # If MT5 reports $0 profit but prices differ, calculate from prices
+                # This happens on breakeven closes after partial profit (MT5 loses track)
+                if profit == 0.0 and exit_price != pos_info['entry_price']:
+                    symbol_info = mt5.symbol_info(symbol)
+                    if symbol_info:
+                        contract_size = symbol_info.trade_contract_size
+                        volume = closing_deal.volume if closing_deal.volume > 0 else lot
+                        if pos_info['direction'] == 'BUY':
+                            profit = (exit_price - pos_info['entry_price']) * volume * contract_size
+                        else:
+                            profit = (pos_info['entry_price'] - exit_price) * volume * contract_size
+                        log_notify(f"[P/L FIX] MT5 reported $0, recalculated from prices: ${profit:.2f}")
+
                 # Determine close reason based on deal comment or profit
                 close_reason = ""
                 if closing_deal.comment:
