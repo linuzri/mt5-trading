@@ -35,5 +35,15 @@
     "btcusd_pnl": 9.44,
     "xauusd_pnl": 229.87,
     "eurusd_pnl": 16.33
+  },
+  {
+    "date": "2026-02-11",
+    "summary": "## Feb 11 Daily Analysis\n\n**Balance:** ~$49,637.29 (+$511.66 from previous day)\n**Closed P/L:** +$511.66 across 70 trades\n\n### Per-Bot Breakdown\n- **BTCUSD:** +$86.60 (33 trades, 73% WR) — strong win rate on the BTC drop, consistent small gains\n- **XAUUSD:** +$308.70 (27 trades, 44% WR) — big day with $120+ partial TPs, gold volatility played well\n- **EURUSD:** +$116.36 (10 trades, 30% WR) — one $120 winner carried it, otherwise struggled\n\n### Key Observations\n- Best day in recent memory — all 3 bots profitable\n- XAUUSD continues to dominate with large partial profit captures ($120+ twice)\n- BTCUSD high win rate (73%) suggests EMA trend filter working well in bearish conditions\n- EURUSD still has low win rate but the big winner shows potential when it catches a move\n- Total 70 trades is high volume — bots are active and finding entries",
+    "balance": 49637.29,
+    "total_pnl": 511.66,
+    "total_trades": 70,
+    "btcusd_pnl": 86.6,
+    "xauusd_pnl": 308.7,
+    "eurusd_pnl": 116.36
   }
 ]
