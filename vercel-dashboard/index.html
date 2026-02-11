@@ -458,6 +458,135 @@
             color: var(--text-muted);
         }
 
+        /* Trade Filters */
+        .trade-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-select {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .filter-select:hover,
+        .filter-select:focus {
+            border-color: var(--blue);
+        }
+
+        .filter-pills {
+            display: flex;
+            gap: 0.35rem;
+        }
+
+        .filter-pill {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.75rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-pill:hover {
+            border-color: var(--blue);
+            color: var(--text-primary);
+        }
+
+        .filter-pill.active {
+            background: var(--blue);
+            border-color: var(--blue);
+            color: #fff;
+        }
+
+        /* Trade Stats Bar */
+        .trade-stats-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            padding: 0.75rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .trade-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .trade-stat-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .trade-stat-value {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Responsive trades table */
+        .trades-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .load-more-wrap {
+            text-align: center;
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .load-more-btn {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            font-size: 0.8rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .load-more-btn:hover {
+            border-color: var(--blue);
+            color: var(--text-primary);
+        }
+
         /* Logs Section */
         .logs-section {
             margin-bottom: 2rem;
@@ -723,13 +852,47 @@
             </div>
         </section>
 
-        <!-- Active Trades -->
+        <!-- Trade History -->
         <section class="trades-section">
             <div class="table-card">
                 <div class="table-header">
-                    <h2 class="section-header" style="margin-bottom:0">📋 Recent Trades</h2>
+                    <h2 class="section-header" style="margin-bottom:0">📋 Trade History</h2>
                 </div>
-                <div id="tradesTable">
+                <div class="trade-filters">
+                    <div class="filter-group">
+                        <label>Bot</label>
+                        <select id="tradeFilterBot" class="filter-select" onchange="applyTradeFilters()">
+                            <option value="all">All Bots</option>
+                            <option value="BTCUSD">BTCUSD</option>
+                            <option value="XAUUSD">XAUUSD</option>
+                            <option value="EURUSD">EURUSD</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Side</label>
+                        <select id="tradeFilterSide" class="filter-select" onchange="applyTradeFilters()">
+                            <option value="all">All</option>
+                            <option value="BUY">BUY</option>
+                            <option value="SELL">SELL</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Period</label>
+                        <div class="filter-pills">
+                            <button class="filter-pill active" data-period="1" onclick="setTradePeriod(this, 1)">Today</button>
+                            <button class="filter-pill" data-period="7" onclick="setTradePeriod(this, 7)">7 Days</button>
+                            <button class="filter-pill" data-period="30" onclick="setTradePeriod(this, 30)">30 Days</button>
+                            <button class="filter-pill" data-period="0" onclick="setTradePeriod(this, 0)">All Time</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="trade-stats-bar" id="tradeStatsBar">
+                    <div class="trade-stat"><span class="trade-stat-label">Total Trades</span><span class="trade-stat-value" id="statTotal">—</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Wins / Losses</span><span class="trade-stat-value" id="statWL">—</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Win Rate</span><span class="trade-stat-value" id="statWinRate">—</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Total P/L</span><span class="trade-stat-value" id="statPL">—</span></div>
+                </div>
+                <div class="trades-table-wrap" id="tradesTable">
                     <div class="loading">
                         <div class="spinner"></div>
                         Loading trades...
@@ -967,7 +1130,7 @@
             // /api/trades/{bot}
             if (endpoint.startsWith('/api/trades/')) {
                 const bot = endpoint.split('/').pop();
-                const data = await supabaseFetch('trades', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=20`);
+                const data = await supabaseFetch('trades', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=200`);
                 if (!data) return [];
                 return data.map(t => ({
                     timestamp: t.created_at || t.timestamp || '',
@@ -975,6 +1138,7 @@
                     entry_price: parseFloat(t.entry_price) || 0,
                     exit_price: parseFloat(t.exit_price) || 0,
                     pnl: parseFloat(t.profit) || 0,
+                    confidence: parseFloat(t.confidence) || 0,
                     bot: bot,
                     symbol: bot
                 }));
@@ -1222,50 +1386,94 @@
             });
         }
 
-        // Render trades table
+        // Trade History State
+        let allTradesCache = [];
+        let tradeDisplayCount = 50;
+        let tradePeriodDays = 1;
+
         async function renderTrades() {
-            const allTrades = [];
-            
+            allTradesCache = [];
             for (const bot of ['BTCUSD', 'XAUUSD', 'EURUSD']) {
                 const trades = await fetchData(`/api/trades/${bot}`);
-                if (trades) {
-                    allTrades.push(...trades);
-                }
+                if (trades) allTradesCache.push(...trades);
             }
-            
-            // Sort by timestamp descending
-            allTrades.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-            
+            allTradesCache.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            tradeDisplayCount = 50;
+            applyTradeFilters();
+        }
+
+        function setTradePeriod(el, days) {
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            tradePeriodDays = days;
+            tradeDisplayCount = 50;
+            applyTradeFilters();
+        }
+
+        function applyTradeFilters() {
+            const botFilter = document.getElementById('tradeFilterBot').value;
+            const sideFilter = document.getElementById('tradeFilterSide').value;
             const container = document.getElementById('tradesTable');
-            
-            if (allTrades.length === 0) {
-                container.innerHTML = '<div class="no-data">No recent trades</div>';
+
+            let filtered = allTradesCache;
+
+            if (botFilter !== 'all') {
+                filtered = filtered.filter(t => t.bot === botFilter);
+            }
+            if (sideFilter !== 'all') {
+                filtered = filtered.filter(t => t.side === sideFilter);
+            }
+            if (tradePeriodDays > 0) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - tradePeriodDays);
+                cutoff.setHours(0, 0, 0, 0);
+                filtered = filtered.filter(t => new Date(t.timestamp) >= cutoff);
+            }
+
+            // Update stats
+            const wins = filtered.filter(t => t.pnl > 0).length;
+            const losses = filtered.filter(t => t.pnl <= 0).length;
+            const totalPL = filtered.reduce((s, t) => s + t.pnl, 0);
+            const winRate = filtered.length > 0 ? ((wins / filtered.length) * 100).toFixed(1) : '0.0';
+
+            document.getElementById('statTotal').textContent = filtered.length;
+            document.getElementById('statWL').innerHTML = `<span style="color:var(--green)">${wins}W</span> / <span style="color:var(--red)">${losses}L</span>`;
+            document.getElementById('statWinRate').textContent = winRate + '%';
+            const plEl = document.getElementById('statPL');
+            plEl.textContent = (totalPL >= 0 ? '+' : '') + '$' + totalPL.toFixed(2);
+            plEl.style.color = totalPL >= 0 ? 'var(--green)' : 'var(--red)';
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No trades match the current filters</div>';
                 return;
             }
-            
+
+            const shown = filtered.slice(0, tradeDisplayCount);
+            const hasMore = filtered.length > tradeDisplayCount;
+
+            const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
+
             container.innerHTML = `
                 <table>
                     <thead>
                         <tr>
                             <th>Bot</th>
-                            <th>Symbol</th>
                             <th>Side</th>
-                            <th>Entry Price</th>
-                            <th>Exit Price</th>
+                            <th>Entry</th>
+                            <th>Exit</th>
                             <th>P/L</th>
                             <th>Time</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${allTrades.slice(0, 15).map(trade => {
+                        ${shown.map(trade => {
                             const isProfitable = trade.pnl >= 0;
                             const sideClass = trade.side === 'BUY' ? 'side-buy' : 'side-sell';
                             const pnlClass = isProfitable ? 'trade-profit' : 'trade-loss';
-                            
+                            const botColor = botColors[trade.bot] || 'var(--text-primary)';
                             return `
                                 <tr class="fade-in">
-                                    <td>${trade.bot}</td>
-                                    <td>${trade.symbol}</td>
+                                    <td><span style="color:${botColor};font-weight:600">${trade.bot}</span></td>
                                     <td class="${sideClass}">${trade.side}</td>
                                     <td>${trade.entry_price.toFixed(2)}</td>
                                     <td>${trade.exit_price.toFixed(2)}</td>
@@ -1276,7 +1484,13 @@
                         }).join('')}
                     </tbody>
                 </table>
+                ${hasMore ? `<div class="load-more-wrap"><button class="load-more-btn" onclick="loadMoreTrades()">Load More (${filtered.length - tradeDisplayCount} remaining)</button></div>` : ''}
             `;
+        }
+
+        function loadMoreTrades() {
+            tradeDisplayCount += 50;
+            applyTradeFilters();
         }
 
         // Render logs
