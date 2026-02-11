@@ -1834,6 +1834,19 @@ try:
                 send_telegram_message(f"[ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
                 time.sleep(3600)  # Pause for 1 hour
 
+        # Heartbeat: push bot status to Supabase every 2 minutes so dashboard shows live status
+        if SUPABASE_ENABLED and int(time.time()) % 120 < 60:
+            try:
+                supabase_sync.update_bot_status(
+                    bot_name=symbol,
+                    status="online",
+                    today_pnl=daily_pl,
+                    today_trades=daily_trade_count,
+                    today_wins=total_wins
+                )
+            except Exception:
+                pass
+
         # Wait for 60 seconds before next check
         time.sleep(60)
         check_and_send_summaries()
