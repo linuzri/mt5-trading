@@ -5,7 +5,7 @@
   "data_collection": {
     "training_period_days": 30,
     "lookback_candles": 100,
-    "min_data_points": 8000
+    "min_data_points": 5000
   },
   "features": [
     "rsi_14",
@@ -39,7 +39,7 @@
   ],
   "labeling": {
     "method": "sltp_aware",
-    "lookahead_candles": 18,
+    "lookahead_candles": 24,
     "profit_threshold": 0.0005,
     "stop_loss_threshold": 0.0003,
     "label_classes": [
@@ -68,7 +68,7 @@
     "cross_validation_folds": 5
   },
   "prediction": {
-    "confidence_threshold": 0.55,
+    "confidence_threshold": 0.40,
     "min_probability_diff": 0.12,
     "max_hold_probability": 0.5
   },
