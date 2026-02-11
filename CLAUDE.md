@@ -97,6 +97,6 @@ eurusd/trading.py  ─┘
 - **MT5 error 10018:** Market closed. Bot handles this with market hours check.
 - **ML bias:** Models can learn directional bias from trending markets. Fix with class weighting (SELL=2x, BUY=1x, HOLD=0.5x).
 - **Spread spikes:** During low liquidity, spreads widen. Spread filter catches this.
-- **Supabase sync drift:** Real-time push can fail silently. A cron job re-syncs every 30 min.
+- **Supabase sync:** Real-time push works (bots push after each trade). Incremental sync cron runs every 30 min as safety net (only adds new trades, no longer clears+reimports).
 - **Supabase schema changes:** Use Management API (`SUPABASE_MGMT_TOKEN` in .env) to run SQL. Direct psycopg2 connection doesn't work with Supabase pooler.
 - **EURUSD stagnant trades:** Forex moves slowly. Smart exit closes dead trades after 60min.
