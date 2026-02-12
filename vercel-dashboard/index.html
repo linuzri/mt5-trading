@@ -1950,25 +1950,39 @@
         async function loadPerformanceMetrics() {
             const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
 
-            // Fetch all daily_pnl and trades
-            const [dailyPnl, trades] = await Promise.all([
-                supabaseFetch('daily_pnl', '?select=date,symbol,total_pnl,trade_count,wins,losses&order=date.asc'),
-                supabaseFetch('trades', '?select=symbol,profit,timestamp&order=timestamp.asc&limit=5000')
-            ]);
+            // Fetch trades (has per-bot data with symbol + profit + created_at)
+            const trades = await supabaseFetch('trades', '?select=symbol,profit,created_at&order=created_at.asc&limit=5000');
 
-            if (!dailyPnl) {
+            if (!trades || trades.length === 0) {
                 document.getElementById('metricsCards').innerHTML = '<div class="no-data">No metrics data available</div>';
                 return;
             }
 
-            // Group daily_pnl by symbol
+            // Build per-bot daily P/L from trades
             const pnlByBot = {};
             bots.forEach(b => { pnlByBot[b] = []; });
-            dailyPnl.forEach(d => { if (pnlByBot[d.symbol]) pnlByBot[d.symbol].push(d); });
+            const dailyByBotDate = {};
+            trades.forEach(t => {
+                const sym = t.symbol || '';
+                const pnl = parseFloat(t.profit) || 0;
+                const date = (t.created_at || '').substring(0, 10);
+                if (!date || !bots.includes(sym)) return;
+                const key = `${sym}_${date}`;
+                if (!dailyByBotDate[key]) dailyByBotDate[key] = { symbol: sym, date, total_pnl: 0, trades: 0, wins: 0, losses: 0 };
+                dailyByBotDate[key].total_pnl += pnl;
+                dailyByBotDate[key].trades++;
+                if (pnl > 0) dailyByBotDate[key].wins++;
+                else if (pnl < 0) dailyByBotDate[key].losses++;
+            });
+            Object.values(dailyByBotDate).forEach(d => {
+                if (pnlByBot[d.symbol]) pnlByBot[d.symbol].push(d);
+            });
+            // Sort each bot's daily entries by date
+            bots.forEach(b => { pnlByBot[b].sort((a, c) => a.date.localeCompare(c.date)); });
 
-            // Combined daily returns (sum per date)
+            // Combined daily returns (sum per date across all bots)
             const byDate = {};
-            dailyPnl.forEach(d => { byDate[d.date] = (byDate[d.date] || 0) + d.total_pnl; });
+            Object.values(dailyByBotDate).forEach(d => { byDate[d.date] = (byDate[d.date] || 0) + d.total_pnl; });
             const combinedReturns = Object.keys(byDate).sort().map(d => byDate[d]);
 
             // Sharpe
