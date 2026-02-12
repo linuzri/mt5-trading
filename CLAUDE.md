@@ -73,8 +73,11 @@ eurusd/trading.py  ─┘
 ## Bot-Specific Settings
 
 ### BTCUSD
-- Model: Random Forest | Confidence: 55% (65% off-hours) | EMA filter: ON
+- Model: **Ensemble** (Random Forest + XGBoost + LightGBM) — majority vote, 2/3 must agree
+- Confidence: 55% (65% off-hours) | EMA filter: ON
 - Smart filters: volatility, adaptive cooldown, crash detector
+- Ensemble predictor: `ml/ensemble_predictor.py` | Trainer: `ml/ensemble_trainer.py`
+- Train: `python train_ml_model.py --refresh --ensemble`
 - 24/7 trading (crypto never sleeps)
 
 ### XAUUSD  
@@ -83,7 +86,7 @@ eurusd/trading.py  ─┘
 - Market hours: Mon-Fri only (closes Fri 22:00 UTC, opens Sun 22:00 UTC)
 
 ### EURUSD
-- Model: XGBoost | Confidence: 55% | Timeframe: M1 (scalping)
+- Model: XGBoost | Confidence: 40% (50% Asian session) | Timeframe: M5
 - SL: 15 pips | TP: 20 pips (tightened for slow forex)
 - EMA filter: ON | Cooldown: 10min | Smart exit: 60min max hold
 - Market hours: Mon-Fri only
