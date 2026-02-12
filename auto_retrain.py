@@ -46,7 +46,7 @@ fh = logging.FileHandler(log_file, encoding="utf-8")
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
-sh = logging.StreamHandler(sys.stdout)
+sh = logging.StreamHandler(open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False))
 sh.setFormatter(formatter)
 logger.addHandler(sh)
 
@@ -120,6 +120,8 @@ def run_training(bot_name: str) -> tuple[bool, str]:
             cwd=bot_dir,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=TRAINING_TIMEOUT_SECONDS,
         )
         output = result.stdout + "\n" + result.stderr
@@ -141,8 +143,8 @@ def restart_pm2(bot_name: str) -> bool:
     pm2_name = BOT_CONFIG[bot_name]["pm2_name"]
     try:
         result = subprocess.run(
-            ["pm2", "restart", pm2_name],
-            capture_output=True, text=True, timeout=30,
+            f"pm2 restart {pm2_name}",
+            capture_output=True, text=True, timeout=30, shell=True,
         )
         if result.returncode == 0:
             logger.info(f"  PM2 restart {pm2_name}: OK")
