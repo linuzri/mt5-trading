@@ -34,6 +34,8 @@ def main():
     parser = argparse.ArgumentParser(description='Train ML trading model')
     parser.add_argument('--refresh', action='store_true',
                         help='Force refresh data from MT5 (instead of using cache)')
+    parser.add_argument('--ensemble', action='store_true',
+                        help='Train ensemble model (RF + XGBoost + LightGBM) instead of single model')
     parser.add_argument('--config', type=str, default='ml_config.json',
                         help='Path to ML configuration file')
     parser.add_argument('--auth', type=str, default='mt5_auth.json',
@@ -46,6 +48,7 @@ def main():
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Config: {args.config}")
     print(f"Force refresh: {args.refresh}")
+    print(f"Ensemble mode: {args.ensemble}")
     print("=" * 70)
 
     try:
@@ -94,7 +97,12 @@ def main():
         print("STEP 3: MODEL TRAINING & EVALUATION")
         print("=" * 70)
 
-        trainer = ModelTrainer(args.config)
+        if args.ensemble:
+            from ml.ensemble_trainer import EnsembleTrainer
+            trainer = EnsembleTrainer(args.config)
+        else:
+            trainer = ModelTrainer(args.config)
+
         model, metrics = trainer.train_and_evaluate(
             df_features,
             feature_cols,
@@ -107,9 +115,15 @@ def main():
         print("=" * 70)
 
         print("\n[i] Performance Summary:")
-        print(f"   Cross-Validation Accuracy: {metrics['cv_mean']:.4f} (+/- {metrics['cv_std']:.4f})")
-        print(f"   Validation Set Accuracy:   {metrics['validation_metrics']['accuracy']:.4f}")
-        print(f"   Test Set Accuracy:         {metrics['test_metrics']['accuracy']:.4f}")
+        if args.ensemble:
+            ind_acc = metrics.get('individual_accuracies', {})
+            for m, acc in ind_acc.items():
+                print(f"   {m.upper()} Test Accuracy:        {acc:.4f}")
+            print(f"   ENSEMBLE Test Accuracy:     {metrics['test_metrics']['accuracy']:.4f}")
+        else:
+            print(f"   Cross-Validation Accuracy: {metrics['cv_mean']:.4f} (+/- {metrics['cv_std']:.4f})")
+            print(f"   Validation Set Accuracy:   {metrics['validation_metrics']['accuracy']:.4f}")
+            print(f"   Test Set Accuracy:         {metrics['test_metrics']['accuracy']:.4f}")
 
         print("\n[>] Next Steps:")
         print("   1. Review model performance metrics above")
