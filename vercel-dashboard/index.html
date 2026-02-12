@@ -753,6 +753,82 @@
             }
         }
 
+        /* Performance Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .metric-card:hover {
+            border-color: var(--text-muted);
+            transform: translateY(-2px);
+        }
+
+        .metric-card-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+
+        .metric-main-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .metric-sub span {
+            display: inline-block;
+            margin-right: 0.75rem;
+        }
+
+        .equity-filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .equity-filter-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.4rem 0.85rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .equity-filter-btn:hover {
+            border-color: var(--blue);
+            color: var(--text-primary);
+        }
+
+        .equity-filter-btn.active {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
         /* Animations */
         .fade-in {
             animation: fadeIn 0.3s ease;
@@ -833,6 +909,25 @@
                         <div class="spinner"></div>
                         <span>Loading chart...</span>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Metrics -->
+        <section class="chart-section" id="performanceMetricsSection">
+            <div class="chart-card">
+                <h2 class="section-header">📈 Performance Metrics</h2>
+                <div class="metrics-grid" id="metricsCards">
+                    <div class="loading"><div class="spinner"></div>Loading metrics...</div>
+                </div>
+                <div class="equity-filters" id="equityFilters">
+                    <button class="equity-filter-btn active" data-symbol="BTCUSD" onclick="toggleEquityLine(this, 'BTCUSD')" style="border-color: #f7931a; color: #f7931a; background: rgba(247,147,26,0.1);">BTCUSD</button>
+                    <button class="equity-filter-btn active" data-symbol="XAUUSD" onclick="toggleEquityLine(this, 'XAUUSD')" style="border-color: #ffd700; color: #ffd700; background: rgba(255,215,0,0.1);">XAUUSD</button>
+                    <button class="equity-filter-btn active" data-symbol="EURUSD" onclick="toggleEquityLine(this, 'EURUSD')" style="border-color: #0052b4; color: #0052b4; background: rgba(0,82,180,0.1);">EURUSD</button>
+                    <button class="equity-filter-btn active" data-symbol="Combined" onclick="toggleEquityLine(this, 'Combined')" style="border-color: #06b6d4; color: #06b6d4; background: rgba(6,182,212,0.1);">Combined</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="equityCurveChart"></canvas>
                 </div>
             </div>
         </section>
@@ -1590,6 +1685,7 @@
                 renderAccountBalance(),
                 renderBots(),
                 renderPnLChart(currentDays),
+                loadPerformanceMetrics(),
                 renderTrades(),
                 renderLogs()
             ]);
@@ -1665,6 +1761,248 @@
             } catch (err) {
                 document.getElementById('analysisContent').innerHTML = '<div style="color: var(--text-muted); padding: 1rem;">No analysis data available yet.</div>';
             }
+        }
+
+        // --- Performance Metrics ---
+        let equityCurveChart = null;
+
+        function calculateSharpe(dailyReturns) {
+            if (!dailyReturns || dailyReturns.length < 2) return null;
+            const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
+            const variance = dailyReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (dailyReturns.length - 1);
+            const std = Math.sqrt(variance);
+            if (std === 0) return mean >= 0 ? Infinity : -Infinity;
+            return (mean / std) * Math.sqrt(252);
+        }
+
+        function calculateDrawdown(dailyPnls) {
+            if (!dailyPnls || dailyPnls.length === 0) return { maxDd: 0, maxDdPct: 0 };
+            let cumulative = 0, peak = 0, maxDd = 0;
+            for (const pnl of dailyPnls) {
+                cumulative += pnl;
+                if (cumulative > peak) peak = cumulative;
+                const dd = peak - cumulative;
+                if (dd > maxDd) maxDd = dd;
+            }
+            const maxDdPct = peak > 0 ? (maxDd / peak) * 100 : 0;
+            return { maxDd, maxDdPct };
+        }
+
+        function calculateWinStreak(trades) {
+            if (!trades || trades.length === 0) return { current: 0, best: 0 };
+            let current = 0, best = 0;
+            // trades should be sorted oldest first
+            for (const t of trades) {
+                if (t.pnl > 0) {
+                    current++;
+                    if (current > best) best = current;
+                } else {
+                    current = 0;
+                }
+            }
+            return { current, best };
+        }
+
+        function calculateProfitFactor(trades) {
+            if (!trades || trades.length === 0) return null;
+            let grossProfit = 0, grossLoss = 0;
+            for (const t of trades) {
+                if (t.pnl > 0) grossProfit += t.pnl;
+                else grossLoss += Math.abs(t.pnl);
+            }
+            if (grossLoss === 0) return grossProfit > 0 ? Infinity : 0;
+            return grossProfit / grossLoss;
+        }
+
+        function metricColor(value, greenThreshold, yellowThreshold) {
+            if (value >= greenThreshold) return 'var(--green)';
+            if (value >= yellowThreshold) return 'var(--yellow)';
+            return 'var(--red)';
+        }
+
+        function renderEquityCurve(dailyPnlByBot) {
+            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+            const colors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4', Combined: '#06b6d4' };
+
+            // Collect all dates
+            const allDates = new Set();
+            bots.forEach(b => { if (dailyPnlByBot[b]) dailyPnlByBot[b].forEach(d => allDates.add(d.date)); });
+            const dates = [...allDates].sort();
+
+            // Build cumulative data
+            const datasets = [];
+            const cumByBot = {};
+            bots.forEach(bot => {
+                const map = {};
+                (dailyPnlByBot[bot] || []).forEach(d => { map[d.date] = d.total_pnl; });
+                let cum = 0;
+                cumByBot[bot] = dates.map(date => { cum += (map[date] || 0); return cum; });
+                datasets.push({
+                    label: bot,
+                    data: cumByBot[bot],
+                    borderColor: colors[bot],
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.3
+                });
+            });
+
+            // Combined
+            const combined = dates.map((_, i) => bots.reduce((s, b) => s + (cumByBot[b]?.[i] || 0), 0));
+            datasets.push({
+                label: 'Combined',
+                data: combined,
+                borderColor: colors.Combined,
+                backgroundColor: 'transparent',
+                borderWidth: 2.5,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                tension: 0.3,
+                borderDash: [6, 3]
+            });
+
+            if (equityCurveChart) { equityCurveChart.destroy(); equityCurveChart = null; }
+
+            const ctx = document.getElementById('equityCurveChart').getContext('2d');
+            equityCurveChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.map(d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }),
+                    datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#21242d',
+                            titleColor: '#e4e4e7',
+                            bodyColor: '#a1a1aa',
+                            borderColor: '#2d3139',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '+' : ''}$${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#71717a' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#71717a', callback: v => '$' + v } }
+                    }
+                }
+            });
+        }
+
+        function toggleEquityLine(btn, symbol) {
+            if (!equityCurveChart) return;
+            const idx = equityCurveChart.data.datasets.findIndex(d => d.label === symbol);
+            if (idx === -1) return;
+            const meta = equityCurveChart.getDatasetMeta(idx);
+            meta.hidden = !meta.hidden;
+            btn.classList.toggle('active');
+            equityCurveChart.update();
+        }
+
+        async function loadPerformanceMetrics() {
+            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+
+            // Fetch all daily_pnl and trades
+            const [dailyPnl, trades] = await Promise.all([
+                supabaseFetch('daily_pnl', '?select=date,symbol,total_pnl,trade_count,wins,losses&order=date.asc'),
+                supabaseFetch('trades', '?select=symbol,profit,timestamp&order=timestamp.asc&limit=5000')
+            ]);
+
+            if (!dailyPnl) {
+                document.getElementById('metricsCards').innerHTML = '<div class="no-data">No metrics data available</div>';
+                return;
+            }
+
+            // Group daily_pnl by symbol
+            const pnlByBot = {};
+            bots.forEach(b => { pnlByBot[b] = []; });
+            dailyPnl.forEach(d => { if (pnlByBot[d.symbol]) pnlByBot[d.symbol].push(d); });
+
+            // Combined daily returns (sum per date)
+            const byDate = {};
+            dailyPnl.forEach(d => { byDate[d.date] = (byDate[d.date] || 0) + d.total_pnl; });
+            const combinedReturns = Object.keys(byDate).sort().map(d => byDate[d]);
+
+            // Sharpe
+            const combinedSharpe = calculateSharpe(combinedReturns);
+            const botSharpes = {};
+            bots.forEach(b => { botSharpes[b] = calculateSharpe(pnlByBot[b].map(d => d.total_pnl)); });
+
+            // Drawdown (combined)
+            const dd = calculateDrawdown(combinedReturns);
+
+            // Win Streak per bot from trades
+            const tradesByBot = {};
+            bots.forEach(b => { tradesByBot[b] = []; });
+            if (trades) {
+                trades.forEach(t => {
+                    const sym = t.symbol;
+                    if (tradesByBot[sym]) tradesByBot[sym].push({ pnl: parseFloat(t.profit) || 0 });
+                });
+            }
+            const streaks = {};
+            bots.forEach(b => { streaks[b] = calculateWinStreak(tradesByBot[b]); });
+
+            // Profit Factor from trades
+            const allTrades = trades ? trades.map(t => ({ pnl: parseFloat(t.profit) || 0 })) : [];
+            const pf = calculateProfitFactor(allTrades);
+            const botPfs = {};
+            bots.forEach(b => { botPfs[b] = calculateProfitFactor(tradesByBot[b]); });
+
+            // Render metric cards
+            const sharpeVal = combinedSharpe !== null && isFinite(combinedSharpe) ? combinedSharpe.toFixed(2) : '—';
+            const sharpeColor = combinedSharpe > 1 ? 'var(--green)' : combinedSharpe >= 0 ? 'var(--yellow)' : 'var(--red)';
+            const botSharpeHtml = bots.map(b => {
+                const v = botSharpes[b];
+                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '—';
+                const c = v > 1 ? 'var(--green)' : v >= 0 ? 'var(--yellow)' : 'var(--red)';
+                return `<span style="color:${c}">${b}: ${vs}</span>`;
+            }).join('');
+
+            const pfVal = pf !== null && isFinite(pf) ? pf.toFixed(2) : '—';
+            const pfColor = metricColor(pf || 0, 1.5, 1);
+            const botPfHtml = bots.map(b => {
+                const v = botPfs[b];
+                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '—';
+                const c = metricColor(v || 0, 1.5, 1);
+                return `<span style="color:${c}">${b}: ${vs}</span>`;
+            }).join('');
+
+            const streakHtml = bots.map(b => `<span>${b}: ${streaks[b].current}🔥 (best: ${streaks[b].best})</span>`).join('');
+
+            document.getElementById('metricsCards').innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-card-title">Sharpe Ratio</div>
+                    <div class="metric-main-value" style="color:${sharpeColor}">${sharpeVal}</div>
+                    <div class="metric-sub">${botSharpeHtml}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card-title">Max Drawdown</div>
+                    <div class="metric-main-value" style="color:var(--red)">-$${dd.maxDd.toFixed(2)}</div>
+                    <div class="metric-sub"><span style="color:var(--red)">${dd.maxDdPct.toFixed(1)}% from peak</span></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card-title">Win Streak</div>
+                    <div class="metric-main-value" style="color:var(--green)">🔥</div>
+                    <div class="metric-sub">${streakHtml}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card-title">Profit Factor</div>
+                    <div class="metric-main-value" style="color:${pfColor}">${pfVal}</div>
+                    <div class="metric-sub">${botPfHtml}</div>
+                </div>
+            `;
+
+            // Render equity curve
+            renderEquityCurve(pnlByBot);
         }
 
         // Start
