@@ -1,48 +1,77 @@
 # MT5 Trading Bot
 
-Automated trading bots for MetaTrader 5 with machine learning signal prediction.
+Automated trading bots for MetaTrader 5 with machine learning signal prediction. Three bots trade BTCUSD, XAUUSD, and EURUSD 24/7 on a demo account with real-time cloud monitoring.
 
-## Supported Pairs
+**Live Dashboard:** https://trade-bot-hq.vercel.app
 
-| Bot | Symbol | ML Model | Status |
-|-----|--------|----------|--------|
-| BTCUSD | Bitcoin/USD | Random Forest | ✅ Live |
-| XAUUSD | Gold/USD | XGBoost | ✅ Live |
-| EURUSD | Euro/USD | XGBoost | ✅ Live |
+## Supported Pairs & ML Strategy
+
+| Bot | Symbol | ML Strategy | Confidence | Key Features |
+|-----|--------|------------|------------|--------------|
+| BTCUSD | Bitcoin/USD | **Ensemble** (Random Forest + XGBoost + LightGBM) | 55% (65% off-hours) | Majority vote (2/3 must agree), volatility filter, crash detector |
+| XAUUSD | Gold/USD | XGBoost | 50% (60% off-hours) | Partial profit at 1R, bidirectional trading |
+| EURUSD | Euro/USD | XGBoost | 40% (50% Asian session) | Tight scalping (15 pip SL, 20 pip TP), M5 timeframe |
+
+### ML Pipeline
+- **28 features** per prediction: RSI, MACD, Bollinger Bands, EMA crossovers, ATR, volume ratio, momentum, crash detection metrics, and more
+- **3-class prediction:** BUY / SELL / HOLD with probability scores
+- **BTCUSD Ensemble:** Three models vote independently. Signal only fires when 2/3 agree — filters out weak/conflicting signals for higher quality trades
+- **Auto-retrain:** Weekly automated retraining (Sunday 3 AM MYT) with accuracy validation, backup/rollback safety, and PM2 auto-restart
+- **Class weighting:** SELL=2x, BUY=1x, HOLD=0.5x to counteract bullish bias in training data
 
 ## Project Structure
 
 ```
 mt5-trading/
 ├── btcusd/              # Bitcoin bot + ML pipeline
-│   ├── trading.py       # Main bot logic
-│   ├── ml/              # ML modules (features, training, prediction)
-│   ├── models/          # Trained models + scalers
-│   ├── config.json      # Bot configuration
-│   └── train_ml_model.py
-├── xauusd/              # Gold bot (same structure)
-├── eurusd/              # Euro bot (same structure)
+│   ├── trading.py       # Main bot logic (~2000 lines)
+│   ├── ml/              # ML modules
+│   │   ├── ensemble_predictor.py  # Ensemble voting (RF+XGB+LGB)
+│   │   ├── ensemble_trainer.py    # Train all 3 models
+│   │   ├── model_predictor.py     # Single model prediction
+│   │   ├── model_trainer.py       # Single model training
+│   │   ├── feature_engineering.py # 28 technical features
+│   │   └── data_preparation.py   # MT5 data fetching
+│   ├── models/          # Trained models + scalers + backups
+│   ├── config.json      # Bot runtime config
+│   ├── ml_config.json   # ML training config
+│   └── train_ml_model.py  # CLI: train models (--refresh, --ensemble)
+├── xauusd/              # Gold bot (same structure, single XGBoost)
+├── eurusd/              # Euro bot (same structure, single XGBoost)
 ├── dashboard/           # Local web dashboard (Flask)
-│   ├── server.py        # Dashboard backend
-│   └── trading-dashboard.html
 ├── vercel-dashboard/    # Cloud dashboard (Vercel + Supabase)
-│   └── index.html
+│   └── index.html       # Single-file dashboard with Chart.js
+├── auto_retrain.py      # Weekly auto-retrain scheduler
 ├── ecosystem.config.js  # PM2 process manager config
 ├── daily_digest.py      # End-of-day performance summary
-├── save_daily_analysis.py # Save daily AI analysis to Supabase + JSON
-└── sync_to_supabase.py  # Historical data sync to cloud
+├── save_daily_analysis.py # Save daily AI analysis to Supabase
+└── sync_to_supabase.py  # Incremental trade sync to cloud
 ```
 
 ## Features
 
-- **ML-Powered Signals:** Each bot uses a trained model (Random Forest / XGBoost) with 28 features including technical indicators, crash detection, and market regime
-- **Trend Momentum Filter:** Tracks last 3 trades — continues profitable streaks, blocks losing directions
+### Trading
+- **ML-Powered Signals:** Trained models predict BUY/SELL/HOLD with confidence scores
+- **Ensemble Voting (BTCUSD):** 3 models must reach consensus — reduces false signals
+- **EMA Trend Filter:** Only BUY in uptrend, only SELL in downtrend (BTCUSD, EURUSD)
 - **Session-Aware Trading:** Adjusts confidence thresholds for Asian/EU/US sessions
 - **Dynamic Position Sizing:** Risk-based lot calculation (0.5% per trade)
+- **Partial Profit Taking:** Close 50% at 1:1 RR, move SL to breakeven
+- **Smart Exit:** Closes stagnant trades after timeout (EURUSD: 60min)
 - **Spread Filter:** Skips trades when spread exceeds threshold
-- **Market Hours Check:** Prevents orders during maintenance breaks
-- **Supabase Sync:** Real-time trade data pushed to cloud for dashboard
-- **Daily Analysis:** AI-generated daily trading analysis stored in Supabase
+
+### Risk Management
+- **Volatility Filter (BTCUSD):** Skips trades when ATR > 2x rolling average
+- **Adaptive Cooldown (BTCUSD):** 5min base, +5min per consecutive loss (max 30min)
+- **Crash Detector (BTCUSD):** Halts trading 30min if price moves >3% in 15 minutes
+- **Momentum Filter:** Continues profitable streaks, blocks losing directions
+
+### Infrastructure
+- **Auto-Retrain:** Weekly model retraining with accuracy validation and rollback safety
+- **Cloud Dashboard:** Real-time monitoring at https://trade-bot-hq.vercel.app
+- **Performance Metrics:** Sharpe ratio, max drawdown, win streaks, profit factor, equity curve
+- **Supabase Sync:** Real-time trade data + 30-min incremental safety sync
+- **Daily Analysis:** AI-generated trading analysis saved to Supabase
 
 ## Quick Start
 
@@ -55,10 +84,10 @@ mt5-trading/
 ### Setup
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install MetaTrader5 scikit-learn xgboost lightgbm pandas numpy joblib requests
 
-# Configure MT5 credentials
-# Create mt5_auth.json in each bot folder with your credentials
+# Configure MT5 credentials (create in each bot folder)
+# mt5_auth.json: {"login": 12345, "password": "xxx", "server": "BrokerServer"}
 
 # Start all bots
 pm2 start ecosystem.config.js
@@ -70,29 +99,47 @@ pm2 status
 
 ### Train ML Models
 ```bash
-cd btcusd
-python train_ml_model.py --refresh
+# Single model (XAUUSD/EURUSD)
+cd xauusd && python train_ml_model.py --refresh
 
-cd ../xauusd
-python train_ml_model.py --refresh
+# Ensemble model (BTCUSD)
+cd btcusd && python train_ml_model.py --refresh --ensemble
+
+# Auto-retrain all bots (checks if due, validates accuracy)
+python auto_retrain.py              # Retrain if model > 7 days old
+python auto_retrain.py --force      # Force retrain now
+python auto_retrain.py --dry-run    # Preview without changes
+python auto_retrain.py --bot btcusd # Specific bot only
 ```
 
-## Dashboards
+## Dashboard
 
-- **Local:** `cd dashboard && python server.py` → http://localhost:5000
-- **Cloud:** https://trade-bot-hq.vercel.app
+**Cloud:** https://trade-bot-hq.vercel.app (Vercel + Supabase, auto-deploys from main)
+
+**Sections:**
+- 🤖 Bot Performance — Live status, today's P/L, trade count per bot
+- 📊 Daily P/L Chart — Green/red bars with per-bot tooltip breakdown
+- 📈 Performance Metrics — Sharpe ratio, max drawdown, win streaks, profit factor + equity curve
+- 📊 Daily Analysis — AI-generated market analysis with date browser
+- 📋 Trade History — Filterable trade log with stats
+- 📝 Live Logs — Real-time bot activity feed
+
+**Local:** `cd dashboard && python server.py` → http://localhost:5000
 
 ## Configuration
 
-Each bot has its own `config.json`:
+Each bot has `config.json` (runtime) and `ml_config.json` (ML training):
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `risk_percent` | 0.5% | Risk per trade |
-| `max_lot` | 0.05 | Maximum lot size |
-| `confidence_threshold` | 0.6 | ML prediction confidence minimum |
-| `cooldown_minutes` | 5 | Wait time between trades |
-| `off_hours` | true | Trade outside main sessions |
+| Setting | BTCUSD | XAUUSD | EURUSD |
+|---------|--------|--------|--------|
+| ML Strategy | Ensemble (RF+XGB+LGB) | XGBoost | XGBoost |
+| Confidence | 55% | 50% | 40% |
+| Risk % | 0.5% | 0.5% | 0.5% |
+| Max Lot | 0.05 | 0.05 | 0.05 |
+| Cooldown | 5 min | 5 min | 10 min |
+| EMA Filter | ✅ | ❌ | ✅ |
+| Volatility Filter | ✅ | ❌ | ❌ |
+| Crash Detector | ✅ | ❌ | ❌ |
 
 ## PM2 Commands
 
@@ -100,6 +147,7 @@ Each bot has its own `config.json`:
 pm2 status                # Check all bots
 pm2 logs bot-btcusd       # View BTCUSD logs
 pm2 restart bot-xauusd    # Restart Gold bot
+pm2 restart all           # Restart everything
 pm2 stop all              # Stop everything
 ```
 
@@ -107,10 +155,10 @@ pm2 stop all              # Stop everything
 
 | Table | Description |
 |-------|-------------|
-| `trades` | All closed trades (entry/exit price, P/L, direction) |
-| `daily_pnl` | Daily aggregate P/L, trade count, win count |
-| `daily_analysis` | AI-generated daily trading analysis with per-bot breakdown |
-| `bot_status` | Real-time bot status snapshots |
+| `trades` | All closed trades (symbol, direction, entry/exit price, P/L, confidence) |
+| `daily_pnl` | Daily aggregate P/L and trade stats |
+| `daily_analysis` | AI-generated daily trading analysis |
+| `bot_status` | Real-time bot heartbeat status |
 | `account_snapshots` | Account balance history |
 | `logs` | Bot activity logs |
 
