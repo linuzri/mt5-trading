@@ -1,5 +1,5 @@
 {
-  "model_type": "xgboost",
+  "model_type": "ensemble",
   "symbol": "BTCUSD",
   "timeframe": "M5",
 
@@ -83,6 +83,14 @@
     "max_trades_per_day": 999,
     "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
     "min_win_rate": 0.50
+  },
+
+  "ensemble_paths": {
+    "rf_model": "models/ensemble_rf.pkl",
+    "xgb_model": "models/ensemble_xgb.pkl",
+    "lgb_model": "models/ensemble_lgb.pkl",
+    "scaler": "models/ensemble_scaler.pkl",
+    "metadata": "models/ensemble_metadata.json"
   },
 
   "paths": {

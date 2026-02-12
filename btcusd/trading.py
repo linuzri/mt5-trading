@@ -27,7 +27,14 @@ except ImportError:
 
 # ML imports (optional - only needed if using ml_xgboost strategy)
 try:
-    from ml.model_predictor import ModelPredictor
+    # Check ml_config to decide between ensemble and single model
+    import json as _json
+    with open("ml_config.json", "r") as _f:
+        _ml_cfg = _json.load(_f)
+    if _ml_cfg.get('model_type') == 'ensemble':
+        from ml.ensemble_predictor import EnsemblePredictor as ModelPredictor
+    else:
+        from ml.model_predictor import ModelPredictor
     from ml.feature_engineering import FeatureEngineering
     ML_AVAILABLE = True
 except ImportError:
