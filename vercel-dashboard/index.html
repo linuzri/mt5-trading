@@ -829,6 +829,98 @@
             background: rgba(6, 182, 212, 0.1);
         }
 
+        /* Metric Tooltips */
+        .metric-card-title {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .metric-info {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.6rem;
+            font-weight: 700;
+            cursor: help;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .metric-info:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .metric-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            width: 280px;
+            z-index: 100;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            font-size: 0.75rem;
+            font-weight: 400;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .metric-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--border-color);
+        }
+
+        .metric-info:hover .metric-tooltip {
+            display: block;
+        }
+
+        .metric-tooltip strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.8rem;
+        }
+
+        .metric-tooltip .scale {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.4rem;
+            font-size: 0.7rem;
+        }
+
+        .metric-tooltip .scale span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .metric-tooltip .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
         /* Animations */
         .fade-in {
             animation: fadeIn 0.3s ease;
@@ -956,7 +1048,8 @@
         <!-- Performance Metrics -->
         <section class="chart-section" id="performanceMetricsSection">
             <div class="chart-card">
-                <h2 class="section-header">📈 Performance Metrics</h2>
+                <h2 class="section-header" style="margin-bottom:0">📈 Performance Metrics</h2>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Hover over the <span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-muted);font-size:0.55rem;font-weight:700;vertical-align:middle;">i</span> icon on each card to learn what it means.</p>
                 <div class="metrics-grid" id="metricsCards">
                     <div class="loading"><div class="spinner"></div>Loading metrics...</div>
                 </div>
@@ -2034,22 +2127,22 @@
 
             document.getElementById('metricsCards').innerHTML = `
                 <div class="metric-card">
-                    <div class="metric-card-title">Sharpe Ratio</div>
+                    <div class="metric-card-title">Sharpe Ratio <span class="metric-info">i<div class="metric-tooltip"><strong>How good is profit vs risk?</strong>Measures return consistency. High Sharpe = steady profits, low Sharpe = wild swings. Warren Buffett's fund: ~0.76.<div class="scale"><span><span class="dot" style="background:var(--green)"></span> &gt;1 Great</span><span><span class="dot" style="background:var(--yellow)"></span> 0-1 OK</span><span><span class="dot" style="background:var(--red)"></span> &lt;0 Bad</span></div></div></span></div>
                     <div class="metric-main-value" style="color:${sharpeColor}">${sharpeVal}</div>
                     <div class="metric-sub">${botSharpeHtml}</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-card-title">Max Drawdown</div>
+                    <div class="metric-card-title">Max Drawdown <span class="metric-info">i<div class="metric-tooltip"><strong>Worst dip from a peak</strong>The biggest drop from your highest point. If balance went $50K to $49.2K, that's -$800 drawdown. Smaller is better. Expect similar dips in the future.</div></span></div>
                     <div class="metric-main-value" style="color:var(--red)">-$${dd.maxDd.toFixed(2)}</div>
                     <div class="metric-sub"><span style="color:var(--red)">${dd.maxDdPct.toFixed(1)}% from peak</span></div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-card-title">Win Streak</div>
-                    <div class="metric-main-value" style="color:var(--green)">🔥</div>
+                    <div class="metric-card-title">Win Streak <span class="metric-info">i<div class="metric-tooltip"><strong>Consecutive winning trades</strong>Current streak and best-ever per bot. A long streak means the bot is reading the market well during that period.</div></span></div>
+                    <div class="metric-main-value" style="color:var(--green)">\u{1F525}</div>
                     <div class="metric-sub">${streakHtml}</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-card-title">Profit Factor</div>
+                    <div class="metric-card-title">Profit Factor <span class="metric-info">i<div class="metric-tooltip"><strong>For every $1 lost, how much made?</strong>Total wins \u00F7 total losses. A factor of 2.0 means you make $2 for every $1 you lose.<div class="scale"><span><span class="dot" style="background:var(--green)"></span> &gt;1.5 Strong</span><span><span class="dot" style="background:var(--yellow)"></span> 1-1.5 OK</span><span><span class="dot" style="background:var(--red)"></span> &lt;1 Losing</span></div></div></span></div>
                     <div class="metric-main-value" style="color:${pfColor}">${pfVal}</div>
                     <div class="metric-sub">${botPfHtml}</div>
                 </div>
