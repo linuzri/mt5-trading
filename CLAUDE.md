@@ -57,7 +57,9 @@ eurusd/trading.py  ─┘
 - **Testing:** Run on demo account first. Current demo balance ~$50,000.
 - **Paths:** Bots reference `mt5_auth.json` in their own directory (gitignored).
 - **Retraining:** `python train_ml_model.py --refresh` in each bot folder.
+- **Auto-Retrain:** `python auto_retrain.py` at repo root. Checks model age, retrains if > 7 days, validates accuracy (max 5% drop allowed), backs up old models, restarts PM2. Runs weekly via cron (Sunday 3 AM MYT). Use `--force` to retrain immediately, `--dry-run` to preview, `--bot <name>` for specific bot.
 - **PM2:** Config in `ecosystem.config.js` at repo root. `pm2 restart all` after code changes.
+- **SECURITY:** Never commit files with hardcoded tokens/keys. Use `.env` for secrets. Root-level `check_*.py` scripts are gitignored.
 
 ## Cloud Infrastructure
 
