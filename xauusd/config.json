@@ -10,7 +10,8 @@
     "enabled": true,
     "risk_percent": 0.5,
     "min_lot": 0.01,
-    "max_lot": 0.05
+    "max_lot": 0.02,
+    "_max_lot_comment": "0.02 lots * $40 SL * 100 contract = $80 max risk per trade"
   },
 
   "sl_pips": 40.0,
@@ -31,7 +32,8 @@
   "higher_timeframe": "H1",
   "backtest_period_days": 30,
   "forward_test_period_days": 28,
-  "max_daily_loss": 99999,
+  "max_daily_loss": 200,
+  "_max_daily_loss_comment": "Cap daily losses at $200 to prevent blowout days",
   "max_daily_profit": 99999,
   "min_atr": 0,
   "news_block_minutes": 30,
@@ -43,9 +45,9 @@
   
   "max_spread_percent": 0.03,
   "_max_spread_comment": "Gold has tighter spreads than crypto, 0.03% max",
-  "loss_cooldown_minutes": 5,
-  "max_consecutive_losses": 999,
-  "_defensive_comment": "DEMO MODE: Minimal limits, let the bot learn",
+  "loss_cooldown_minutes": 10,
+  "max_consecutive_losses": 5,
+  "_defensive_comment": "Circuit breaker: stop after 5 consecutive losses. Cooldown 30min.",
 
   "session_trading": {
     "enabled": true,

@@ -274,11 +274,14 @@ def calculate_position_size(symbol, stop_loss_pips, account_balance=None):
         # Use trade contract size to calculate proper lot
         contract_size = symbol_info.trade_contract_size
         
-        # For BTCUSD: if SL = $100, and we want to risk $500
-        # We need the lot size where: lot * (SL as price movement) * some_factor = risk_amount
-        # 
-        # Simplified: lot_size = risk_amount / stop_loss_pips (works for USD-denominated pairs)
-        calculated_lot = risk_amount / stop_loss_pips if stop_loss_pips > 0 else lot
+        # Correct formula accounting for contract size:
+        # P/L = lots * contract_size * price_change (for USD-denominated pairs)
+        # So: lots = risk_amount / (stop_loss_pips * contract_size)
+        # For XAUUSD: contract_size=100, so 0.01 lot with $40 SL = $40 loss
+        tick_value = symbol_info.trade_tick_value
+        tick_size = symbol_info.trade_tick_size
+        pip_value = (tick_value / tick_size) if tick_size > 0 else 1.0
+        calculated_lot = risk_amount / (stop_loss_pips * pip_value) if stop_loss_pips > 0 else lot
         
         # Round to symbol's lot step
         lot_step = symbol_info.volume_step
