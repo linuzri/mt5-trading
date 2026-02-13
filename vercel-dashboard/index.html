@@ -1080,6 +1080,37 @@
             </div>
         </section>
 
+        <!-- Polymarket Section -->
+        <section class="chart-section" id="polymarketSection">
+            <div class="chart-card">
+                <h2 class="section-header" style="margin-bottom:0">🔮 Polymarket Predictions</h2>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Prediction market portfolio — automated trading on Polymarket event contracts.</p>
+                
+                <!-- Portfolio Overview -->
+                <div id="polymarketOverview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="loading"><div class="spinner"></div>Loading Polymarket data...</div>
+                </div>
+
+                <!-- Open Positions -->
+                <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">📈 Open Positions</h3>
+                <div style="overflow-x: auto; margin-bottom: 1.5rem;">
+                    <table id="polyOpenPositions">
+                        <thead><tr><th>Market</th><th>Side</th><th>Shares</th><th>Entry</th><th>Current</th><th>P/L</th></tr></thead>
+                        <tbody><tr><td colspan="6" class="no-data">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+
+                <!-- Resolved Positions -->
+                <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">📋 Resolved Positions</h3>
+                <div style="overflow-x: auto;">
+                    <table id="polyResolvedPositions">
+                        <thead><tr><th>Market</th><th>Side</th><th>Shares</th><th>Entry</th><th>Resolution</th><th>P/L</th><th>Outcome</th></tr></thead>
+                        <tbody><tr><td colspan="7" class="no-data">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <!-- Trade History -->
         <section class="trades-section">
             <div class="table-card">
@@ -1820,7 +1851,8 @@
                 renderPnLChart(currentDays),
                 loadPerformanceMetrics(),
                 renderTrades(),
-                renderLogs()
+                renderLogs(),
+                renderPolymarket()
             ]);
             updateTimestamp();
         }
@@ -1831,7 +1863,8 @@
                 renderAccountBalance(),
                 renderBots(),
                 renderTrades(),
-                renderLogs()
+                renderLogs(),
+                renderPolymarket()
             ]);
             updateTimestamp();
         }
@@ -2150,6 +2183,86 @@
 
             // Render equity curve
             renderEquityCurve(pnlByBot);
+        }
+
+        // --- Polymarket ---
+        async function renderPolymarket() {
+            const data = await supabaseFetch('polymarket_portfolio', '?select=*&id=eq.1');
+            if (!data || data.length === 0) {
+                document.getElementById('polymarketOverview').innerHTML = '<div class="no-data">No Polymarket data available</div>';
+                return;
+            }
+            const p = data[0];
+            const totalPnl = (p.unrealized_pnl || 0) + (p.realized_pnl || 0);
+            const pnlColor = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+            const pnlSign = v => v >= 0 ? '+' : '';
+
+            document.getElementById('polymarketOverview').innerHTML = `
+                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Invested</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${(p.total_invested||0).toFixed(2)}</div>
+                </div>
+                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Current Value</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${(p.current_value||0).toFixed(2)}</div>
+                </div>
+                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Unrealized P/L</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor(p.unrealized_pnl)};">${pnlSign(p.unrealized_pnl)}$${Math.abs(p.unrealized_pnl||0).toFixed(2)}</div>
+                </div>
+                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Realized P/L</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor(p.realized_pnl)};">${pnlSign(p.realized_pnl)}$${Math.abs(p.realized_pnl||0).toFixed(2)}</div>
+                </div>
+                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total P/L</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor(totalPnl)};">${pnlSign(totalPnl)}$${Math.abs(totalPnl).toFixed(2)}</div>
+                </div>
+            `;
+
+            // Open Positions
+            const positions = p.positions || {};
+            const posArr = Object.values(positions);
+            const openTbody = document.querySelector('#polyOpenPositions tbody');
+            if (posArr.length === 0) {
+                openTbody.innerHTML = '<tr><td colspan="6" class="no-data">No open positions</td></tr>';
+            } else {
+                openTbody.innerHTML = posArr.map(pos => {
+                    const uPnl = (pos.current_price - pos.avg_entry_price) * pos.shares;
+                    const cls = uPnl >= 0 ? 'trade-profit' : 'trade-loss';
+                    const sideColor = pos.side === 'YES' ? 'var(--green)' : 'var(--red)';
+                    return `<tr>
+                        <td style="max-width:300px">${pos.market_question}</td>
+                        <td style="color:${sideColor};font-weight:600">${pos.side}</td>
+                        <td>${pos.shares.toFixed(1)}</td>
+                        <td>$${pos.avg_entry_price.toFixed(4)}</td>
+                        <td>$${pos.current_price.toFixed(4)}</td>
+                        <td><span class="${cls}">${uPnl >= 0 ? '+' : ''}$${uPnl.toFixed(2)}</span></td>
+                    </tr>`;
+                }).join('');
+            }
+
+            // Resolved Positions
+            const resolved = p.resolved || [];
+            const resTbody = document.querySelector('#polyResolvedPositions tbody');
+            if (resolved.length === 0) {
+                resTbody.innerHTML = '<tr><td colspan="7" class="no-data">No resolved positions</td></tr>';
+            } else {
+                resTbody.innerHTML = resolved.map(r => {
+                    const cls = r.realized_pnl >= 0 ? 'trade-profit' : 'trade-loss';
+                    const outcomeColor = r.outcome === 'WON' ? 'var(--green)' : 'var(--red)';
+                    const sideColor = r.side === 'YES' ? 'var(--green)' : 'var(--red)';
+                    return `<tr>
+                        <td style="max-width:300px">${r.market_question}</td>
+                        <td style="color:${sideColor};font-weight:600">${r.side}</td>
+                        <td>${r.shares.toFixed(1)}</td>
+                        <td>$${r.avg_entry_price.toFixed(4)}</td>
+                        <td>$${(r.resolution_price||0).toFixed(4)}</td>
+                        <td><span class="${cls}">${r.realized_pnl >= 0 ? '+' : ''}$${r.realized_pnl.toFixed(2)}</span></td>
+                        <td style="color:${outcomeColor};font-weight:600">${r.outcome}</td>
+                    </tr>`;
+                }).join('');
+            }
         }
 
         // Start
