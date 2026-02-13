@@ -4,6 +4,21 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 
 **Live Dashboard:** https://trade-bot-hq.vercel.app
 
+## Current Performance (Feb 13, 2026)
+
+| Metric | Value |
+|--------|-------|
+| Account Balance | ~$49,430 |
+| Grand Total P/L | **+$1,178** |
+| XAUUSD (Star) | **+$1,024** |
+| EURUSD (Solid) | **+$155** |
+| BTCUSD (Break-even) | ~$0 |
+
+### BTCUSD Ensemble ML Results
+- **3 consecutive green days** since Feb 11: 70%, 65%, 53% win rate
+- Auto-retrain ran Feb 13 — ensemble accuracy 45.9%
+- **Rollout plan:** If BTCUSD ensemble proves out through Feb 19 → roll to XAUUSD → then EURUSD
+
 ## Supported Pairs & ML Strategy
 
 | Bot | Symbol | ML Strategy | Confidence | Key Features |
@@ -16,7 +31,7 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 - **28 features** per prediction: RSI, MACD, Bollinger Bands, EMA crossovers, ATR, volume ratio, momentum, crash detection metrics, and more
 - **3-class prediction:** BUY / SELL / HOLD with probability scores
 - **BTCUSD Ensemble:** Three models vote independently. Signal only fires when 2/3 agree — filters out weak/conflicting signals for higher quality trades
-- **Auto-retrain:** Weekly automated retraining (Sunday 3 AM MYT) with accuracy validation, backup/rollback safety, and PM2 auto-restart
+- **Auto-retrain:** Weekly automated retraining (Sunday 3 AM MYT) with accuracy validation, backup/rollback safety, and PM2 auto-restart. Also runs on-demand — last run Feb 13 (ensemble accuracy 45.9%)
 - **Class weighting:** SELL=2x, BUY=1x, HOLD=0.5x to counteract bullish bias in training data
 
 ## Project Structure
@@ -44,6 +59,7 @@ mt5-trading/
 ├── auto_retrain.py      # Weekly auto-retrain scheduler
 ├── ecosystem.config.js  # PM2 process manager config
 ├── daily_digest.py      # End-of-day performance summary
+├── gen_analysis.py        # Generate daily AI analysis (fixes gap issue)
 ├── save_daily_analysis.py # Save daily AI analysis to Supabase
 └── sync_to_supabase.py  # Incremental trade sync to cloud
 ```
@@ -124,7 +140,7 @@ python auto_retrain.py --bot btcusd # Specific bot only
 - 📋 Trade History — Filterable trade log with stats
 - 📝 Live Logs — Real-time bot activity feed
 
-**Local:** `cd dashboard && python server.py` → http://localhost:5000
+**Local:** Removed from PM2 (use Vercel dashboard only)
 
 ## Configuration
 
