@@ -6,6 +6,15 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
+### Current Status (Feb 13, 2026)
+- **Account:** ~$49,430 | **P/L:** +$1,178
+- **XAUUSD:** Star performer (+$1,024) | **EURUSD:** Solid (+$155) | **BTCUSD:** Break-even
+- **BTCUSD Ensemble:** 3 green days (Feb 11-13): 70%, 65%, 53% WR
+- **Ensemble rollout plan:** BTCUSD proven (by Feb 19) → XAUUSD → EURUSD
+- **Auto-retrain:** Ran Feb 13, ensemble accuracy 45.9%
+- **Local dashboard:** Removed from PM2 (Vercel dashboard only)
+- **Daily analysis gap:** Fixed with `gen_analysis.py`
+
 ## Architecture
 
 ```
@@ -54,7 +63,7 @@ eurusd/trading.py  ─┘
 ## Development Guidelines
 
 - **Branch:** `main` only. No other branches needed.
-- **Testing:** Run on demo account first. Current demo balance ~$50,000.
+- **Testing:** Run on demo account first. Current demo balance ~$49,430.
 - **Paths:** Bots reference `mt5_auth.json` in their own directory (gitignored).
 - **Retraining:** `python train_ml_model.py --refresh` in each bot folder.
 - **Auto-Retrain:** `python auto_retrain.py` at repo root. Checks model age, retrains if > 7 days, validates accuracy (max 5% drop allowed), backs up old models, restarts PM2. Runs weekly via cron (Sunday 3 AM MYT). Use `--force` to retrain immediately, `--dry-run` to preview, `--bot <name>` for specific bot.
@@ -69,6 +78,7 @@ eurusd/trading.py  ─┘
 - **Vercel:** Static dashboard reading from Supabase REST API. Auto-deploys when `vercel-dashboard/` changes.
 - **Vercel ignore step:** `git diff --quiet HEAD^ HEAD -- .` (skips deploy if dashboard unchanged)
 - **Daily Analysis:** `save_daily_analysis.py` writes to Supabase `daily_analysis` table + JSON backup. Dashboard reads from Supabase.
+- **Daily Analysis Gap Fix:** `gen_analysis.py` generates analysis on-demand (fixes missed cron runs)
 
 ## Bot-Specific Settings
 
@@ -93,8 +103,8 @@ eurusd/trading.py  ─┘
 
 ## Dashboard
 
-- **Local:** `dashboard/server.py` → http://localhost:5000
-- **Cloud:** https://trade-bot-hq.vercel.app (Vercel + Supabase)
+- **Local:** Removed from PM2 (no longer used)
+- **Cloud:** https://trade-bot-hq.vercel.app (Vercel + Supabase) — primary dashboard
 - **Daily P/L chart:** Single green/red bars (total P/L). Hover tooltip shows per-bot breakdown (BTCUSD, XAUUSD, EURUSD).
 
 ## Common Issues
