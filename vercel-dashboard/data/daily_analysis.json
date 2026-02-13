@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-02-07",
-    "summary": "**Rough day — BTCUSD overtrading into a crash.**\n\n- **BTCUSD:** 115 trades with only 34.8% win rate — heavy SELL bias while BTC dropped from ~$70.5K to ~$61K before recovering to ~$69.6K\n- **XAUUSD:** No trades\n- **EURUSD:** No trades\n\n**Key Issues:**\n- 115 trades in a day = death by a thousand cuts (commissions + spread)\n- Bot kept fighting the crash instead of stepping aside\n- No smart filtering in place yet\n\n**Actions Taken:** Added volatility filter, adaptive cooldown, and crash detector (PR #17)",
+    "summary": "**Rough day \u00e2\u20ac\u201d BTCUSD overtrading into a crash.**\n\n- **BTCUSD:** 115 trades with only 34.8% win rate \u00e2\u20ac\u201d heavy SELL bias while BTC dropped from ~$70.5K to ~$61K before recovering to ~$69.6K\n- **XAUUSD:** No trades\n- **EURUSD:** No trades\n\n**Key Issues:**\n- 115 trades in a day = death by a thousand cuts (commissions + spread)\n- Bot kept fighting the crash instead of stepping aside\n- No smart filtering in place yet\n\n**Actions Taken:** Added volatility filter, adaptive cooldown, and crash detector (PR #17)",
     "total_pnl": -78.0,
     "total_trades": 115,
     "btcusd_pnl": -78.0,
@@ -10,7 +10,7 @@
   },
   {
     "date": "2026-02-08",
-    "summary": "**Smaller loss — smart filters starting to help.**\n\n- **BTCUSD:** 54 trades (down from 115!) with 29.2% win rate — frequency cut in half\n- **XAUUSD:** No trades (weekend, market closed)\n- **EURUSD:** 1 trade, small loss\n\n**What Changed:**\n- Smart filters (PR #17) reduced trade count 53%\n- Average loss per trade improved\n- Still too many losing SELL trades into a rising market\n\n**Actions Taken:** Re-enabled EMA trend filter, retrained ML model (accuracy 51.2% → 55.3%), raised confidence to 55% (PR #18)",
+    "summary": "**Smaller loss \u00e2\u20ac\u201d smart filters starting to help.**\n\n- **BTCUSD:** 54 trades (down from 115!) with 29.2% win rate \u00e2\u20ac\u201d frequency cut in half\n- **XAUUSD:** No trades (weekend, market closed)\n- **EURUSD:** 1 trade, small loss\n\n**What Changed:**\n- Smart filters (PR #17) reduced trade count 53%\n- Average loss per trade improved\n- Still too many losing SELL trades into a rising market\n\n**Actions Taken:** Re-enabled EMA trend filter, retrained ML model (accuracy 51.2% \u00e2\u2020\u2019 55.3%), raised confidence to 55% (PR #18)",
     "total_pnl": -27.0,
     "total_trades": 55,
     "btcusd_pnl": -26.0,
@@ -19,7 +19,7 @@
   },
   {
     "date": "2026-02-09",
-    "summary": "**Best day yet! 🚀 XAUUSD carried hard.**\n\n- **XAUUSD:** Star performer — two big SELL wins (~$126 each) during gold pullback. 7 breakevens from partial profit + SL-to-breakeven strategy working perfectly\n- **BTCUSD:** 22 trades, 27% WR, still BUY-heavy in a downtrend. -$17.82\n- **EURUSD:** 7 trades, 57% WR — best win rate! Quiet but clean. Scalp tuning applied (PR #19)\n\n**Highlights:**\n- Partial profit taking working on XAUUSD — locking gains then riding risk-free\n- Fixed P/L logging for partial closes (PR #22) — dashboard now shows real profits\n- EURUSD scalp tuning deployed: tighter SL/TP, M1 timeframe\n\n**Net Result:** +$249 — first solidly green day!",
+    "summary": "**Best day yet! \u00f0\u0178\u0161\u20ac XAUUSD carried hard.**\n\n- **XAUUSD:** Star performer \u00e2\u20ac\u201d two big SELL wins (~$126 each) during gold pullback. 7 breakevens from partial profit + SL-to-breakeven strategy working perfectly\n- **BTCUSD:** 22 trades, 27% WR, still BUY-heavy in a downtrend. -$17.82\n- **EURUSD:** 7 trades, 57% WR \u00e2\u20ac\u201d best win rate! Quiet but clean. Scalp tuning applied (PR #19)\n\n**Highlights:**\n- Partial profit taking working on XAUUSD \u00e2\u20ac\u201d locking gains then riding risk-free\n- Fixed P/L logging for partial closes (PR #22) \u00e2\u20ac\u201d dashboard now shows real profits\n- EURUSD scalp tuning deployed: tighter SL/TP, M1 timeframe\n\n**Net Result:** +$249 \u00e2\u20ac\u201d first solidly green day!",
     "total_pnl": 249.0,
     "total_trades": 71,
     "btcusd_pnl": -17.82,
@@ -28,7 +28,7 @@
   },
   {
     "date": "2026-02-10",
-    "summary": "## Feb 10 Daily Analysis\n\n**Balance:** $49,125.63 (-$209.12 from previous day)\n**Closed P/L:** +$255.64 across 49 trades\n\n### Per-Bot Breakdown\n- **BTCUSD:** +$9.44 (20 trades, 40% WR) — struggled in bearish BTC market\n- **XAUUSD:** +$229.87 (22 trades, 32% WR) — carried the day with a monster $300 partial TP\n- **EURUSD:** +$16.33 (7 trades, 86% WR) — quietly efficient when it traded\n\n### Key Observations\n- Balance dropped $209 despite $256 in closed P/L — likely open position drawdown or swap fees\n- XAUUSD remains the strongest performer with large partial profit captures\n- BTCUSD model retrained today (accuracy 55.3% → 51.6%) to include bearish data\n- PR #26 merged: zero-profit logging fix for partial closes now live\n- EURUSD ATR filter resolved but ML confidence consistently below 55% threshold",
+    "summary": "## Feb 10 Daily Analysis\n\n**Balance:** $49,125.63 (-$209.12 from previous day)\n**Closed P/L:** +$255.64 across 49 trades\n\n### Per-Bot Breakdown\n- **BTCUSD:** +$9.44 (20 trades, 40% WR) \u00e2\u20ac\u201d struggled in bearish BTC market\n- **XAUUSD:** +$229.87 (22 trades, 32% WR) \u00e2\u20ac\u201d carried the day with a monster $300 partial TP\n- **EURUSD:** +$16.33 (7 trades, 86% WR) \u00e2\u20ac\u201d quietly efficient when it traded\n\n### Key Observations\n- Balance dropped $209 despite $256 in closed P/L \u00e2\u20ac\u201d likely open position drawdown or swap fees\n- XAUUSD remains the strongest performer with large partial profit captures\n- BTCUSD model retrained today (accuracy 55.3% \u00e2\u2020\u2019 51.6%) to include bearish data\n- PR #26 merged: zero-profit logging fix for partial closes now live\n- EURUSD ATR filter resolved but ML confidence consistently below 55% threshold",
     "balance": 49125.63,
     "total_pnl": 255.64,
     "total_trades": 49,
@@ -38,12 +38,22 @@
   },
   {
     "date": "2026-02-11",
-    "summary": "## Feb 11 Daily Analysis\n\n**Balance:** ~$49,637.29 (+$511.66 from previous day)\n**Closed P/L:** +$511.66 across 70 trades\n\n### Per-Bot Breakdown\n- **BTCUSD:** +$86.60 (33 trades, 73% WR) — strong win rate on the BTC drop, consistent small gains\n- **XAUUSD:** +$308.70 (27 trades, 44% WR) — big day with $120+ partial TPs, gold volatility played well\n- **EURUSD:** +$116.36 (10 trades, 30% WR) — one $120 winner carried it, otherwise struggled\n\n### Key Observations\n- Best day in recent memory — all 3 bots profitable\n- XAUUSD continues to dominate with large partial profit captures ($120+ twice)\n- BTCUSD high win rate (73%) suggests EMA trend filter working well in bearish conditions\n- EURUSD still has low win rate but the big winner shows potential when it catches a move\n- Total 70 trades is high volume — bots are active and finding entries",
+    "summary": "## Feb 11 Daily Analysis\n\n**Balance:** ~$49,637.29 (+$511.66 from previous day)\n**Closed P/L:** +$511.66 across 70 trades\n\n### Per-Bot Breakdown\n- **BTCUSD:** +$86.60 (33 trades, 73% WR) \u00e2\u20ac\u201d strong win rate on the BTC drop, consistent small gains\n- **XAUUSD:** +$308.70 (27 trades, 44% WR) \u00e2\u20ac\u201d big day with $120+ partial TPs, gold volatility played well\n- **EURUSD:** +$116.36 (10 trades, 30% WR) \u00e2\u20ac\u201d one $120 winner carried it, otherwise struggled\n\n### Key Observations\n- Best day in recent memory \u00e2\u20ac\u201d all 3 bots profitable\n- XAUUSD continues to dominate with large partial profit captures ($120+ twice)\n- BTCUSD high win rate (73%) suggests EMA trend filter working well in bearish conditions\n- EURUSD still has low win rate but the big winner shows potential when it catches a move\n- Total 70 trades is high volume \u00e2\u20ac\u201d bots are active and finding entries",
     "balance": 49637.29,
     "total_pnl": 511.66,
     "total_trades": 70,
     "btcusd_pnl": 86.6,
     "xauusd_pnl": 308.7,
     "eurusd_pnl": 116.36
+  },
+  {
+    "date": "2026-02-12",
+    "balance": 49544.94,
+    "total_pnl": -1.21,
+    "total_trades": 62,
+    "btcusd_pnl": 32.92,
+    "xauusd_pnl": -53.31,
+    "eurusd_pnl": 19.18,
+    "summary": "Date: 2026-02-12. Trades: 62. P/L: $-1.21. BTCUSD: 20 trades, $32.92. XAUUSD: 30 trades, $-53.31. EURUSD: 12 trades, $19.18."
   }
 ]
