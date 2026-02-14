@@ -1,14 +1,42 @@
 {
   "sniper_orders_placed": 21,
-  "sniper_fills": 0,
-  "sniper_fill_rate": 0.0,
-  "sniper_cycles": 515,
-  "sniper_candidates_per_cycle": 49.8,
-  "sniper_exposure_limit_hits": 1488,
-  "sniper_markets_scanned": 211876,
-  "sniper_invested": 0,
+  "sniper_fills": 3,
+  "sniper_fill_rate": 14.3,
+  "sniper_cycles": 542,
+  "sniper_candidates_per_cycle": 50.0,
+  "sniper_exposure_limit_hits": 1569,
+  "sniper_markets_scanned": 219955,
+  "sniper_invested": 66.91,
   "sniper_resolved_pnl": 0,
-  "sniper_positions": [],
+  "sniper_positions": [
+    {
+      "market": "Sniper position (avg $0.9500)",
+      "side": "NO",
+      "shares": 20.2,
+      "cost_basis": 19.189999999999998,
+      "avg_price": 0.95,
+      "current_price": 0.95,
+      "opened_at": "1771058526"
+    },
+    {
+      "market": "Sniper position (avg $0.9400)",
+      "side": "YES",
+      "shares": 25.25,
+      "cost_basis": 23.735,
+      "avg_price": 0.94,
+      "current_price": 0.94,
+      "opened_at": "1771058524"
+    },
+    {
+      "market": "Sniper position (avg $0.9500)",
+      "side": "YES",
+      "shares": 25.25,
+      "cost_basis": 23.987499999999997,
+      "avg_price": 0.9499999999999998,
+      "current_price": 0.9499999999999998,
+      "opened_at": "1771058522"
+    }
+  ],
   "sniper_resolved": [],
   "sniper_recent_orders": [
     {
@@ -197,8 +225,8 @@
       "resolved_at": "2026-02-14T01:54:46.653456700Z"
     }
   ],
-  "total_open_positions": 4,
+  "total_open_positions": 7,
   "total_resolved": 2,
   "bot_status": "running",
-  "updated_at": "2026-02-14T22:15:31.986306+00:00"
+  "updated_at": "2026-02-14T23:02:27.649954+00:00"
 }
