@@ -37,6 +37,8 @@ def main():
         "current_value": round(current_value, 4),
         "unrealized_pnl": round(unrealized_pnl, 4),
         "realized_pnl": round(realized_pnl, 4),
+        "initial_deposit": 100.27,
+        "wallet_balance": round(100.27 + realized_pnl - total_invested + current_value, 2),
         "updated_at": data.get("last_updated"),
     }
 

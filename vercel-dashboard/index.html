@@ -2197,22 +2197,26 @@
             const pnlColor = v => v >= 0 ? 'var(--green)' : 'var(--red)';
             const pnlSign = v => v >= 0 ? '+' : '';
 
+            const walletBal = p.wallet_balance || 0;
+            const initDeposit = p.initial_deposit || 100.27;
+            const walletPnl = walletBal - initDeposit;
+
             document.getElementById('polymarketOverview').innerHTML = `
                 <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Invested</div>
-                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${(p.total_invested||0).toFixed(2)}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Initial Deposit</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${initDeposit.toFixed(2)}</div>
                 </div>
                 <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Current Value</div>
-                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${(p.current_value||0).toFixed(2)}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Wallet Balance</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor(walletPnl)};">$${walletBal.toFixed(2)}</div>
+                </div>
+                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">In Positions</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">$${(p.total_invested||0).toFixed(2)}</div>
                 </div>
                 <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
                     <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Unrealized P/L</div>
                     <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor(p.unrealized_pnl)};">${pnlSign(p.unrealized_pnl)}$${Math.abs(p.unrealized_pnl||0).toFixed(2)}</div>
-                </div>
-                <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Realized P/L</div>
-                    <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor(p.realized_pnl)};">${pnlSign(p.realized_pnl)}$${Math.abs(p.realized_pnl||0).toFixed(2)}</div>
                 </div>
                 <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
                     <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total P/L</div>
