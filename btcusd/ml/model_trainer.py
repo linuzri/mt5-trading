@@ -129,7 +129,12 @@ class ModelTrainer:
         print(f"[i] Training Random Forest with {self.model_params['n_estimators']} trees...")
         print("[i] Using class_weight='balanced' to handle class imbalance")
 
-        self.model = RandomForestClassifier(**self.model_params, class_weight='balanced')
+        # Filter params to only those accepted by RandomForestClassifier
+        rf_valid_params = {'n_estimators', 'max_depth', 'min_samples_split', 'min_samples_leaf',
+                          'max_features', 'random_state', 'n_jobs', 'min_weight_fraction_leaf',
+                          'max_leaf_nodes', 'bootstrap', 'oob_score', 'warm_start', 'ccp_alpha'}
+        rf_params = {k: v for k, v in self.model_params.items() if k in rf_valid_params}
+        self.model = RandomForestClassifier(**rf_params, class_weight='balanced')
         self.model.fit(X_train, y_train)
 
         print("[OK] Model training complete")

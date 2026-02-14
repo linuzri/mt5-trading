@@ -1107,34 +1107,8 @@ try:
         elif last_pl_date is None:
             last_pl_date = today_date
 
-        if is_daily_training_time() and (last_training_date != today_date) and not _training_in_progress:
-            log_notify(f"[AUTOMATION] Daily ML training time (8am ET). Starting background training...")
-            last_training_date = today_date  # Mark immediately to prevent re-triggering
-
-            def _run_background_training():
-                """Run ML model training in a background thread to avoid blocking the trading loop."""
-                global _training_in_progress, _training_needs_reload
-                _training_in_progress = True
-                try:
-                    result = subprocess.run(
-                        [sys.executable, "train_ml_model.py", "--refresh"],
-                        capture_output=True, text=True, timeout=600  # 10 min timeout
-                    )
-                    print(result.stdout)
-                    if result.returncode != 0:
-                        log_notify(f"[AUTOMATION] train_ml_model.py failed: {result.stderr[:500]}")
-                    else:
-                        log_notify("[AUTOMATION] ML model training completed. Will reload on next cycle.")
-                        _training_needs_reload = True
-                except subprocess.TimeoutExpired:
-                    log_notify("[AUTOMATION] ML training timed out after 10 minutes")
-                except Exception as e:
-                    log_notify(f"[AUTOMATION] Background training error: {e}")
-                finally:
-                    _training_in_progress = False
-
-            training_thread = threading.Thread(target=_run_background_training, daemon=True)
-            training_thread.start()
+        # Daily auto-train DISABLED — using weekly cron job instead (Sunday 3AM MYT)
+        # See auto_retrain.py + cron job id 756ddfa8
 
         # Check if background training finished and model needs reloading
         if _training_needs_reload and not _training_in_progress:
