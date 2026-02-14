@@ -1,0 +1,204 @@
+{
+  "sniper_orders_placed": 21,
+  "sniper_fills": 0,
+  "sniper_fill_rate": 0.0,
+  "sniper_cycles": 515,
+  "sniper_candidates_per_cycle": 49.8,
+  "sniper_exposure_limit_hits": 1488,
+  "sniper_markets_scanned": 211876,
+  "sniper_invested": 0,
+  "sniper_resolved_pnl": 0,
+  "sniper_positions": [],
+  "sniper_resolved": [],
+  "sniper_recent_orders": [
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:20:27"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:21:54"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:23:21"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:24:47"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:26:14"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:27:40"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:29:07"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:30:34"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:39:34"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T04:52:22"
+    },
+    {
+      "side": "NO",
+      "shares": 30.3,
+      "price": 0.99,
+      "timestamp": "2026-02-14T05:42:45"
+    },
+    {
+      "side": "NO",
+      "shares": 30.3,
+      "price": 0.99,
+      "timestamp": "2026-02-14T05:44:44"
+    },
+    {
+      "side": "NO",
+      "shares": 10.1,
+      "price": 0.99,
+      "timestamp": "2026-02-14T06:04:48"
+    },
+    {
+      "side": "NO",
+      "shares": 10.01,
+      "price": 0.999,
+      "timestamp": "2026-02-14T06:06:30"
+    },
+    {
+      "side": "NO",
+      "shares": 10.01,
+      "price": 0.999,
+      "timestamp": "2026-02-14T06:08:14"
+    },
+    {
+      "side": "NO",
+      "shares": 25.25,
+      "price": 0.99,
+      "timestamp": "2026-02-14T06:11:06"
+    },
+    {
+      "side": "NO",
+      "shares": 25.02,
+      "price": 0.999,
+      "timestamp": "2026-02-14T06:11:08"
+    },
+    {
+      "side": "YES",
+      "shares": 25.25,
+      "price": 0.99,
+      "timestamp": "2026-02-14T08:42:02"
+    },
+    {
+      "side": "YES",
+      "shares": 25.25,
+      "price": 0.99,
+      "timestamp": "2026-02-14T08:42:04"
+    },
+    {
+      "side": "NO",
+      "shares": 20.2,
+      "price": 0.99,
+      "timestamp": "2026-02-14T08:42:07"
+    }
+  ],
+  "sniper_first_active": "2026-02-14T04:20:26",
+  "sniper_last_active": "2026-02-14T08:42:07",
+  "strategy_trades": 8,
+  "strategy_invested": 20.0,
+  "strategy_resolved_pnl": -10.0,
+  "strategy_positions": [
+    {
+      "market": "Will Trump nominate Jerome Powell as the next Fed chair?",
+      "side": "YES",
+      "shares": 852.9411764705893,
+      "cost_basis": 1.279411764705884,
+      "avg_price": 0.0015,
+      "current_price": 0.0005,
+      "opened_at": "2026-02-13T11:44:58.413503100Z"
+    },
+    {
+      "market": "Russia x Ukraine ceasefire by June 30, 2026?",
+      "side": "YES",
+      "shares": 15.832290362953692,
+      "cost_basis": 3.7205882352941178,
+      "avg_price": 0.235,
+      "current_price": 0.245,
+      "opened_at": "2026-02-13T10:18:12.251698400Z"
+    },
+    {
+      "market": "Will Trump nominate Kevin Warsh as the next Fed chair?",
+      "side": "NO",
+      "shares": 206.14263404476833,
+      "cost_basis": 10.0,
+      "avg_price": 0.04851010101010102,
+      "current_price": 0.0435,
+      "opened_at": "2026-02-13T12:36:35.646531400Z"
+    },
+    {
+      "market": "Will Netflix close Warner Bros acquisition?",
+      "side": "NO",
+      "shares": 9.523809523809524,
+      "cost_basis": 5.0,
+      "avg_price": 0.525,
+      "current_price": 0.545,
+      "opened_at": "2026-02-13T10:32:51.154244400Z"
+    }
+  ],
+  "strategy_resolved": [
+    {
+      "market": "Dubai Duty Free Tennis Championships, Qualification: Ella Seidel vs Anastasia Potapova",
+      "side": "NO",
+      "shares": 10000.0,
+      "cost_basis": 5.0,
+      "avg_price": 0.0005,
+      "pnl": -5.0,
+      "outcome": "LOST",
+      "resolved_at": "2026-02-14T01:54:46.250126600Z"
+    },
+    {
+      "market": "Will Bangladesh Nationalist Party win the most seats in the Bangladesh parliamentary election?",
+      "side": "NO",
+      "shares": 1000.0,
+      "cost_basis": 5.0,
+      "avg_price": 0.005,
+      "pnl": -5.0,
+      "outcome": "LOST",
+      "resolved_at": "2026-02-14T01:54:46.653456700Z"
+    }
+  ],
+  "total_open_positions": 4,
+  "total_resolved": 2,
+  "bot_status": "running",
+  "updated_at": "2026-02-14T22:15:31.986306+00:00"
+}
