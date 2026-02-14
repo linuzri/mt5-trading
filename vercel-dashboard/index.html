@@ -238,10 +238,10 @@
 
         .status-running .status-dot { background: var(--green); animation: pulse 2s ease-in-out infinite; }
         .status-running { color: var(--green); }
-        
+
         .status-paused .status-dot { background: var(--yellow); }
         .status-paused { color: var(--yellow); }
-        
+
         .status-stopped .status-dot { background: var(--red); }
         .status-stopped { color: var(--red); }
 
@@ -438,14 +438,14 @@
             font-weight: 600;
         }
 
-        .trade-profit { 
+        .trade-profit {
             color: var(--green);
             background: var(--green-bg);
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
         }
 
-        .trade-loss { 
+        .trade-loss {
             color: var(--red);
             background: var(--red-bg);
             padding: 0.25rem 0.5rem;
@@ -670,7 +670,7 @@
         .log-error { color: var(--red); background: var(--red-bg); }
         .log-trade { color: var(--cyan); }
         .log-balance { color: var(--green); }
-        
+
         /* Colored log types */
         .log-sell { color: #ef4444; }  /* Red - SELL signals */
         .log-buy { color: #22c55e; }   /* Green - BUY signals */
@@ -980,7 +980,7 @@
                         <span>🤖</span> Trading Bot HQ
                     </h1>
                     <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1.25rem;">
-                        Live performance dashboard for automated trading bots. ML-powered MT5 bots trade crypto, gold, and forex. AI-powered Polymarket bot trades prediction markets — all running 24/7.
+                        Live performance dashboard for automated trading bots. ML-powered MT5 bots trade crypto, gold, and forex. Risk-free Polymarket sniper buys near-certain outcomes at 99.9&cent; - all running 24/7.
                     </p>
                     <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem;">
                         <span style="background: rgba(247, 147, 26, 0.15); color: #f7931a; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(247, 147, 26, 0.25);">₿ BTCUSD</span>
@@ -1088,8 +1088,8 @@
         <section class="chart-section" id="polymarketSection">
             <div class="chart-card">
                 <h2 class="section-header" style="margin-bottom:0">🔮 Polymarket Predictions</h2>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Prediction market portfolio — automated trading on Polymarket event contracts. Two-tier AI: <span style="color:#b47ede">Haiku</span> screens → <span style="color:#4fc3f7">Sonnet</span> confirms.</p>
-                
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Risk-free sniper strategy - buys 95-99.9% certain outcomes, collects $1.00 on resolution. Tick-size-aware pricing enables <span style="color:#22c55e">$0.999</span> orders on political markets.</p>
+
                 <!-- Portfolio Overview -->
                 <div id="polymarketOverview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                     <div class="loading"><div class="spinner"></div>Loading Polymarket data...</div>
@@ -1150,10 +1150,10 @@
                     </div>
                 </div>
                 <div class="trade-stats-bar" id="tradeStatsBar">
-                    <div class="trade-stat"><span class="trade-stat-label">Total Trades</span><span class="trade-stat-value" id="statTotal">—</span></div>
-                    <div class="trade-stat"><span class="trade-stat-label">Wins / Losses</span><span class="trade-stat-value" id="statWL">—</span></div>
-                    <div class="trade-stat"><span class="trade-stat-label">Win Rate</span><span class="trade-stat-value" id="statWinRate">—</span></div>
-                    <div class="trade-stat"><span class="trade-stat-label">Total P/L</span><span class="trade-stat-value" id="statPL">—</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Total Trades</span><span class="trade-stat-value" id="statTotal">-</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Wins / Losses</span><span class="trade-stat-value" id="statWL">-</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Win Rate</span><span class="trade-stat-value" id="statWinRate">-</span></div>
+                    <div class="trade-stat"><span class="trade-stat-label">Total P/L</span><span class="trade-stat-value" id="statPL">-</span></div>
                 </div>
                 <div class="trades-table-wrap" id="tradesTable">
                     <div class="loading">
@@ -1181,7 +1181,7 @@
         const SUPABASE_URL = 'https://cxpablqwnwvacuvhcjen.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4cGFibHF3bnd2YWN1dmhjamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTQ2NTUsImV4cCI6MjA4NTk5MDY1NX0.IiA5SRPfoI9Y6ZaXTWcl4UmPwgzVJ7iBBRgXny4iGCE';
         const REFRESH_INTERVAL = 30000;
-        
+
         // State
         let pnlChart = null;
         let currentDays = 14;
@@ -1243,7 +1243,7 @@
         // Update last updated time
         function updateTimestamp() {
             const now = new Date();
-            document.getElementById('lastUpdated').textContent = 
+            document.getElementById('lastUpdated').textContent =
                 `Last updated: ${now.toLocaleTimeString()}`;
         }
 
@@ -1266,15 +1266,15 @@
                 }
                 return null;
             }
-            
+
             // /api/bots
             if (endpoint === '/api/bots') {
                 const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
                 const order = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-                
+
                 // Get today's date in UTC
                 const today = new Date().toISOString().split('T')[0];
-                
+
                 // Fetch bot status, today's trades, and sparkline data in parallel
                 const [statusData, todayTrades, sparkData] = await Promise.all([
                     supabaseFetch('bot_status', '?select=*'),
@@ -1282,7 +1282,7 @@
                     supabaseFetch('daily_pnl', '?select=date,pnl&order=date.desc&limit=21')
                 ]);
                 if (!statusData) return null;
-                
+
                 // Calculate today's stats from actual trades
                 const todayStats = {};
                 order.forEach(b => { todayStats[b] = { pnl: 0, trades: 0, wins: 0 }; });
@@ -1297,14 +1297,14 @@
                         }
                     });
                 }
-                
+
                 // Build per-bot sparklines from daily_pnl
                 const sparklines = {};
                 if (sparkData) {
                     const last7 = sparkData.slice(0, 7).reverse();
                     order.forEach(b => { sparklines[b] = last7.map(d => parseFloat(d.pnl) || 0); });
                 }
-                
+
                 const sorted = statusData.sort((a, b) => order.indexOf(a.bot_name) - order.indexOf(b.bot_name));
                 const now = new Date();
                 return sorted.map(b => {
@@ -1331,25 +1331,25 @@
                     };
                 });
             }
-            
+
             // /api/daily-pnl/{days}
             if (endpoint.startsWith('/api/daily-pnl/')) {
                 const days = parseInt(endpoint.split('/').pop()) || 14;
                 const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-                
+
                 // Build date range
                 const today = new Date();
                 const startDate = new Date(today);
                 startDate.setDate(startDate.getDate() - days + 1);
                 const startStr = startDate.toISOString().split('T')[0];
-                
+
                 // Fetch all closed trades in the date range (has bot_name + profit + created_at)
                 const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startStr}T00:00:00&order=created_at.asc`);
-                
+
                 // Group trades by bot and date
                 const botDayPnl = {}; // { BTCUSD: { '2025-02-06': 100, ... }, ... }
                 bots.forEach(b => { botDayPnl[b] = {}; });
-                
+
                 if (trades) {
                     trades.forEach(t => {
                         const bot = t.bot_name;
@@ -1359,7 +1359,7 @@
                         botDayPnl[bot][date] = (botDayPnl[bot][date] || 0) + (parseFloat(t.profit) || 0);
                     });
                 }
-                
+
                 // Build result arrays per bot with filled dates
                 const result = {};
                 bots.forEach(bot => {
@@ -1375,7 +1375,7 @@
                     }
                     result[bot] = entries;
                 });
-                
+
                 // Build _total
                 const totalEntries = [];
                 let totalCum = 0;
@@ -1386,10 +1386,10 @@
                     totalEntries.push({ date, pnl: Math.round(dayTotal * 100) / 100, cumulative: Math.round(totalCum * 100) / 100 });
                 }
                 result._total = totalEntries;
-                
+
                 return result;
             }
-            
+
             // /api/trades/{bot}
             if (endpoint.startsWith('/api/trades/')) {
                 const bot = endpoint.split('/').pop();
@@ -1406,11 +1406,11 @@
                     symbol: bot
                 }));
             }
-            
+
             // /api/logs - fetch all bots in parallel for speed
             if (endpoint === '/api/logs') {
                 const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-                const promises = bots.map(bot => 
+                const promises = bots.map(bot =>
                     supabaseFetch('logs', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=30`)
                 );
                 const results = await Promise.all(promises);
@@ -1433,7 +1433,7 @@
                 });
                 return result;
             }
-            
+
             return null;
         }
 
@@ -1441,15 +1441,15 @@
         async function renderAccountBalance() {
             const data = await fetchData('/api/account');
             if (!data) return;
-            
+
             document.getElementById('initialFund').textContent = formatCurrency(data.initial);
-            
+
             const currentFundEl = document.getElementById('currentFund');
             currentFundEl.textContent = formatCurrency(data.balance);
             // Color based on profit/loss vs initial
             const isAboveInitial = data.balance >= data.initial;
             currentFundEl.className = `account-value ${isAboveInitial ? 'profit' : 'loss'}`;
-            
+
             const pnlEl = document.getElementById('totalPnl');
             const isProfitable = data.pnl >= 0;
             const arrow = isProfitable ? '▲' : '▼';
@@ -1461,16 +1461,16 @@
         async function renderBots() {
             const data = await fetchData('/api/bots');
             if (!data) return;
-            
+
             botsData = data;
             const grid = document.getElementById('botsGrid');
-            
+
             grid.innerHTML = data.map(bot => {
                 const isProfitable = bot.today_pnl >= 0;
                 const pnlClass = isProfitable ? 'profit' : 'loss';
                 const arrow = isProfitable ? '▲' : '▼';
                 const statusClass = `status-${bot.status}`;
-                
+
                 return `
                     <div class="card bot-card fade-in" data-bot="${bot.key}">
                         <div class="bot-card-header">
@@ -1527,34 +1527,34 @@
         function renderSparkline(botKey, data, color) {
             const canvas = document.getElementById(`sparkline-${botKey}`);
             if (!canvas) return;
-            
+
             const ctx = canvas.getContext('2d');
             const width = canvas.parentElement.clientWidth;
             const height = 40;
-            
+
             canvas.width = width;
             canvas.height = height;
-            
+
             if (!data || data.length === 0) return;
-            
+
             const max = Math.max(...data.map(Math.abs), 1);
             const mid = height / 2;
             const step = width / (data.length - 1 || 1);
-            
+
             ctx.beginPath();
             ctx.strokeStyle = color;
             ctx.lineWidth = 2;
-            
+
             data.forEach((val, i) => {
                 const x = i * step;
                 const y = mid - (val / max) * (mid - 5);
-                
+
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
-            
+
             ctx.stroke();
-            
+
             // Zero line
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(255,255,255,0.1)';
@@ -1568,16 +1568,16 @@
         async function renderPnLChart(days = 14) {
             const data = await fetchData(`/api/daily-pnl/${days}`);
             if (!data) return;
-            
+
             if (pnlChart) {
                 pnlChart.destroy();
                 pnlChart = null;
             }
-            
+
             const ctx = document.getElementById('pnlChart').getContext('2d');
             const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
             const dates = data.BTCUSD?.map(d => d.date) || [];
-            
+
             // Calculate total P/L per day
             const totals = dates.map((_, i) => {
                 return bots.reduce((sum, bot) => sum + (data[bot]?.[i]?.pnl || 0), 0);
@@ -1760,7 +1760,7 @@
         // Determine log class based on message content
         function getLogClass(message) {
             const msg = message.toLowerCase();
-            
+
             // Order matters - more specific matches first
             if (msg.includes('[notify]')) return 'log-notify';
             if (msg.includes('order failed') || msg.includes('failed')) return 'log-failed';
@@ -1775,22 +1775,22 @@
             if (msg.includes('no trade signal')) return 'log-nosignal';
             if (msg.includes('[startup]') || msg.includes('[heartbeat]')) return 'log-session';
             if (msg.includes('[ml filter]')) return 'log-filter';
-            
+
             return 'log-info';  // Default
         }
 
         async function renderLogs() {
             const data = await fetchData('/api/logs');
             if (!data) return;
-            
+
             const grid = document.getElementById('logsGrid');
-            
+
             const colors = {
                 'BTCUSD': '#f7931a',
                 'XAUUSD': '#ffd700',
                 'EURUSD': '#0052b4'
             };
-            
+
             grid.innerHTML = Object.entries(data).map(([botKey, logs]) => `
                 <div class="log-card">
                     <div class="log-header">
@@ -1807,7 +1807,7 @@
                     </div>
                 </div>
             `).join('');
-            
+
             // Auto-scroll to bottom
             Object.keys(data).forEach(botKey => {
                 const container = document.getElementById(`logs-${botKey}`);
@@ -1831,17 +1831,17 @@
                 // Update button states
                 document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
-                
+
                 // Get new days value IMMEDIATELY
                 const days = parseInt(e.target.dataset.days);
                 currentDays = days;
-                
+
                 // Show loading overlay (keeps old chart visible underneath)
                 document.getElementById('chartLoading').style.display = 'flex';
-                
+
                 // Render new chart with explicit days value
                 await renderPnLChart(days);
-                
+
                 // Hide loading overlay
                 document.getElementById('chartLoading').style.display = 'none';
             }
@@ -2142,20 +2142,20 @@
             bots.forEach(b => { botPfs[b] = calculateProfitFactor(tradesByBot[b]); });
 
             // Render metric cards
-            const sharpeVal = combinedSharpe !== null && isFinite(combinedSharpe) ? combinedSharpe.toFixed(2) : '—';
+            const sharpeVal = combinedSharpe !== null && isFinite(combinedSharpe) ? combinedSharpe.toFixed(2) : '-';
             const sharpeColor = combinedSharpe > 1 ? 'var(--green)' : combinedSharpe >= 0 ? 'var(--yellow)' : 'var(--red)';
             const botSharpeHtml = bots.map(b => {
                 const v = botSharpes[b];
-                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '—';
+                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '-';
                 const c = v > 1 ? 'var(--green)' : v >= 0 ? 'var(--yellow)' : 'var(--red)';
                 return `<span style="color:${c}">${b}: ${vs}</span>`;
             }).join('');
 
-            const pfVal = pf !== null && isFinite(pf) ? pf.toFixed(2) : '—';
+            const pfVal = pf !== null && isFinite(pf) ? pf.toFixed(2) : '-';
             const pfColor = metricColor(pf || 0, 1.5, 1);
             const botPfHtml = bots.map(b => {
                 const v = botPfs[b];
-                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '—';
+                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '-';
                 const c = metricColor(v || 0, 1.5, 1);
                 return `<span style="color:${c}">${b}: ${vs}</span>`;
             }).join('');
