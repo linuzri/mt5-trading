@@ -65,5 +65,15 @@
     "btcusd_pnl": 17.94,
     "xauusd_pnl": -146.02,
     "eurusd_pnl": -3.55
+  },
+  {
+    "date": "2026-02-14",
+    "summary": "Quiet weekend day with only 1 XAUUSD position closing at -9.92. BTCUSD and EURUSD had no trades. All signals blocked by trend filter. Markets closed for the weekend. All bots healthy and running.",
+    "balance": 49591.0,
+    "total_pnl": -9.92,
+    "total_trades": 1,
+    "btcusd_pnl": 0.0,
+    "xauusd_pnl": -9.92,
+    "eurusd_pnl": 0.0
   }
 ]
