@@ -852,6 +852,7 @@ try:
     trade_log_file = "trade_log.csv"
     daily_pl = 0
     last_pl_date = None
+    recently_closed_tickets = set()  # Prevent sync_existing_positions from re-adding closed positions
 
     # Trade statistics tracking
     total_wins = 0
@@ -951,7 +952,7 @@ try:
             return
 
         for pos in current_positions:
-            if pos.ticket not in tracked_positions:
+            if pos.ticket not in tracked_positions and pos.ticket not in recently_closed_tickets:
                 # Found a position we're not tracking - add it
                 direction = 'BUY' if pos.type == 0 else 'SELL'
                 tracked_positions[pos.ticket] = {
@@ -1079,8 +1080,9 @@ try:
                     log_only(f"[CLOSE] {pos_info['direction']} position {ticket} closed, entry: {entry_price:.2f} (tick data unreliable: {est_exit:.2f})")
                     append_trade_log([str(datetime.now(UTC)), pos_info['direction'], entry_price, 0, "N/A"])
 
-            # Remove from tracking
+            # Remove from tracking and prevent re-sync
             del tracked_positions[ticket]
+            recently_closed_tickets.add(ticket)
 
     while True:
         last_trade_confidence = None  # Reset each iteration
