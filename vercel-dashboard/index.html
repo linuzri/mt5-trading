@@ -2253,17 +2253,21 @@
                 resTbody.innerHTML = '<tr><td colspan="7" class="no-data">No resolved positions</td></tr>';
             } else {
                 resTbody.innerHTML = resolved.map(r => {
-                    const cls = r.realized_pnl >= 0 ? 'trade-profit' : 'trade-loss';
-                    const outcomeColor = r.outcome === 'WON' ? 'var(--green)' : 'var(--red)';
-                    const sideColor = r.side === 'YES' ? 'var(--green)' : 'var(--red)';
+                    const pnl = r.realized_pnl || 0;
+                    const cls = pnl >= 0 ? 'trade-profit' : 'trade-loss';
+                    const outcome = r.outcome || (pnl >= 0 ? 'WON' : 'LOST');
+                    const outcomeColor = outcome === 'WON' ? 'var(--green)' : 'var(--red)';
+                    const side = r.side || '-';
+                    const sideColor = side === 'YES' ? 'var(--green)' : side === 'NO' ? 'var(--red)' : 'var(--text-muted)';
+                    const name = r.market_question || r.market || 'Unknown';
                     return `<tr>
-                        <td style="max-width:300px">${r.market_question}</td>
-                        <td style="color:${sideColor};font-weight:600">${r.side}</td>
-                        <td>${r.shares.toFixed(1)}</td>
-                        <td>$${r.avg_entry_price.toFixed(4)}</td>
-                        <td>$${(r.resolution_price||0).toFixed(4)}</td>
-                        <td><span class="${cls}">${r.realized_pnl >= 0 ? '+' : ''}$${r.realized_pnl.toFixed(2)}</span></td>
-                        <td style="color:${outcomeColor};font-weight:600">${r.outcome}</td>
+                        <td style="max-width:300px">${name}</td>
+                        <td style="color:${sideColor};font-weight:600">${side}</td>
+                        <td>${(r.shares||0).toFixed ? (r.shares||0).toFixed(1) : '-'}</td>
+                        <td>${r.avg_entry_price ? '$'+r.avg_entry_price.toFixed(4) : '-'}</td>
+                        <td>${r.resolution_price ? '$'+r.resolution_price.toFixed(4) : '-'}</td>
+                        <td><span class="${cls}">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(2)}</span></td>
+                        <td style="color:${outcomeColor};font-weight:600">${outcome}</td>
                     </tr>`;
                 }).join('');
             }
