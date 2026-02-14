@@ -1,0 +1,184 @@
+{
+  "model_type": "xgboost",
+  "feature_names": [
+    "rsi_14",
+    "macd_line",
+    "macd_signal",
+    "atr_14",
+    "bb_upper",
+    "bb_lower",
+    "bb_width",
+    "volume_ratio",
+    "price_change_1min",
+    "price_change_5min",
+    "candle_body_ratio",
+    "upper_shadow_ratio",
+    "lower_shadow_ratio",
+    "engulfing",
+    "ema_cross",
+    "price_vs_ema20",
+    "price_vs_ema50",
+    "trend_strength",
+    "is_trending",
+    "momentum_10",
+    "higher_high",
+    "lower_low",
+    "htf_bias",
+    "price_vs_ema200",
+    "consecutive_direction",
+    "price_velocity",
+    "range_position",
+    "drawdown_pct"
+  ],
+  "model_params": {
+    "n_estimators": 200,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "min_child_weight": 3,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "gamma": 0.1,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "_comment": "XGBoost params. For Random Forest, only n_estimators, max_depth, random_state are used."
+  },
+  "performance_metrics": {
+    "cv_scores": [
+      0.32367632367632365,
+      0.4115884115884116,
+      0.3336663336663337,
+      0.4515484515484515,
+      0.41858141858141856
+    ],
+    "cv_mean": 0.3878121878121878,
+    "cv_std": 0.050238527613543665,
+    "validation_metrics": {
+      "accuracy": 0.5442546583850931,
+      "precision": 0.5329935467067948,
+      "recall": 0.5442546583850931,
+      "f1_score": 0.532756081491338
+    },
+    "test_metrics": {
+      "accuracy": 0.4569433669511249,
+      "precision": 0.404039476516167,
+      "recall": 0.4569433669511249,
+      "f1_score": 0.42043353175510717
+    },
+    "feature_importance": [
+      {
+        "feature": "bb_width",
+        "importance": 0.051961276680231094
+      },
+      {
+        "feature": "atr_14",
+        "importance": 0.046620965003967285
+      },
+      {
+        "feature": "bb_lower",
+        "importance": 0.04491042718291283
+      },
+      {
+        "feature": "drawdown_pct",
+        "importance": 0.04397805035114288
+      },
+      {
+        "feature": "price_vs_ema200",
+        "importance": 0.04316219314932823
+      },
+      {
+        "feature": "bb_upper",
+        "importance": 0.04202332720160484
+      },
+      {
+        "feature": "htf_bias",
+        "importance": 0.041813090443611145
+      },
+      {
+        "feature": "ema_cross",
+        "importance": 0.040336091071367264
+      },
+      {
+        "feature": "macd_line",
+        "importance": 0.03995034471154213
+      },
+      {
+        "feature": "macd_signal",
+        "importance": 0.039912641048431396
+      },
+      {
+        "feature": "range_position",
+        "importance": 0.039711952209472656
+      },
+      {
+        "feature": "price_vs_ema50",
+        "importance": 0.03818938136100769
+      },
+      {
+        "feature": "price_vs_ema20",
+        "importance": 0.03663714602589607
+      },
+      {
+        "feature": "momentum_10",
+        "importance": 0.03489946573972702
+      },
+      {
+        "feature": "trend_strength",
+        "importance": 0.03413523733615875
+      },
+      {
+        "feature": "rsi_14",
+        "importance": 0.03249746933579445
+      },
+      {
+        "feature": "is_trending",
+        "importance": 0.032025132328271866
+      },
+      {
+        "feature": "price_change_1min",
+        "importance": 0.03190255165100098
+      },
+      {
+        "feature": "lower_low",
+        "importance": 0.03127225488424301
+      },
+      {
+        "feature": "volume_ratio",
+        "importance": 0.030629510059952736
+      },
+      {
+        "feature": "price_velocity",
+        "importance": 0.029931653290987015
+      },
+      {
+        "feature": "price_change_5min",
+        "importance": 0.029541945084929466
+      },
+      {
+        "feature": "upper_shadow_ratio",
+        "importance": 0.029488811269402504
+      },
+      {
+        "feature": "higher_high",
+        "importance": 0.028886379674077034
+      },
+      {
+        "feature": "lower_shadow_ratio",
+        "importance": 0.02869161032140255
+      },
+      {
+        "feature": "candle_body_ratio",
+        "importance": 0.02770555019378662
+      },
+      {
+        "feature": "consecutive_direction",
+        "importance": 0.026648467406630516
+      },
+      {
+        "feature": "engulfing",
+        "importance": 0.022537153214216232
+      }
+    ]
+  },
+  "trained_at": "2026-02-11T21:01:31.976783"
+}
