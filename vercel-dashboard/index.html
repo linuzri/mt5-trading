@@ -1090,7 +1090,19 @@
                 <h2 class="section-header" style="margin-bottom:0">🔮 Polymarket Predictions</h2>
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Risk-free sniper strategy - buys 95-99.9% certain outcomes, collects $1.00 on resolution. Tick-size-aware pricing enables <span style="color:#22c55e">$0.999</span> orders on political markets.</p>
 
+                <!-- Sniper Stats -->
+                <div id="sniperStats" style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">🎯 Sniper Performance</h3>
+                    <div id="sniperStatsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                        <div class="loading"><div class="spinner"></div>Loading sniper stats...</div>
+                    </div>
+                    <div id="sniperRecentOrders" style="margin-top: 0.75rem;"></div>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
                 <!-- Portfolio Overview -->
+                <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">💰 Portfolio Overview</h3>
                 <div id="polymarketOverview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                     <div class="loading"><div class="spinner"></div>Loading Polymarket data...</div>
                 </div>
@@ -1868,7 +1880,8 @@
                 renderBots(),
                 renderTrades(),
                 renderLogs(),
-                renderPolymarket()
+                renderPolymarket(),
+                loadSniperStats()
             ]);
             updateTimestamp();
         }
@@ -2277,8 +2290,57 @@
             }
         }
 
+        // --- Sniper Stats ---
+        async function loadSniperStats() {
+            try {
+                const resp = await fetch('data/sniper_stats.json?' + Date.now());
+                const s = resp.ok ? await resp.json() : null;
+                if (!s) {
+                    document.getElementById('sniperStatsGrid').innerHTML = '<div class="no-data">No sniper data available</div>';
+                    return;
+                }
+
+                const statCard = (label, value, color) => `
+                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 0.75rem; text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.2rem;">${label}</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: ${color || 'var(--text-primary)'};">${value}</div>
+                    </div>`;
+
+                const fillRate = s.sniper_fill_rate || 0;
+                const fillColor = fillRate > 10 ? 'var(--green)' : fillRate > 0 ? 'var(--yellow, #eab308)' : 'var(--text-muted)';
+
+                document.getElementById('sniperStatsGrid').innerHTML = [
+                    statCard('Orders Placed', s.sniper_orders_placed || 0, 'var(--blue, #3b82f6)'),
+                    statCard('Known Fills', s.sniper_fills || 0, 'var(--green)'),
+                    statCard('Fill Rate', fillRate + '%', fillColor),
+                    statCard('Scan Cycles', s.sniper_cycles || 0, 'var(--text-primary)'),
+                    statCard('Avg Candidates', s.sniper_candidates_per_cycle || 0, 'var(--text-secondary)'),
+                    statCard('Invested', '$' + (s.sniper_invested || 0).toFixed(2), 'var(--text-primary)'),
+                    statCard('Resolved P/L', (s.sniper_resolved_pnl >= 0 ? '+' : '') + '$' + (s.sniper_resolved_pnl || 0).toFixed(2),
+                        s.sniper_resolved_pnl >= 0 ? 'var(--green)' : 'var(--red)'),
+                    statCard('Exposure Limits', s.sniper_exposure_limit_hits || 0, 'var(--text-muted)'),
+                ].join('');
+
+                // Recent orders
+                const orders = s.sniper_recent_orders || [];
+                if (orders.length > 0) {
+                    const lastActive = s.sniper_last_active ? new Date(s.sniper_last_active + 'Z').toLocaleString() : 'Unknown';
+                    document.getElementById('sniperRecentOrders').innerHTML = `
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            Last active: ${lastActive} | 
+                            Recent orders: ${orders.slice(-5).map(o => 
+                                '<span style="color:' + (o.side === 'YES' ? 'var(--green)' : 'var(--red)') + '">' + o.side + '</span> ' + o.shares.toFixed(0) + ' @ $' + o.price.toFixed(4)
+                            ).join(' | ')}
+                        </div>`;
+                }
+            } catch (err) {
+                document.getElementById('sniperStatsGrid').innerHTML = '<div class="no-data">Sniper stats unavailable</div>';
+            }
+        }
+
         // Start
         init();
+        loadSniperStats();
         loadDailyAnalysis();
         setInterval(refresh, REFRESH_INTERVAL);
     </script>
