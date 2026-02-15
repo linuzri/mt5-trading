@@ -6,14 +6,15 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 13, 2026)
-- **Account:** ~$49,430 | **P/L:** +$1,178
-- **XAUUSD:** Star performer (+$1,024) | **EURUSD:** Solid (+$155) | **BTCUSD:** Break-even
-- **BTCUSD Ensemble:** 3 green days (Feb 11-13): 70%, 65%, 53% WR
-- **Ensemble rollout plan:** BTCUSD proven (by Feb 19) → XAUUSD → EURUSD
-- **Auto-retrain:** Ran Feb 13, ensemble accuracy 45.9%
-- **Local dashboard:** Removed from PM2 (Vercel dashboard only)
-- **Daily analysis gap:** Fixed with `gen_analysis.py`
+### Current Status (Feb 15, 2026)
+- **Account:** ~$49,461 | **P/L:** +$1,178
+- **XAUUSD:** +$268 weekly (29.6% WR, 3:1 R:R) — conservative config: 0.02 lots, $200 daily cap
+- **EURUSD:** +$141 weekly (38.1% WR, 9.17x R:R) — MVP, leave as-is
+- **BTCUSD Ensemble:** 82 trades, 63.4% WR, +$151.77 — monitoring through Feb 21
+- **Auto-retrain:** Weekly Sunday 3AM MYT. Daily auto-train DISABLED.
+- **All 3 bots train weekly only** via `auto_retrain.py` cron
+- **Duplicate close logging bug fixed** (PR #33) — `recently_closed_tickets` set
+- **Auto-merge PRs:** Granted Feb 15 — merge directly without review
 
 ## Architecture
 
