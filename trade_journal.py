@@ -220,6 +220,90 @@ Keep it to 200-300 words. Be direct, skip fluff. Use ASCII only (no Unicode arro
     return data["content"][0]["text"]
 
 
+PORTFOLIO_PATH = Path(r"C:\Users\Nazri Hussain\projects\polymarket-bot\portfolio_state.json")
+ARB_LOG_PATH = Path(r"C:\Users\Nazri Hussain\.pm2\logs\polymarket-arb-out.log")
+
+
+def get_polymarket_summary() -> str:
+    """Generate Polymarket portfolio summary from portfolio_state.json and PM2 logs."""
+    if not PORTFOLIO_PATH.exists():
+        return ""
+
+    try:
+        with open(PORTFOLIO_PATH, "r", encoding="utf-8", errors="replace") as f:
+            data = json.load(f)
+    except Exception:
+        return ""
+
+    positions = data.get("positions", {})
+    resolved = data.get("resolved", [])
+
+    total_invested = sum(p.get("cost_basis", 0) for p in positions.values())
+    current_value = sum(p.get("shares", 0) * p.get("current_price", 0) for p in positions.values())
+    unrealized_pnl = current_value - total_invested
+    realized_pnl = sum(r.get("realized_pnl", 0) for r in resolved)
+    initial_deposit = 100.27
+
+    # Parse sniper stats from PM2 arb logs (last 200 lines)
+    sniper_trades = 0
+    sniper_committed = 0
+    sniper_limit = 0
+    sniped_markets = 0
+    arb_trades = 0
+    tp_sells = 0
+
+    if ARB_LOG_PATH.exists():
+        try:
+            with open(ARB_LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()[-200:]
+            for line in lines:
+                # Sniper summary line: "Sniper: X trades placed ($Y committed / $Z limit) | N candidates found"
+                m = re.search(r"Sniper: (\d+) trades placed \(\$(\d+) committed / \$(\d+) limit\)", line)
+                if m:
+                    sniper_trades = int(m.group(1))
+                    sniper_committed = int(m.group(2))
+                    sniper_limit = int(m.group(3))
+                # Sniped markets count
+                m = re.search(r"(\d+) candidates found", line)
+                if m:
+                    sniped_markets = int(m.group(1))
+        except Exception:
+            pass
+
+    lines = [
+        "### POLYMARKET",
+        f"**Portfolio Summary**",
+        f"- Open positions: {len(positions)}",
+        f"- Total invested: ${total_invested:.2f}",
+        f"- Current value: ${current_value:.2f}",
+        f"- Unrealized P/L: ${unrealized_pnl:+.2f}",
+        f"- Resolved: {len(resolved)}",
+        f"- Realized P/L: ${realized_pnl:+.2f}",
+        f"- Initial deposit: ${initial_deposit:.2f}",
+        f"- Wallet balance: ${initial_deposit + realized_pnl - total_invested + current_value:.2f}",
+        f"",
+        f"**Sniper stats (this session):**",
+        f"- Trades placed: {sniper_trades}",
+        f"- Committed: ${sniper_committed} / ${sniper_limit} limit",
+        f"- Candidates found: {sniped_markets}",
+    ]
+
+    # List open positions
+    if positions:
+        lines.append("")
+        lines.append("**Open Positions:**")
+        for name, p in positions.items():
+            cost = p.get("cost_basis", 0)
+            shares = p.get("shares", 0)
+            price = p.get("current_price", 0)
+            value = shares * price
+            pnl = value - cost
+            side = p.get("side", "?")
+            lines.append(f"- {name[:50]} | {side} | cost ${cost:.2f} | value ${value:.2f} | P/L ${pnl:+.2f}")
+
+    return "\n".join(lines)
+
+
 def analyze_all_bots(date_str: str) -> dict:
     """Analyze all bots for a date, return structured result."""
     results = {}
@@ -255,6 +339,11 @@ def analyze_all_bots(date_str: str) -> dict:
         else:
             results[symbol]["analysis"] = f"No trades or signals for {symbol.upper()} (market likely closed)."
             all_analyses.append(f"### {symbol.upper()}\nNo activity (market closed).")
+
+    # Add Polymarket portfolio summary
+    poly_summary = get_polymarket_summary()
+    if poly_summary:
+        all_analyses.append(poly_summary)
 
     # Combine into single summary
     total_pnl = sum(r["pnl"] for r in results.values())
