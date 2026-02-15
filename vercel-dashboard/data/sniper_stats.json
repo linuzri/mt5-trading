@@ -1,11 +1,11 @@
 {
-  "sniper_orders_placed": 21,
+  "sniper_orders_placed": 22,
   "sniper_fills": 3,
-  "sniper_fill_rate": 14.3,
-  "sniper_cycles": 559,
-  "sniper_candidates_per_cycle": 50.2,
-  "sniper_exposure_limit_hits": 1620,
-  "sniper_markets_scanned": 225038,
+  "sniper_fill_rate": 13.6,
+  "sniper_cycles": 575,
+  "sniper_candidates_per_cycle": 50.4,
+  "sniper_exposure_limit_hits": 1666,
+  "sniper_markets_scanned": 230420,
   "sniper_invested": 66.91,
   "sniper_resolved_pnl": 0,
   "sniper_positions": [
@@ -39,12 +39,6 @@
   ],
   "sniper_resolved": [],
   "sniper_recent_orders": [
-    {
-      "side": "NO",
-      "shares": 10.1,
-      "price": 0.99,
-      "timestamp": "2026-02-14T04:20:27"
-    },
     {
       "side": "NO",
       "shares": 10.1,
@@ -158,10 +152,16 @@
       "shares": 20.2,
       "price": 0.99,
       "timestamp": "2026-02-14T08:42:07"
+    },
+    {
+      "side": "NO",
+      "shares": 25.25,
+      "price": 0.99,
+      "timestamp": "2026-02-14T23:54:18"
     }
   ],
   "sniper_first_active": "2026-02-14T04:20:26",
-  "sniper_last_active": "2026-02-14T08:42:07",
+  "sniper_last_active": "2026-02-14T23:54:18",
   "strategy_trades": 8,
   "strategy_invested": 20.0,
   "strategy_resolved_pnl": -10.0,
@@ -228,5 +228,5 @@
   "total_open_positions": 7,
   "total_resolved": 2,
   "bot_status": "running",
-  "updated_at": "2026-02-14T23:33:09.960916+00:00"
+  "updated_at": "2026-02-15T00:03:53.553733+00:00"
 }
