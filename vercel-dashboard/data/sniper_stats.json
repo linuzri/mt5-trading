@@ -2,10 +2,10 @@
   "sniper_orders_placed": 22,
   "sniper_fills": 3,
   "sniper_fill_rate": 13.6,
-  "sniper_cycles": 635,
-  "sniper_candidates_per_cycle": 48.8,
-  "sniper_exposure_limit_hits": 1846,
-  "sniper_markets_scanned": 253730,
+  "sniper_cycles": 656,
+  "sniper_candidates_per_cycle": 48.1,
+  "sniper_exposure_limit_hits": 1909,
+  "sniper_markets_scanned": 262057,
   "sniper_invested": 66.91,
   "sniper_resolved_pnl": 0,
   "sniper_positions": [
@@ -228,5 +228,5 @@
   "total_open_positions": 7,
   "total_resolved": 2,
   "bot_status": "running",
-  "updated_at": "2026-02-15T01:36:11.446283+00:00"
+  "updated_at": "2026-02-15T02:06:56.469284+00:00"
 }
