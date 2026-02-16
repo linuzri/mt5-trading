@@ -20,7 +20,8 @@
   
   "atr_period": 14,
   "atr_multiplier": 1.5,
-  "enable_trailing_stop": false,
+  "enable_trailing_stop": true,
+  "_trailing_stop_comment": "ATR-based trailing stop enabled - locks in profit as price moves in favor",
   "strategy": "ml_xgboost",
   "bollinger_period": 20,
   "bollinger_stddev": 2,
