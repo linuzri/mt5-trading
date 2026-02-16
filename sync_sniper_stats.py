@@ -150,6 +150,8 @@ def get_strategy_trades():
     with open(path) as f:
         data = json.load(f)
 
+    if isinstance(data, list):
+        return data
     return data.get("trades", [])
 
 
