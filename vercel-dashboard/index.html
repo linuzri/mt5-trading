@@ -980,13 +980,13 @@
                         <span>🤖</span> Trading Bot HQ
                     </h1>
                     <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1.25rem;">
-                        Machines trade. Dashboard watches. Three ML bots on MT5, one sniper on Polymarket &mdash; all autonomous, all live.
+                        Machines trade. Dashboard watches. Three ML bots on MT5 + weather arbitrage on Polymarket &mdash; all autonomous, all live.
                     </p>
                     <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem;">
                         <span style="background: rgba(247, 147, 26, 0.15); color: #f7931a; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(247, 147, 26, 0.25);">₿ BTCUSD</span>
                         <span style="background: rgba(255, 215, 0, 0.12); color: #ffd700; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(255, 215, 0, 0.2);">🥇 XAUUSD</span>
                         <span style="background: rgba(0, 82, 180, 0.15); color: #6fa3ef; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(0, 82, 180, 0.3);">💶 EURUSD</span>
-                        <span style="background: rgba(138, 43, 226, 0.15); color: #b47ede; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(138, 43, 226, 0.25);">🔮 Polymarket</span>
+                        <span style="background: rgba(138, 43, 226, 0.15); color: #b47ede; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(138, 43, 226, 0.25);">🌤️ Weather Arb</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
@@ -1087,12 +1087,43 @@
         <!-- Polymarket Section -->
         <section class="chart-section" id="polymarketSection">
             <div class="chart-card">
-                <h2 class="section-header" style="margin-bottom:0">🔮 Polymarket Predictions</h2>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Risk-free sniper strategy - buys 95-99.9% certain outcomes, collects $1.00 on resolution. Tick-size-aware pricing enables <span style="color:#22c55e">$0.999</span> orders on political markets.</p>
+                <h2 class="section-header" style="margin-bottom:0">🌤️ Polymarket Weather Arbitrage</h2>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Weather forecast-based trading across 13 cities (NYC, Chicago, Miami, Atlanta, Seattle, Dallas, London, Seoul, Paris, Toronto, Buenos Aires, Ankara, Wellington). NOAA + Open-Meteo forecasts vs market prices. Limit orders at fair value — <span style="color:#22c55e">zero maker fees</span>. Scans every 3 hours.</p>
 
-                <!-- Sniper Stats -->
-                <div id="sniperStats" style="margin-bottom: 1.5rem;">
-                    <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">🎯 Sniper Performance</h3>
+                <!-- Weather Strategy Info -->
+                <div id="weatherInfo" style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">🎯 Strategy: 100% Weather Focus</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                        <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Min Edge</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--cyan);">10%</div>
+                        </div>
+                        <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Kelly Fraction</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--cyan);">40%</div>
+                        </div>
+                        <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Max/Bucket</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--cyan);">$20</div>
+                        </div>
+                        <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Max Exposure</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--cyan);">$100</div>
+                        </div>
+                        <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Scan Interval</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--cyan);">3h</div>
+                        </div>
+                        <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Cities</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--cyan);">13</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legacy Sniper Stats (hidden by default) -->
+                <div id="sniperStats" style="margin-bottom: 1.5rem; display: none;">
+                    <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">📦 Legacy Sniper (Backlog)</h3>
                     <div id="sniperStatsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
                         <div class="loading"><div class="spinner"></div>Loading sniper stats...</div>
                     </div>
