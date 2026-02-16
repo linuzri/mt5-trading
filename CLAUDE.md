@@ -6,15 +6,19 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 15, 2026)
-- **Account:** ~$49,461 | **P/L:** +$1,178
-- **XAUUSD:** +$268 weekly (29.6% WR, 3:1 R:R) — conservative config: 0.02 lots, $200 daily cap
-- **EURUSD:** +$141 weekly (38.1% WR, 9.17x R:R) — MVP, leave as-is
-- **BTCUSD Ensemble:** 82 trades, 63.4% WR, +$151.77 — monitoring through Feb 21
-- **Auto-retrain:** Weekly Sunday 3AM MYT. Daily auto-train DISABLED.
-- **All 3 bots train weekly only** via `auto_retrain.py` cron
-- **Duplicate close logging bug fixed** (PR #33) — `recently_closed_tickets` set
-- **Auto-merge PRs:** Granted Feb 15 — merge directly without review
+### Current Status (Feb 16, 2026)
+- **Account:** ~$49,584 | **All-time P/L:** +$1,030
+- **XAUUSD:** Star performer (+$814 all-time). ATR trailing stop enabled (1.5x multiplier)
+- **BTCUSD:** +$76 all-time. Ensemble ML (RF+XGB+LGB). ATR trailing stop enabled.
+- **EURUSD:** +$141 all-time. Selective trading (40% confidence, 50% Asian session)
+- **Today (Feb 16):** +$221 (BTCUSD +$54, XAUUSD +$167, EURUSD flat)
+- **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
+- **Auto-merge PRs:** Granted — merge directly without review
+
+### Recent Changes (Feb 16)
+- **ATR trailing stop** enabled for BTCUSD and XAUUSD (1.5x ATR multiplier)
+- **Momentum/trend deadlock fix** (commit `aff65c6`): If momentum filter flips signal but trend filter would block the flip, keep original signal instead of deadlocking
+- **Partial profit** working on all bots (50% close at 1R, SL to breakeven)
 
 ## Architecture
 
@@ -50,7 +54,7 @@ eurusd/trading.py  ─┘
 
 ## Important Patterns
 
-- **Momentum Filter:** Check `check_trend_momentum()` in trading.py. Uses last 3 trades to continue streaks or block losing directions.
+- **Momentum Filter:** Check trend momentum section in trading.py. Uses last 3 trades to continue streaks or block losing directions. **Important:** If momentum flips signal but trend filter would block the flip, keeps original signal (prevents deadlock — fixed Feb 16).
 - **Session Trading:** Asian (00:00-08:00 UTC), EU (08:00-14:00), US (14:00-21:00). Each has different confidence thresholds.
 - **Cooldown:** Minimum wait between trades to prevent overtrading. BTCUSD: 5min, EURUSD: 10min.
 - **Circuit Breaker:** Currently disabled (set to 999) to allow demo learning.

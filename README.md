@@ -4,20 +4,20 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 
 **Live Dashboard:** https://trade-bot-hq.vercel.app
 
-## Current Performance (Feb 13, 2026)
+## Current Performance (Feb 16, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Account Balance | ~$49,430 |
-| Grand Total P/L | **+$1,178** |
-| XAUUSD (Star) | **+$1,024** |
-| EURUSD (Solid) | **+$155** |
-| BTCUSD (Break-even) | ~$0 |
+| Account Balance | ~$49,584 |
+| Grand Total P/L | **+$1,031** |
+| XAUUSD (Star) | **+$814** |
+| EURUSD (Solid) | **+$141** |
+| BTCUSD | **+$76** |
 
-### BTCUSD Ensemble ML Results
-- **3 consecutive green days** since Feb 11: 70%, 65%, 53% win rate
-- Auto-retrain ran Feb 13 — ensemble accuracy 45.9%
-- **Rollout plan:** If BTCUSD ensemble proves out through Feb 19 → roll to XAUUSD → then EURUSD
+### Recent Improvements (Feb 16)
+- **ATR trailing stop** enabled for BTCUSD and XAUUSD (1.5x ATR multiplier) — cuts losses tighter, lets winners ride
+- **Momentum/trend deadlock fix** — prevents bot from going silent when momentum and trend filters conflict
+- **Today's P/L:** +$221 (BTCUSD +$54, XAUUSD +$167)
 
 ## Supported Pairs & ML Strategy
 
