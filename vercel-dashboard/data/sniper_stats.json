@@ -1,14 +1,33 @@
 {
   "sniper_orders_placed": 24,
-  "sniper_fills": 0,
-  "sniper_fill_rate": 0.0,
+  "sniper_fills": 2,
+  "sniper_fill_rate": 8.3,
   "sniper_cycles": 1669,
   "sniper_candidates_per_cycle": 36.7,
   "sniper_exposure_limit_hits": 4946,
   "sniper_markets_scanned": 663301,
-  "sniper_invested": 0,
+  "sniper_invested": 85.78,
   "sniper_resolved_pnl": 0,
-  "sniper_positions": [],
+  "sniper_positions": [
+    {
+      "market": "Will the Fed decrease interest rates by 25 bps after the March 2026 meeting?",
+      "side": "NO",
+      "shares": 45.5,
+      "cost_basis": 42.92,
+      "avg_price": 0.94,
+      "current_price": 0.935,
+      "opened_at": "2026-02-13T00:00:00Z"
+    },
+    {
+      "market": "Will there be no change in Fed interest rates after the March 2026 meeting?",
+      "side": "YES",
+      "shares": 45.8,
+      "cost_basis": 42.86,
+      "avg_price": 0.94,
+      "current_price": 0.925,
+      "opened_at": "2026-02-13T00:00:00Z"
+    }
+  ],
   "sniper_resolved": [],
   "sniper_recent_orders": [
     {
@@ -135,44 +154,26 @@
   "sniper_first_active": "2026-02-14T04:20:26",
   "sniper_last_active": "2026-02-16T01:57:57",
   "strategy_trades": 4,
-  "strategy_invested": 20.0,
+  "strategy_invested": 5.2,
   "strategy_resolved_pnl": -10.0,
   "strategy_positions": [
     {
-      "market": "Will Trump nominate Jerome Powell as the next Fed chair?",
+      "market": "Will the highest temperature in Miami be 81\u00c2\u00b0F or below on February 16?",
       "side": "YES",
-      "shares": 852.9411764705893,
-      "cost_basis": 1.279411764705884,
-      "avg_price": 0.0015,
-      "current_price": 0.0005,
-      "opened_at": "2026-02-13T11:44:58.413503100Z"
+      "shares": 11.3,
+      "cost_basis": 3.73,
+      "avg_price": 0.33,
+      "current_price": 0.3,
+      "opened_at": "2026-02-16T00:00:00Z"
     },
     {
-      "market": "Russia x Ukraine ceasefire by June 30, 2026?",
+      "market": "Will the highest temperature in Seoul be 7\u00c2\u00b0C or higher on February 17?",
       "side": "YES",
-      "shares": 15.832290362953692,
-      "cost_basis": 3.7205882352941178,
-      "avg_price": 0.235,
-      "current_price": 0.245,
-      "opened_at": "2026-02-13T10:18:12.251698400Z"
-    },
-    {
-      "market": "Will Trump nominate Kevin Warsh as the next Fed chair?",
-      "side": "NO",
-      "shares": 206.14263404476833,
-      "cost_basis": 10.0,
-      "avg_price": 0.04851010101010102,
-      "current_price": 0.0435,
-      "opened_at": "2026-02-13T12:36:35.646531400Z"
-    },
-    {
-      "market": "Will Netflix close Warner Bros acquisition?",
-      "side": "NO",
-      "shares": 9.523809523809524,
-      "cost_basis": 5.0,
-      "avg_price": 0.525,
-      "current_price": 0.545,
-      "opened_at": "2026-02-13T10:32:51.154244400Z"
+      "shares": 12.13,
+      "cost_basis": 1.47,
+      "avg_price": 0.12,
+      "current_price": 0.003,
+      "opened_at": "2026-02-16T00:00:00Z"
     }
   ],
   "strategy_resolved": [
@@ -184,7 +185,7 @@
       "avg_price": 0.0005,
       "pnl": -5.0,
       "outcome": "LOST",
-      "resolved_at": "2026-02-14T01:54:46.250126600Z"
+      "resolved_at": ""
     },
     {
       "market": "Will Bangladesh Nationalist Party win the most seats in the Bangladesh parliamentary election?",
@@ -194,11 +195,51 @@
       "avg_price": 0.005,
       "pnl": -5.0,
       "outcome": "LOST",
-      "resolved_at": "2026-02-14T01:54:46.653456700Z"
+      "resolved_at": ""
+    },
+    {
+      "market": "Will Trump nominate Jerome Powell as the next Fed chair?",
+      "side": "YES",
+      "shares": 852.9,
+      "cost_basis": 1.28,
+      "avg_price": 0.0015,
+      "pnl": 0,
+      "outcome": "SOLD/CLOSED",
+      "resolved_at": ""
+    },
+    {
+      "market": "Russia x Ukraine ceasefire by June 30, 2026?",
+      "side": "YES",
+      "shares": 15.8,
+      "cost_basis": 3.72,
+      "avg_price": 0.235,
+      "pnl": 0,
+      "outcome": "SOLD/CLOSED",
+      "resolved_at": ""
+    },
+    {
+      "market": "Will Trump nominate Kevin Warsh as the next Fed chair?",
+      "side": "NO",
+      "shares": 206.1,
+      "cost_basis": 10.0,
+      "avg_price": 0.0485,
+      "pnl": 0,
+      "outcome": "SOLD/CLOSED",
+      "resolved_at": ""
+    },
+    {
+      "market": "Will Netflix close Warner Bros acquisition?",
+      "side": "NO",
+      "shares": 9.5,
+      "cost_basis": 5.0,
+      "avg_price": 0.525,
+      "pnl": 0,
+      "outcome": "SOLD/CLOSED",
+      "resolved_at": ""
     }
   ],
   "total_open_positions": 4,
-  "total_resolved": 2,
+  "total_resolved": 6,
   "bot_status": "running",
-  "updated_at": "2026-02-16T07:29:48.169811+00:00"
+  "updated_at": "2026-02-16T08:00:40.837189+00:00"
 }
