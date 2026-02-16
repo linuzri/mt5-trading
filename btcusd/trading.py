@@ -1365,13 +1365,23 @@ try:
                         trade_signal = streak_direction
                 
                 # If last 3 trades were all losses in one direction, block that direction
+                # But only flip if the opposite direction won't be blocked by trend filter
                 all_losses = all(p < 0 for p in recent_profits)
                 if all_same and all_losses:
                     losing_direction = recent_directions[0]
                     if trade_signal == losing_direction:
                         opposite = "sell" if losing_direction == "buy" else "buy"
-                        log_only(f"[MOMENTUM] Blocking {losing_direction.upper()} (3 consecutive losses). Switching to {opposite.upper()}")
-                        trade_signal = opposite
+                        # Check if trend filter would block the opposite direction
+                        trend_would_block = (
+                            enable_ema_trend_filter and ema_trend is not None and
+                            ((opposite == "buy" and ema_trend == "DOWNTREND") or
+                             (opposite == "sell" and ema_trend == "UPTREND"))
+                        )
+                        if trend_would_block:
+                            log_only(f"[MOMENTUM] Would block {losing_direction.upper()} (3 consecutive losses) but {opposite.upper()} blocked by trend filter — keeping original {trade_signal.upper()} signal")
+                        else:
+                            log_only(f"[MOMENTUM] Blocking {losing_direction.upper()} (3 consecutive losses). Switching to {opposite.upper()}")
+                            trade_signal = opposite
 
         # --- EMA TREND FILTER: Block trades against the trend ---
         if trade_signal is not None and enable_ema_trend_filter and ema_trend is not None:
