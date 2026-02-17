@@ -95,5 +95,15 @@
     "btcusd_pnl": 156.47589999999983,
     "xauusd_pnl": 214.12999999999883,
     "eurusd_pnl": 32.299999999999926
+  },
+  {
+    "date": "2026-02-17",
+    "summary": "## Daily Summary - 2026-02-17\n\n**BTCUSD**: 136 trades, 81W/55L (60% WR), P/L: $111.24\n**XAUUSD**: 387 trades, 209W/178L (54% WR), P/L: $302.09\n**EURUSD**: 8 trades, 4W/4L (50% WR), P/L: $11.29\n\n**Total**: 531 trades, P/L: $424.62",
+    "balance": 49635.86,
+    "total_pnl": 424.6190999999982,
+    "total_trades": 531,
+    "btcusd_pnl": 111.23909999999931,
+    "xauusd_pnl": 302.08999999999884,
+    "eurusd_pnl": 11.290000000000013
   }
 ]

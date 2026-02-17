@@ -65,12 +65,16 @@ def get_trades_for_date(symbol: str, date_str: str) -> list[dict]:
             close_time = parts[0]
             if date_str not in close_time:
                 continue
+            try:
+                profit = float(parts[4])
+            except (ValueError, IndexError):
+                continue  # Skip rows with N/A or invalid profit
             trades.append({
                 "close_time": close_time,
                 "direction": parts[1],
-                "entry_price": float(parts[2]),
-                "exit_price": float(parts[3]),
-                "profit": float(parts[4]),
+                "entry_price": float(parts[2]) if parts[2] != 'N/A' else 0,
+                "exit_price": float(parts[3]) if parts[3] != 'N/A' else 0,
+                "profit": profit,
             })
     return trades
 
