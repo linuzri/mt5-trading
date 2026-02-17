@@ -4,27 +4,29 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 
 **Live Dashboard:** https://trade-bot-hq.vercel.app
 
-## Current Performance (Feb 16, 2026)
+## Current Performance (Feb 17, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Account Balance | ~$49,584 |
-| Grand Total P/L | **+$1,031** |
-| XAUUSD (Star) | **+$814** |
-| EURUSD (Solid) | **+$141** |
-| BTCUSD | **+$76** |
+| Account Balance | ~$49,577 |
+| Grand Total P/L | **+$1,178** |
+| BTCUSD (Star) | **+$220** |
+| XAUUSD | **+$173** |
+| EURUSD (Solid) | **+$155** |
 
-### Recent Improvements (Feb 16)
-- **ATR trailing stop** enabled for BTCUSD and XAUUSD (1.5x ATR multiplier) — cuts losses tighter, lets winners ride
-- **Momentum/trend deadlock fix** — prevents bot from going silent when momentum and trend filters conflict
-- **Today's P/L:** +$221 (BTCUSD +$54, XAUUSD +$167)
+### Recent Improvements (Feb 17)
+- **XAUUSD reversal confirmation** — requires 2 consecutive signals before reversing direction (data: reversals 32.9% WR vs continuations 46.9% WR)
+- **XAUUSD crash detector** — halts trading on >1.5% price move in 15min
+- **Session-aware ATR for EURUSD** — per-session thresholds (Asian/EU/US) instead of one-size-fits-all
+- **Unicode console fix** — safe ASCII encoding on all 3 bots for Windows compatibility
+- **Symbol identifiers** — all notifications now prefixed with bot name (BTCUSD/XAUUSD/EURUSD)
 
 ## Supported Pairs & ML Strategy
 
 | Bot | Symbol | ML Strategy | Confidence | Key Features |
 |-----|--------|------------|------------|--------------|
 | BTCUSD | Bitcoin/USD | **Ensemble** (Random Forest + XGBoost + LightGBM) | 55% (65% off-hours) | Majority vote (2/3 must agree), volatility filter, crash detector |
-| XAUUSD | Gold/USD | XGBoost | 50% (60% off-hours) | Partial profit at 1R, bidirectional trading |
+| XAUUSD | Gold/USD | XGBoost | 50% (55% Asian) | Reversal confirmation, crash detector, partial profit at 1R |
 | EURUSD | Euro/USD | XGBoost | 40% (50% Asian session) | Tight scalping (15 pip SL, 20 pip TP), M5 timeframe |
 
 ### ML Pipeline
@@ -80,7 +82,10 @@ mt5-trading/
 - **Volatility Filter (BTCUSD):** Skips trades when ATR > 2x rolling average
 - **Adaptive Cooldown (BTCUSD):** 5min base, +5min per consecutive loss (max 30min)
 - **Crash Detector (BTCUSD):** Halts trading 30min if price moves >3% in 15 minutes
+- **Crash Detector (XAUUSD):** Halts trading 30min if price moves >1.5% in 15 minutes
+- **Reversal Confirmation (XAUUSD):** Requires 2 consecutive signals before reversing direction — prevents whipsaw losses
 - **Momentum Filter:** Continues profitable streaks, blocks losing directions
+- **Session-Aware ATR (EURUSD):** Per-session thresholds (Asian=0.00003, EU/US=0.00008)
 
 ### Infrastructure
 - **Auto-Retrain:** Weekly model retraining with accuracy validation and rollback safety
@@ -155,7 +160,8 @@ Each bot has `config.json` (runtime) and `ml_config.json` (ML training):
 | Cooldown | 5 min | 5 min | 10 min |
 | EMA Filter | ✅ | ❌ | ✅ |
 | Volatility Filter | ✅ | ❌ | ❌ |
-| Crash Detector | ✅ | ❌ | ❌ |
+| Crash Detector | ✅ (3%) | ✅ (1.5%) | ❌ |
+| Reversal Confirm | ❌ | ✅ (2 signals) | ❌ |
 
 ## PM2 Commands
 
