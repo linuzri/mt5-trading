@@ -819,14 +819,46 @@ try:
     last_pl_date = None
     recently_closed_tickets = set()  # Prevent sync_existing_positions from re-adding closed positions
 
-    # Trade statistics tracking
+    # Restore today's stats from CSV on startup (survives restarts)
     total_wins = 0
     total_losses = 0
     cumulative_pl = 0.0
-    
-    # Defensive trading tracking
+    daily_trade_count = 0
     consecutive_losses = 0
-    last_loss_time = None  # datetime of last losing trade
+    last_loss_time = None
+    try:
+        today_str = datetime.now(UTC).strftime('%Y-%m-%d')
+        with open(trade_log_file, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 5 and today_str in row[0]:
+                    try:
+                        pl = float(row[4]) if row[4] not in ['N/A', '', None] else 0.0
+                        daily_pl += pl
+                        cumulative_pl += pl
+                        daily_trade_count += 1
+                        if pl > 0:
+                            total_wins += 1
+                            consecutive_losses = 0
+                        elif pl < 0:
+                            total_losses += 1
+                            consecutive_losses += 1
+                            last_loss_time = datetime.now(UTC)
+                        else:
+                            total_wins += 1  # breakeven = win
+                            consecutive_losses = 0
+                    except (ValueError, IndexError):
+                        pass
+        if daily_trade_count > 0:
+            wr = total_wins / (total_wins + total_losses) * 100 if (total_wins + total_losses) > 0 else 0
+            log_only(f"[XAUUSD RESTORE] Restored today's stats from CSV: {total_wins}W/{total_losses}L ({wr:.0f}% WR) | P/L: ${daily_pl:.2f} | Trades: {daily_trade_count}")
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log_only(f"[XAUUSD RESTORE] Failed to restore stats: {e}")
+
+    # Defensive trading tracking (already restored above)
+    # consecutive_losses and last_loss_time set during restore
 
     # Reversal confirmation tracking
     # Instead of immediately reversing, close position and wait for 2 consecutive signals
@@ -838,8 +870,7 @@ try:
     crash_mode_active = False
     crash_mode_until = None  # datetime when crash mode expires
 
-    # Daily trade limit tracking
-    daily_trade_count = 0
+    # Daily trade limit tracking (daily_trade_count already restored from CSV above)
     max_trades_per_day = 10  # Default, will be updated from ml_config if available
     if strategy == "ml_xgboost" and ml_predictor is not None:
         max_trades_per_day = ml_predictor.config.get('risk_management', {}).get('max_trades_per_day', 10)
