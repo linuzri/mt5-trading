@@ -1248,14 +1248,16 @@ try:
                         if feat in df_with_features.columns:
                             latest_features[feat] = df_with_features[feat].iloc[-1]
 
-                    # VOLATILITY FILTER: Check ATR threshold
+                    # VOLATILITY FILTER: Check ATR threshold (session-aware)
                     current_atr = latest_features.get('atr_14', 0)
                     # For forex pairs, ATR is in price units (e.g. 0.0005 for EURUSD)
-                    # Default 0 disables the filter; config overrides per-bot
-                    min_atr_threshold = ml_predictor.config.get('risk_management', {}).get('min_atr_threshold', 0)
+                    risk_mgmt = ml_predictor.config.get('risk_management', {})
+                    # Use session-specific threshold if available, else fall back to global
+                    session_atr_thresholds = risk_mgmt.get('session_atr_thresholds', {})
+                    min_atr_threshold = session_atr_thresholds.get(current_session, risk_mgmt.get('min_atr_threshold', 0))
 
                     if min_atr_threshold > 0 and current_atr < min_atr_threshold:
-                        msg = f"[ML FILTER] ATR {current_atr} below threshold {min_atr_threshold}. Skipping trade."
+                        msg = f"[ML FILTER] ATR {current_atr:.6f} below {current_session} threshold {min_atr_threshold}. Skipping trade."
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg

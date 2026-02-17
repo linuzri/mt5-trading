@@ -89,6 +89,12 @@
     "stagnant_threshold_percent": 0.003
   },
   "risk_management": {
-    "min_atr_threshold": 0.0001
+    "min_atr_threshold": 0.00005,
+    "session_atr_thresholds": {
+      "asian": 0.00003,
+      "european": 0.00008,
+      "american": 0.00008,
+      "off_hours": 0.00003
+    }
   }
 }
