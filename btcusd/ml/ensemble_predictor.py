@@ -14,7 +14,12 @@ import pandas as pd
 import json
 import joblib
 import os
+import warnings
 from datetime import datetime
+
+# Suppress sklearn feature name warnings (RF trained without names, LGB with names - both work fine)
+warnings.filterwarnings("ignore", message="X does not have valid feature names")
+warnings.filterwarnings("ignore", message="X has feature names")
 
 
 class EnsemblePredictor:
