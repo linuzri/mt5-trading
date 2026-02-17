@@ -1387,7 +1387,7 @@ try:
                 if all_same and all_profitable:
                     streak_direction = recent_directions[0]
                     if trade_signal != streak_direction:
-                        log_only(f"[MOMENTUM] Overriding {trade_signal.upper()} → {streak_direction.upper()} (last 3 trades: {streak_direction.upper()} streak, all profitable)")
+                        log_only(f"[MOMENTUM] Overriding {trade_signal.upper()} -> {streak_direction.upper()} (last 3 trades: {streak_direction.upper()} streak, all profitable)")
                         trade_signal = streak_direction
                 
                 # If last 3 trades were all losses in one direction, block that direction
