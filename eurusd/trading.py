@@ -95,7 +95,7 @@ def send_telegram_message(message):
 
 def log_notify(message):
     """Log to console, file, AND Telegram (for important trade alerts only)."""
-    print(message)
+    print(message.encode('ascii', 'replace').decode('ascii'))
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
     send_telegram_message(message)
@@ -105,7 +105,7 @@ def log_notify(message):
 
 def log_only(message):
     """Log to console and file only (NO Telegram)."""
-    print(message)
+    print(message.encode('ascii', 'replace').decode('ascii'))
     with open(log_file, "a") as f:
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
     # Push important logs to Supabase (filter out noise)
