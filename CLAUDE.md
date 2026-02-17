@@ -6,19 +6,21 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 16, 2026)
-- **Account:** ~$49,584 | **All-time P/L:** +$1,030
-- **XAUUSD:** Star performer (+$814 all-time). ATR trailing stop enabled (1.5x multiplier)
-- **BTCUSD:** +$76 all-time. Ensemble ML (RF+XGB+LGB). ATR trailing stop enabled.
-- **EURUSD:** +$141 all-time. Selective trading (40% confidence, 50% Asian session)
-- **Today (Feb 16):** +$221 (BTCUSD +$54, XAUUSD +$167, EURUSD flat)
+### Current Status (Feb 17, 2026)
+- **Account:** ~$49,577 | **All-time P/L:** +$1,178
+- **BTCUSD:** Star performer (+$220). Ensemble ML (RF+XGB+LGB). 61% WR since Feb 15.
+- **XAUUSD:** +$173 all-time. Reversal confirmation + crash detector added. 50% WR.
+- **EURUSD:** +$155 all-time. Session-aware ATR thresholds. Low volume but positive.
 - **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
 
-### Recent Changes (Feb 16)
-- **ATR trailing stop** enabled for BTCUSD and XAUUSD (1.5x ATR multiplier)
-- **Momentum/trend deadlock fix** (commit `aff65c6`): If momentum filter flips signal but trend filter would block the flip, keep original signal instead of deadlocking
-- **Partial profit** working on all bots (50% close at 1R, SL to breakeven)
+### Recent Changes (Feb 17)
+- **XAUUSD reversal confirmation** (`8dd5588`): Require 2 consecutive signals before reversing. Reversals had 32.9% WR vs 46.9% continuations.
+- **XAUUSD crash detector** (`a5faaf7`): Halt trading on >1.5% price move in 15min
+- **EURUSD session-aware ATR** (`b569593`): Per-session thresholds (Asian=0.00003, EU/US=0.00008)
+- **Unicode console fix** (`0b3eb90`): ASCII-safe print encoding for all 3 bots (Windows cp1252)
+- **Symbol identifiers** (PR #36): All notifications now prefixed with bot name
+- **Sklearn warning fix** (PR #37): Suppressed feature name warnings, removed duplicate prediction call
 
 ## Architecture
 
@@ -61,6 +63,9 @@ eurusd/trading.py  ─┘
 - **Volatility Filter (BTCUSD):** Skips trades when ATR > 2x rolling 20-period average.
 - **Adaptive Cooldown (BTCUSD):** 5min base, +5min per consecutive loss (max 30min), resets on win.
 - **Crash Detector (BTCUSD):** Halts trading 30min if price moves >3% in 15 minutes.
+- **Crash Detector (XAUUSD):** Halts trading 30min if price moves >1.5% in 15 minutes.
+- **Reversal Confirmation (XAUUSD):** Requires 2 consecutive signals before reversing direction. Variables: `reversal_pending_direction`, `reversal_signal_count`, `REVERSAL_CONFIRMATION_REQUIRED=2`. Prevents whipsaw losses.
+- **Session-Aware ATR (EURUSD):** Per-session min ATR thresholds in config.json (Asian=0.00003, EU/US=0.00008). Global threshold was blocking all Asian trades.
 - **EMA Trend Filter (BTCUSD, EURUSD):** Only BUY in uptrend, only SELL in downtrend.
 - **Partial Profit Taking:** All bots close 50% at 1:1 RR, move SL to breakeven. Note: may not trigger on XAUUSD at minimum lot (0.05) due to lot size constraints.
 - **Smart Exit (EURUSD):** Closes stagnant trades after 60min if price moved <0.003%.
@@ -68,7 +73,7 @@ eurusd/trading.py  ─┘
 ## Development Guidelines
 
 - **Branch:** `main` only. No other branches needed.
-- **Testing:** Run on demo account first. Current demo balance ~$49,430.
+- **Testing:** Run on demo account first. Current demo balance ~$49,577.
 - **Paths:** Bots reference `mt5_auth.json` in their own directory (gitignored).
 - **Retraining:** `python train_ml_model.py --refresh` in each bot folder.
 - **Auto-Retrain:** `python auto_retrain.py` at repo root. Checks model age, retrains if > 7 days, validates accuracy (max 5% drop allowed), backs up old models, restarts PM2. Runs weekly via cron (Sunday 3 AM MYT). Use `--force` to retrain immediately, `--dry-run` to preview, `--bot <name>` for specific bot.
@@ -97,6 +102,8 @@ eurusd/trading.py  ─┘
 
 ### XAUUSD  
 - Model: XGBoost | SL: $40 | TP: $60
+- **Reversal confirmation:** 2 consecutive signals required before reversing direction
+- **Crash detector:** Halts trading on >1.5% price move in 15min
 - Partial profit may not work at 0.05 lots (min lot constraint)
 - Market hours: Mon-Fri only (closes Fri 22:00 UTC, opens Sun 22:00 UTC)
 
