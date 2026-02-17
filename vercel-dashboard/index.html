@@ -980,7 +980,7 @@
                         <span>🤖</span> Trading Bot HQ
                     </h1>
                     <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1.25rem;">
-                        Machines trade. Dashboard watches. Three ML bots on MT5 + weather arbitrage on Polymarket &mdash; all autonomous, all live.
+                        Machines trade. Dashboard watches. Three ML-powered bots on MT5 &mdash; autonomous scalping, live 24/7.
                     </p>
                     <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem;">
                         <span style="background: rgba(247, 147, 26, 0.15); color: #f7931a; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(247, 147, 26, 0.25);">₿ BTCUSD</span>
@@ -1084,7 +1084,7 @@
             </div>
         </section>
 
-        <!-- Polymarket Section -->
+        <!-- Polymarket Section (HIDDEN - revisit later)
         <section class="chart-section" id="polymarketSection">
             <div class="chart-card">
                 <h2 class="section-header" style="margin-bottom:0">🌤️ Polymarket Weather Arbitrage</h2>
@@ -1157,6 +1157,7 @@
                 </div>
             </div>
         </section>
+        END Polymarket Section -->
 
         <!-- Trade History -->
         <section class="trades-section">
@@ -1909,8 +1910,8 @@
                 renderPnLChart(currentDays),
                 loadPerformanceMetrics(),
                 renderTrades(),
-                renderLogs(),
-                renderPolymarket()
+                renderLogs()
+                // renderPolymarket()  // HIDDEN - revisit later
             ]);
             updateTimestamp();
         }
@@ -1922,8 +1923,8 @@
                 renderBots(),
                 renderTrades(),
                 renderLogs(),
-                renderPolymarket(),
-                loadSniperStats()
+                // renderPolymarket(),  // HIDDEN - revisit later
+                // loadSniperStats()   // HIDDEN - revisit later
             ]);
             updateTimestamp();
         }
