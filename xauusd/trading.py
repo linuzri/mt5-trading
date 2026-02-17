@@ -805,6 +805,12 @@ try:
     consecutive_losses = 0
     last_loss_time = None  # datetime of last losing trade
 
+    # Reversal confirmation tracking
+    # Instead of immediately reversing, close position and wait for 2 consecutive signals
+    reversal_pending_direction = None  # 'buy' or 'sell' - the direction we want to confirm
+    reversal_signal_count = 0  # consecutive signals in the pending direction
+    REVERSAL_CONFIRMATION_REQUIRED = 2  # number of consecutive signals needed before opening
+
     # Daily trade limit tracking
     daily_trade_count = 0
     max_trades_per_day = 10  # Default, will be updated from ml_config if available
@@ -1446,6 +1452,26 @@ try:
                     last_filter_message = msg
                 trade_signal = None
 
+        # --- Reversal confirmation logic ---
+        # If we're waiting for confirmation and have no position, check signals
+        if reversal_pending_direction and position_type is None and trade_signal:
+            if trade_signal == reversal_pending_direction:
+                reversal_signal_count += 1
+                log_only(f"[REVERSAL] {trade_signal.upper()} confirmation: {reversal_signal_count}/{REVERSAL_CONFIRMATION_REQUIRED}")
+                if reversal_signal_count >= REVERSAL_CONFIRMATION_REQUIRED:
+                    log_only(f"[REVERSAL] Confirmed! Proceeding with {trade_signal.upper()}")
+                    reversal_pending_direction = None
+                    reversal_signal_count = 0
+                    # Let it fall through to normal trading logic below
+                else:
+                    trade_signal = None  # Not confirmed yet, skip this cycle
+            else:
+                # Signal changed direction — reset confirmation
+                log_only(f"[REVERSAL] Signal flipped to {trade_signal.upper()} — cancelling pending {reversal_pending_direction.upper()} reversal")
+                reversal_pending_direction = None
+                reversal_signal_count = 0
+                trade_signal = None  # Don't trade on this flip either — wait for fresh signal
+
         # Trading logic with management and notifications
         if trade_signal == "buy":
             if position_type is None:
@@ -1484,8 +1510,8 @@ try:
                 else:
                     log_notify(f"[XAUUSD ERROR] BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
-                # Open SELL, but signal is BUY: close SELL, open BUY
-                # Use existing position's volume for closing
+                # Open SELL, but signal is BUY: close SELL, then wait for confirmation
+                # Step 1: Close the SELL position
                 existing_volume = positions[0].volume if positions else trade_lot
                 close_request = {
                     "action": mt5.TRADE_ACTION_DEAL,
@@ -1496,13 +1522,13 @@ try:
                     "price": ask,
                     "deviation": 20,
                     "magic": 234000,
-                    "comment": "close sell, open buy",
+                    "comment": "close sell (reversal confirmation pending)",
                     "type_time": mt5.ORDER_TIME_GTC,
                     "type_filling": get_filling_mode(symbol),
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[XAUUSD BUY] Closed SELL, opened BUY, ticket: {close_result.order}, price: {ask}")
+                    log_notify(f"[XAUUSD CLOSE] Closed SELL position (BUY signal received, waiting for {REVERSAL_CONFIRMATION_REQUIRED} confirmations)")
                     # Remove old position from tracking
                     if ticket in tracked_positions:
                         old_conf = tracked_positions[ticket].get('confidence')
@@ -1513,24 +1539,18 @@ try:
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
-                        # Log trade result with statistics
-                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, old_conf, "Reversal")
+                        log_trade_result("SELL", entry_price, tick.bid, last_deal.profit, old_conf, "Reversal close")
                         append_trade_log([str(datetime.now(UTC)), "SELL", entry_price, tick.bid, last_deal.profit])
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
-                    # Track the new BUY position
-                    ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
-                    tracked_positions[close_result.order] = {
-                        'direction': 'BUY',
-                        'entry_price': ask,
-                        'confidence': ml_conf
-                    }
-                    # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
-                    log_notify(f"[XAUUSD BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
-                    daily_trade_count += 1  # Increment daily trade counter
+                    log_notify(f"[XAUUSD BALANCE] Account balance after closing SELL: ${balance:.2f}")
+                    # Set up reversal confirmation — don't open BUY yet
+                    reversal_pending_direction = "buy"
+                    reversal_signal_count = 1  # This BUY signal counts as first confirmation
+                    log_only(f"[REVERSAL] Pending BUY confirmation: {reversal_signal_count}/{REVERSAL_CONFIRMATION_REQUIRED}")
                 else:
-                    log_notify(f"[XAUUSD ERROR] Failed to close SELL and open BUY, retcode = {close_result.retcode}")
+                    log_notify(f"[XAUUSD ERROR] Failed to close SELL, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
             if position_type is None:
                 # No open position, open SELL
@@ -1568,8 +1588,7 @@ try:
                 else:
                     log_notify(f"[XAUUSD ERROR] SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
-                # Open BUY, but signal is SELL: close BUY, open SELL
-                # Use existing position's volume for closing
+                # Open BUY, but signal is SELL: close BUY, then wait for confirmation
                 existing_volume = positions[0].volume if positions else trade_lot
                 close_request = {
                     "action": mt5.TRADE_ACTION_DEAL,
@@ -1580,13 +1599,13 @@ try:
                     "price": bid,
                     "deviation": 20,
                     "magic": 234000,
-                    "comment": "close buy, open sell",
+                    "comment": "close buy (reversal confirmation pending)",
                     "type_time": mt5.ORDER_TIME_GTC,
                     "type_filling": get_filling_mode(symbol),
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[XAUUSD SELL] Closed BUY, opened SELL, ticket: {close_result.order}, price: {bid}")
+                    log_notify(f"[XAUUSD CLOSE] Closed BUY position (SELL signal received, waiting for {REVERSAL_CONFIRMATION_REQUIRED} confirmations)")
                     # Remove old position from tracking
                     if ticket in tracked_positions:
                         old_conf = tracked_positions[ticket].get('confidence')
@@ -1597,24 +1616,18 @@ try:
                     deals = mt5.history_deals_get(datetime.now(UTC) - timedelta(days=1), datetime.now(UTC))
                     if deals:
                         last_deal = sorted(deals, key=lambda d: d.time, reverse=True)[0]
-                        # Log trade result with statistics
-                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, old_conf, "Reversal")
+                        log_trade_result("BUY", entry_price, tick.ask, last_deal.profit, old_conf, "Reversal close")
                         append_trade_log([str(datetime.now(UTC)), "BUY", entry_price, tick.ask, last_deal.profit])
                         daily_pl += last_deal.profit
                         check_max_loss_profit()
-                    # Track the new SELL position
-                    ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
-                    tracked_positions[close_result.order] = {
-                        'direction': 'SELL',
-                        'entry_price': bid,
-                        'confidence': ml_conf
-                    }
-                    # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
-                    log_notify(f"[XAUUSD BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
-                    daily_trade_count += 1  # Increment daily trade counter
+                    log_notify(f"[XAUUSD BALANCE] Account balance after closing BUY: ${balance:.2f}")
+                    # Set up reversal confirmation — don't open SELL yet
+                    reversal_pending_direction = "sell"
+                    reversal_signal_count = 1  # This SELL signal counts as first confirmation
+                    log_only(f"[REVERSAL] Pending SELL confirmation: {reversal_signal_count}/{REVERSAL_CONFIRMATION_REQUIRED}")
                 else:
-                    log_notify(f"[XAUUSD ERROR] Failed to close BUY and open SELL, retcode = {close_result.retcode}")
+                    log_notify(f"[XAUUSD ERROR] Failed to close BUY, retcode = {close_result.retcode}")
         else:
             log_only("No trade signal.")
 
