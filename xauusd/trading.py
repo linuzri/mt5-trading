@@ -1578,7 +1578,7 @@ try:
                     "price": ask,
                     "deviation": 20,
                     "magic": 234000,
-                    "comment": "close sell (reversal confirmation pending)",
+                    "comment": "close sell reversal",
                     "type_time": mt5.ORDER_TIME_GTC,
                     "type_filling": get_filling_mode(symbol),
                 }
@@ -1658,7 +1658,7 @@ try:
                     "price": bid,
                     "deviation": 20,
                     "magic": 234000,
-                    "comment": "close buy (reversal confirmation pending)",
+                    "comment": "close buy reversal",
                     "type_time": mt5.ORDER_TIME_GTC,
                     "type_filling": get_filling_mode(symbol),
                 }
