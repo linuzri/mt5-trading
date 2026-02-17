@@ -1086,6 +1086,52 @@ try:
             del tracked_positions[ticket]
             recently_closed_tickets.add(ticket)
 
+    # --- Define helper functions BEFORE the loop so they exist on first iteration ---
+    max_daily_loss = config.get("max_daily_loss", 100)
+    max_daily_profit = config.get("max_daily_profit", 200)
+    last_summary_date = None
+    last_week_number = None
+
+    def send_trade_summary(period="daily"):
+        numeric_profits = [t[4] for t in trade_log if isinstance(t[4], (int, float))]
+        total_profit = sum(numeric_profits) if numeric_profits else 0
+        num_trades = len(trade_log)
+        buys = sum(1 for t in trade_log if t[1] == "BUY")
+        sells = sum(1 for t in trade_log if t[1] == "SELL")
+        msg = f"[XAUUSD SUMMARY] {period.capitalize()} Trade Summary:\nTotal Trades: {num_trades}\nBuys: {buys}, Sells: {sells}\nTotal P/L: {total_profit:.2f} USD"
+        send_telegram_message(msg)
+
+    def check_and_send_summaries():
+        global last_summary_date, last_week_number, trade_log
+        eastern = ZoneInfo("America/New_York")
+        now_et = datetime.now(eastern)
+        today = now_et.date()
+        week = today.isocalendar()[1]
+        if last_summary_date != today and now_et.hour >= 17:
+            send_trade_summary("daily")
+            trade_log = []
+            last_summary_date = today
+        if now_et.weekday() == 4 and last_week_number != week and now_et.hour >= 17:
+            send_trade_summary("weekly")
+            last_week_number = week
+
+    def check_max_loss_profit():
+        global daily_pl, last_pl_date, daily_trade_count
+        eastern = ZoneInfo("America/New_York")
+        now_et = datetime.now(eastern)
+        today = now_et.date()
+        if last_pl_date != today:
+            daily_pl = 0
+            daily_trade_count = 0
+            last_pl_date = today
+            log_only(f"[RESET] New trading day - trade count reset")
+        if daily_pl <= -max_daily_loss:
+            send_telegram_message(f"[XAUUSD ALERT] Max daily loss reached: {abs(daily_pl):.2f} USD. Trading paused.")
+            time.sleep(3600)
+        if daily_pl >= max_daily_profit:
+            send_telegram_message(f"[XAUUSD ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
+            time.sleep(3600)
+
     while True:
         last_trade_confidence = None  # Reset each iteration
         now = datetime.now(UTC)
@@ -1775,58 +1821,6 @@ try:
                             modify_result = mt5.order_send(modify_request)
                             if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
                                 log_notify(f"[XAUUSD TRAILING SL] SELL position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
-
-        # --- Trade summary and critical alert enhancements ---
-        max_daily_loss = config.get("max_daily_loss", 100)  # USD, set in config.json
-        max_daily_profit = config.get("max_daily_profit", 200)  # USD, set in config.json
-        last_summary_date = None
-        last_week_number = None
-
-        def send_trade_summary(period="daily"):
-            if not trade_log:
-                return
-            # Filter out entries with non-numeric profit (like "N/A") to avoid type error
-            numeric_profits = [t[4] for t in trade_log if isinstance(t[4], (int, float))]
-            total_profit = sum(numeric_profits) if numeric_profits else 0
-            num_trades = len(trade_log)
-            buys = sum(1 for t in trade_log if t[1] == "BUY")
-            sells = sum(1 for t in trade_log if t[1] == "SELL")
-            msg = f"[XAUUSD SUMMARY] {period.capitalize()} Trade Summary:\nTotal Trades: {num_trades}\nBuys: {buys}, Sells: {sells}\nTotal P/L: {total_profit:.2f} USD"
-            send_telegram_message(msg)
-            # Optionally, email or other notification here
-
-        def check_and_send_summaries():
-            global last_summary_date, last_week_number, trade_log
-            eastern = ZoneInfo("America/New_York")
-            now_et = datetime.now(eastern)
-            today = now_et.date()
-            week = today.isocalendar()[1]
-            # Daily summary at 5pm ET
-            if last_summary_date != today and now_et.hour >= 17:
-                send_trade_summary("daily")
-                trade_log = []  # Reset for new day
-                last_summary_date = today
-            # Weekly summary on Friday after 5pm ET
-            if now_et.weekday() == 4 and last_week_number != week and now_et.hour >= 17:
-                send_trade_summary("weekly")
-                last_week_number = week
-
-        def check_max_loss_profit():
-            global daily_pl, last_pl_date, daily_trade_count
-            eastern = ZoneInfo("America/New_York")
-            now_et = datetime.now(eastern)
-            today = now_et.date()
-            if last_pl_date != today:
-                daily_pl = 0
-                daily_trade_count = 0  # Reset daily trade count
-                last_pl_date = today
-                log_only(f"[RESET] New trading day - trade count reset")
-            if daily_pl <= -max_daily_loss:
-                send_telegram_message(f"[XAUUSD ALERT] Max daily loss reached: {abs(daily_pl):.2f} USD. Trading paused.")
-                time.sleep(3600)  # Pause for 1 hour
-            if daily_pl >= max_daily_profit:
-                send_telegram_message(f"[XAUUSD ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
-                time.sleep(3600)  # Pause for 1 hour
 
         # Heartbeat: push bot status to Supabase every 2 minutes so dashboard shows live status
         if SUPABASE_ENABLED and int(time.time()) % 120 < 60:
