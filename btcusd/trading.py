@@ -837,11 +837,11 @@ try:
     if enable_smart_exit:
         log_notify(f"[BTCUSD STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
     if volatility_filter_enabled:
-        log_notify(f"[BTCUSD STARTUP] [VOLATILITY] Filter: ENABLED (ATR rolling={volatility_atr_rolling_period}, spike threshold={volatility_atr_multiplier}x)")
+        log_notify(f"[BTCUSD STARTUP] Volatility Filter: ENABLED (ATR rolling={volatility_atr_rolling_period}, spike threshold={volatility_atr_multiplier}x)")
     if adaptive_cooldown_enabled:
-        log_notify(f"[BTCUSD STARTUP] [COOLDOWN] Adaptive: ENABLED (base={adaptive_cooldown_base_minutes}min, increment={adaptive_cooldown_increment_minutes}min, max={adaptive_cooldown_max_minutes}min)")
+        log_notify(f"[BTCUSD STARTUP] Adaptive Cooldown: ENABLED (base={adaptive_cooldown_base_minutes}min, increment={adaptive_cooldown_increment_minutes}min, max={adaptive_cooldown_max_minutes}min)")
     if crash_detector_enabled:
-        log_notify(f"[BTCUSD STARTUP] [BTCUSD CRASH] Detector: ENABLED (threshold={crash_price_change_percent}%, lookback={crash_lookback_minutes}min, halt={crash_halt_minutes}min)")
+        log_notify(f"[BTCUSD STARTUP] Crash Detector: ENABLED (threshold={crash_price_change_percent}%, lookback={crash_lookback_minutes}min, halt={crash_halt_minutes}min)")
     if strategy == "ml_xgboost":
         log_notify(f"[BTCUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
