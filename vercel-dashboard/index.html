@@ -1325,9 +1325,11 @@
                 const today = getMYTDateStr(new Date());
 
                 // Fetch bot status, today's trades, and sparkline data in parallel
+                // Query from midnight MYT = previous day 16:00 UTC
+                const todayUTCStart = `${today}T00:00:00+08:00`;
                 const [statusData, todayTrades, sparkData] = await Promise.all([
                     supabaseFetch('bot_status', '?select=*'),
-                    supabaseFetch('trades', `?select=bot_name,profit&created_at=gte.${today}T00:00:00`),
+                    supabaseFetch('trades', `?select=bot_name,profit&created_at=gte.${todayUTCStart}`),
                     supabaseFetch('daily_pnl', '?select=date,pnl&order=date.desc&limit=21')
                 ]);
                 if (!statusData) return null;
@@ -1393,7 +1395,7 @@
                 const startStr = getMYTDateStr(startDate);
 
                 // Fetch all closed trades in the date range (has bot_name + profit + created_at)
-                const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startStr}T00:00:00&order=created_at.asc`);
+                const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startStr}T00:00:00+08:00&order=created_at.asc`);
 
                 // Group trades by bot and date
                 const botDayPnl = {}; // { BTCUSD: { '2025-02-06': 100, ... }, ... }
