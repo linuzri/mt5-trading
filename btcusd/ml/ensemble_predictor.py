@@ -94,6 +94,7 @@ class EnsemblePredictor:
         features = np.array([features_dict[f] for f in self.feature_names])
         features = features.reshape(1, -1)
         features_scaled = self.scaler.transform(features)
+        features_scaled = pd.DataFrame(features_scaled, columns=self.feature_names)
         return features_scaled
 
     def predict(self, features_dict, return_probabilities=True):
