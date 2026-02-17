@@ -1310,13 +1310,19 @@
                 return null;
             }
 
+            // Helper: get date string in MYT (GMT+8) timezone
+            function getMYTDateStr(d) {
+                const myt = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+                return myt.toISOString().split('T')[0];
+            }
+
             // /api/bots
             if (endpoint === '/api/bots') {
                 const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
                 const order = ['BTCUSD', 'XAUUSD', 'EURUSD'];
 
-                // Get today's date in UTC
-                const today = new Date().toISOString().split('T')[0];
+                // Get today's date in MYT (GMT+8)
+                const today = getMYTDateStr(new Date());
 
                 // Fetch bot status, today's trades, and sparkline data in parallel
                 const [statusData, todayTrades, sparkData] = await Promise.all([
@@ -1384,7 +1390,7 @@
                 const today = new Date();
                 const startDate = new Date(today);
                 startDate.setDate(startDate.getDate() - days + 1);
-                const startStr = startDate.toISOString().split('T')[0];
+                const startStr = getMYTDateStr(startDate);
 
                 // Fetch all closed trades in the date range (has bot_name + profit + created_at)
                 const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startStr}T00:00:00&order=created_at.asc`);
@@ -1397,7 +1403,7 @@
                     trades.forEach(t => {
                         const bot = t.bot_name;
                         if (!botDayPnl[bot]) return;
-                        const date = (t.created_at || '').substring(0, 10);
+                        const date = getMYTDateStr(new Date(t.created_at));
                         if (!date) return;
                         botDayPnl[bot][date] = (botDayPnl[bot][date] || 0) + (parseFloat(t.profit) || 0);
                     });
@@ -1411,7 +1417,7 @@
                     for (let i = 0; i < days; i++) {
                         const d = new Date(today);
                         d.setDate(d.getDate() - days + 1 + i);
-                        const dateStr = d.toISOString().split('T')[0];
+                        const dateStr = getMYTDateStr(d);
                         const pnl = Math.round((botDayPnl[bot][dateStr] || 0) * 100) / 100;
                         cumulative += pnl;
                         entries.push({ date: dateStr, pnl, cumulative: Math.round(cumulative * 100) / 100 });
