@@ -1605,6 +1605,8 @@ try:
                     reversal_pending_direction = "buy"
                     reversal_signal_count = 1  # This BUY signal counts as first confirmation
                     log_only(f"[REVERSAL] Pending BUY confirmation: {reversal_signal_count}/{REVERSAL_CONFIRMATION_REQUIRED}")
+                elif close_result is None:
+                    log_notify(f"[XAUUSD ERROR] Failed to close SELL, order_send returned None")
                 else:
                     log_notify(f"[XAUUSD ERROR] Failed to close SELL, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
@@ -1682,6 +1684,8 @@ try:
                     reversal_pending_direction = "sell"
                     reversal_signal_count = 1  # This SELL signal counts as first confirmation
                     log_only(f"[REVERSAL] Pending SELL confirmation: {reversal_signal_count}/{REVERSAL_CONFIRMATION_REQUIRED}")
+                elif close_result is None:
+                    log_notify(f"[XAUUSD ERROR] Failed to close BUY, order_send returned None")
                 else:
                     log_notify(f"[XAUUSD ERROR] Failed to close BUY, retcode = {close_result.retcode}")
         else:
