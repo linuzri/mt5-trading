@@ -1312,9 +1312,7 @@ try:
                     if signal is not None:
                         trade_signal = signal
                         last_trade_confidence = confidence  # Store for position tracking
-                        log_only(f"[ML] {reason} | ATR: {current_atr:.1f} | Probabilities: " +
-                                ", ".join([f"{k}:{v:.1%}" for k, v in
-                                          ml_predictor.predict(latest_features)[2].items()]))
+                        log_only(f"[ML] {reason} | ATR: {current_atr:.1f}")
                         last_filter_message = None  # Reset filter message
                     else:
                         trade_signal = None
