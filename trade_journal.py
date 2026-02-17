@@ -462,7 +462,9 @@ def main():
             target_date = arg.split("=")[1]
 
     if not target_date:
-        target_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # Use MYT (GMT+8) to match trading day
+        from datetime import timedelta
+        target_date = (datetime.now(timezone.utc) + timedelta(hours=8)).strftime("%Y-%m-%d")
 
     print(f"=== Trade Journal Analysis: {target_date} ===\n")
 
