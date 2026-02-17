@@ -986,7 +986,7 @@
                         <span style="background: rgba(247, 147, 26, 0.15); color: #f7931a; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(247, 147, 26, 0.25);">₿ BTCUSD</span>
                         <span style="background: rgba(255, 215, 0, 0.12); color: #ffd700; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(255, 215, 0, 0.2);">🥇 XAUUSD</span>
                         <span style="background: rgba(0, 82, 180, 0.15); color: #6fa3ef; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(0, 82, 180, 0.3);">💶 EURUSD</span>
-                        <span style="background: rgba(138, 43, 226, 0.15); color: #b47ede; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(138, 43, 226, 0.25);">🌤️ Weather Arb</span>
+                        <!-- <span style="background: rgba(138, 43, 226, 0.15); color: #b47ede; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(138, 43, 226, 0.25);">🌤️ Weather Arb</span> -->
                     </div>
                 </div>
                 <div style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
@@ -2245,7 +2245,7 @@
             renderEquityCurve(pnlByBot);
         }
 
-        // --- Polymarket ---
+        /* --- Polymarket (HIDDEN - revisit later) ---
         async function renderPolymarket() {
             const data = await supabaseFetch('polymarket_portfolio', '?select=*&id=eq.1');
             if (!data || data.length === 0) {
@@ -2381,9 +2381,11 @@
             }
         }
 
+        END Polymarket + Sniper JS */
+
         // Start
         init();
-        loadSniperStats();
+        // loadSniperStats();  // HIDDEN
         loadDailyAnalysis();
         setInterval(refresh, REFRESH_INTERVAL);
     </script>
