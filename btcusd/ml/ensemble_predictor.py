@@ -18,8 +18,7 @@ import warnings
 from datetime import datetime
 
 # Suppress sklearn feature name warnings (RF trained without names, LGB with names - both work fine)
-warnings.filterwarnings("ignore", message="X does not have valid feature names")
-warnings.filterwarnings("ignore", message="X has feature names")
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 
 class EnsemblePredictor:
@@ -99,7 +98,6 @@ class EnsemblePredictor:
         features = np.array([features_dict[f] for f in self.feature_names])
         features = features.reshape(1, -1)
         features_scaled = self.scaler.transform(features)
-        features_scaled = pd.DataFrame(features_scaled, columns=self.feature_names)
         return features_scaled
 
     def predict(self, features_dict, return_probabilities=True):
@@ -123,9 +121,7 @@ class EnsemblePredictor:
         # Get predictions from all models
         all_probs = []
         for name, model in self.models.items():
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                probs = model.predict_proba(features_scaled)[0]
+            probs = model.predict_proba(features_scaled)[0]
             all_probs.append(probs)
 
         # Average probabilities across models
@@ -182,9 +178,7 @@ class EnsemblePredictor:
         model_probs = {}
 
         for name, model in self.models.items():
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                probs = model.predict_proba(features_scaled)[0]
+            probs = model.predict_proba(features_scaled)[0]
             model_probs[name] = probs
             signal, conf = self._get_model_signal(probs)
             model_signals[name] = signal
@@ -253,9 +247,7 @@ class EnsemblePredictor:
         # Average probabilities from all models
         all_probs = []
         for name, model in self.models.items():
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                probs = model.predict_proba(X_scaled)
+            probs = model.predict_proba(X_scaled)
             all_probs.append(probs)
 
         avg_probs = np.mean(all_probs, axis=0)
