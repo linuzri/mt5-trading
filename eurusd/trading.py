@@ -447,7 +447,7 @@ def check_partial_profit_taking(symbol, positions, sl_pips_value):
                         else:  # SELL
                             partial_profit = (entry_price - close_price) * close_volume * contract_size
                 
-                log_notify(f"[PARTIAL PROFIT] Closed {partial_close_percent}% of {direction} | "
+                log_notify(f"[EURUSD PARTIAL PROFIT] Closed {partial_close_percent}% of {direction} | "
                           f"R: {r_multiple:.1f} | Entry: {entry_price:.2f} | Exit: {close_price:.2f} | P/L: ${partial_profit:.2f}")
                 
                 # Store partial close info for logging by caller
@@ -476,7 +476,7 @@ def check_partial_profit_taking(symbol, positions, sl_pips_value):
                     
                     modify_result = mt5.order_send(modify_request)
                     if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
-                        log_notify(f"[BREAKEVEN] SL moved to {new_sl:.2f}")
+                        log_notify(f"[EURUSD BREAKEVEN] SL moved to {new_sl:.2f}")
                 
                 partial_profit_positions.add(pos.ticket)
 
@@ -552,7 +552,7 @@ def check_smart_exit(symbol, positions, tracked_positions):
             
             if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
                 direction = "BUY" if pos.type == 0 else "SELL"
-                log_notify(f"[SMART EXIT] {direction} closed | Reason: {close_reason} | "
+                log_notify(f"[EURUSD SMART EXIT] {direction} closed | Reason: {close_reason} | "
                           f"Entry: {entry_price:.2f} | Exit: {close_price:.2f}")
                 
                 if pos.ticket in tracked_positions:
@@ -756,7 +756,7 @@ import os
 
 def shutdown_handler(signum, frame):
     sig_name = signal.Signals(signum).name if hasattr(signal, 'Signals') else str(signum)
-    log_notify(f"[SHUTDOWN] Bot stopped by signal {sig_name} (PID: {os.getpid()})")
+    log_notify(f"[EURUSD SHUTDOWN] Bot stopped by signal {sig_name} (PID: {os.getpid()})")
     mt5.shutdown()
     sys.exit(0)
 
@@ -768,24 +768,24 @@ try:
     # Log bot startup
     account = mt5.account_info()
     startup_balance = account.balance if account else 0
-    log_notify(f"[STARTUP] Bot started (PID: {os.getpid()}) | Strategy: {strategy} | Symbol: {symbol} | Balance: ${startup_balance:.2f}")
-    log_notify(f"[STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
+    log_notify(f"[EURUSD STARTUP] Bot started (PID: {os.getpid()}) | Strategy: {strategy} | Symbol: {symbol} | Balance: ${startup_balance:.2f}")
+    log_notify(f"[EURUSD STARTUP] Config: SL={sl_pips}, TP={tp_pips}, Timeframe={timeframe_str}, Higher TF={higher_timeframe_str}")
     if max_spread_percent > 0 or loss_cooldown_minutes > 0 or max_consecutive_losses > 0:
-        log_notify(f"[STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
+        log_notify(f"[EURUSD STARTUP] Defensive: MaxSpread={max_spread_percent}%, Cooldown={loss_cooldown_minutes}min, MaxConsecLoss={max_consecutive_losses}")
     if enable_ema_trend_filter:
-        log_notify(f"[STARTUP] EMA Trend Filter: ENABLED (EMA{ema_fast_period}/EMA{ema_slow_period}) - BUY blocked in downtrend")
+        log_notify(f"[EURUSD STARTUP] EMA Trend Filter: ENABLED (EMA{ema_fast_period}/EMA{ema_slow_period}) - BUY blocked in downtrend")
     if dynamic_sizing_enabled:
-        log_notify(f"[STARTUP] Position Sizing: Dynamic ({risk_percent}% risk), Lot range: {min_lot_size}-{max_lot_size}")
+        log_notify(f"[EURUSD STARTUP] Position Sizing: Dynamic ({risk_percent}% risk), Lot range: {min_lot_size}-{max_lot_size}")
     else:
-        log_notify(f"[STARTUP] Position Sizing: Fixed lot = {lot}")
+        log_notify(f"[EURUSD STARTUP] Position Sizing: Fixed lot = {lot}")
     if session_trading_enabled:
-        log_notify(f"[STARTUP] Session Trading: ENABLED - Off-hours trading {'ON' if session_definitions.get('off_hours', {}).get('enabled', False) else 'OFF'}")
+        log_notify(f"[EURUSD STARTUP] Session Trading: ENABLED - Off-hours trading {'ON' if session_definitions.get('off_hours', {}).get('enabled', False) else 'OFF'}")
     if enable_partial_profit:
-        log_notify(f"[STARTUP] Partial Profit: ENABLED - Close {partial_close_percent}% at {partial_trigger_rr}R, breakeven SL")
+        log_notify(f"[EURUSD STARTUP] Partial Profit: ENABLED - Close {partial_close_percent}% at {partial_trigger_rr}R, breakeven SL")
     if enable_smart_exit:
-        log_notify(f"[STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
+        log_notify(f"[EURUSD STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
     if strategy == "ml_xgboost":
-        log_notify(f"[STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
+        log_notify(f"[EURUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
     last_filter_message = None  # Track last filter message to avoid spamming
 
@@ -843,8 +843,8 @@ try:
         # Format trade result message
         conf_str = f" | Confidence: {confidence:.1%}" if confidence else ""
         reason_str = f" ({close_reason})" if close_reason else ""
-        trade_msg = f"[TRADE {result}] {direction}{reason_str} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}"
-        stats_msg = f"[STATS] Wins: {total_wins} | Losses: {total_losses} | Win Rate: {win_rate:.1f}% | Session P/L: ${cumulative_pl:.2f}"
+        trade_msg = f"[EURUSD TRADE {result}] {direction}{reason_str} | Entry: {entry_price:.2f} | Exit: {exit_price:.2f} | P/L: ${profit:.2f}{conf_str}"
+        stats_msg = f"[EURUSD STATS] Wins: {total_wins} | Losses: {total_losses} | Win Rate: {win_rate:.1f}% | Session P/L: ${cumulative_pl:.2f}"
 
         # Send to both console and Telegram
         log_notify(trade_msg)
@@ -879,7 +879,7 @@ try:
         
         # Alert if consecutive losses threshold reached
         if max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
-            log_notify(f"[ALERT] {consecutive_losses} consecutive losses! Trading paused for 1 hour.")
+            log_notify(f"[EURUSD ALERT] {consecutive_losses} consecutive losses! Trading paused for 1 hour.")
 
     def sync_existing_positions():
         """Sync tracked_positions with actual open positions (for bot restart scenarios)"""
@@ -957,7 +957,7 @@ try:
                             profit = (exit_price - pos_info['entry_price']) * volume * contract_size
                         else:
                             profit = (pos_info['entry_price'] - exit_price) * volume * contract_size
-                        log_notify(f"[P/L FIX] MT5 reported $0, recalculated from prices: ${profit:.2f}")
+                        log_notify(f"[EURUSD P/L FIX] MT5 reported $0, recalculated from prices: ${profit:.2f}")
 
                 # Determine close reason based on deal comment or profit
                 close_reason = ""
@@ -986,7 +986,7 @@ try:
                 check_max_loss_profit()
                 trade_logged = True
             else:
-                log_notify(f"[WARN] Position {ticket} ({pos_info['direction']}) closed but no exit deal found after 3 retries")
+                log_notify(f"[EURUSD WARN] Position {ticket} ({pos_info['direction']}) closed but no exit deal found after 3 retries")
 
             if not trade_logged:
                 # Still log to CSV with estimated data so we don't lose the record
@@ -1048,7 +1048,7 @@ try:
             last_pl_date = today_date
 
         if is_daily_training_time() and (last_training_date != today_date) and not _training_in_progress:
-            log_notify(f"[AUTOMATION] Daily ML training time (8am ET). Starting background training...")
+            log_notify(f"[EURUSD AUTOMATION] Daily ML training time (8am ET). Starting background training...")
             last_training_date = today_date  # Mark immediately to prevent re-triggering
 
             def _run_background_training():
@@ -1062,14 +1062,14 @@ try:
                     )
                     print(result.stdout)
                     if result.returncode != 0:
-                        log_notify(f"[AUTOMATION] train_ml_model.py failed: {result.stderr[:500]}")
+                        log_notify(f"[EURUSD AUTOMATION] train_ml_model.py failed: {result.stderr[:500]}")
                     else:
-                        log_notify("[AUTOMATION] ML model training completed. Will reload on next cycle.")
+                        log_notify("[EURUSD AUTOMATION] ML model training completed. Will reload on next cycle.")
                         _training_needs_reload = True
                 except subprocess.TimeoutExpired:
-                    log_notify("[AUTOMATION] ML training timed out after 10 minutes")
+                    log_notify("[EURUSD AUTOMATION] ML training timed out after 10 minutes")
                 except Exception as e:
-                    log_notify(f"[AUTOMATION] Background training error: {e}")
+                    log_notify(f"[EURUSD AUTOMATION] Background training error: {e}")
                 finally:
                     _training_in_progress = False
 
@@ -1081,9 +1081,9 @@ try:
             try:
                 if ml_predictor is not None:
                     ml_predictor.load_model()
-                log_notify(f"[AUTOMATION] ML model reloaded successfully after background training")
+                log_notify(f"[EURUSD AUTOMATION] ML model reloaded successfully after background training")
             except Exception as e:
-                log_notify(f"[AUTOMATION] Failed to reload ML model: {e}")
+                log_notify(f"[EURUSD AUTOMATION] Failed to reload ML model: {e}")
             _training_needs_reload = False
         # Check MT5 connection - only initialize if not connected
         terminal_info = mt5.terminal_info()
@@ -1128,7 +1128,7 @@ try:
             symbol_info.visible and symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
         )
         if not market_open:
-            log_only(f"[HEARTBEAT] Market is closed for {symbol}. Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
+            log_only(f"[EURUSD HEARTBEAT] Market is closed for {symbol}. Bot is running. UTC: {now.isoformat()}, ET: {now_et.isoformat()}")
             time.sleep(60)
             continue
 
@@ -1137,7 +1137,7 @@ try:
         if last_heartbeat_hour != current_hour:
             account = mt5.account_info()
             balance = account.balance if account else 0
-            log_notify(f"[HEARTBEAT] Bot running. Balance: ${balance:.2f} | Strategy: {strategy} | {symbol}")
+            log_notify(f"[EURUSD HEARTBEAT] Bot running. Balance: ${balance:.2f} | Strategy: {strategy} | {symbol}")
             last_heartbeat_hour = current_hour
 
         # Fetch the last 250 bars for the configured symbol
@@ -1413,7 +1413,7 @@ try:
         
         # Check consecutive losses circuit breaker
         if trade_signal is not None and max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
-            msg = f"[CIRCUIT BREAKER] {consecutive_losses} consecutive losses - trading paused"
+            msg = f"[EURUSD CIRCUIT BREAKER] {consecutive_losses} consecutive losses - trading paused"
             if last_filter_message != msg:
                 log_only(msg)
                 last_filter_message = msg
@@ -1422,7 +1422,7 @@ try:
                 hours_since_loss = (datetime.now(UTC) - last_loss_time).total_seconds() / 3600
                 if hours_since_loss >= 1:
                     consecutive_losses = 0
-                    log_notify(f"[CIRCUIT BREAKER] Reset after 1 hour cooldown. Trading resumed.")
+                    log_notify(f"[EURUSD CIRCUIT BREAKER] Reset after 1 hour cooldown. Trading resumed.")
             trade_signal = None
 
         # Calculate position size (dynamic or fixed)
@@ -1468,7 +1468,7 @@ try:
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[NOTIFY] BUY order placed, ticket: {result.order}, price: {ask}")
+                    log_notify(f"[EURUSD BUY] order placed, ticket: {result.order}, price: {ask}")
                     # Track this position for SL/TP detection
                     ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
                     tracked_positions[result.order] = {
@@ -1478,13 +1478,13 @@ try:
                     }
                     # Log account balance after successful BUY
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after BUY: ${balance:.2f}")
+                    log_notify(f"[EURUSD BALANCE] Account balance after BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                 elif result and result.retcode == 10031:
                     # Error 10031 = "No changes" - likely already have a position (never notify)
                     log_only(f"[SKIP] BUY order skipped - retcode 10031 (position likely exists)")
                 else:
-                    log_notify(f"BUY order failed, retcode = {result.retcode}")
+                    log_notify(f"[EURUSD ERROR] BUY order failed, retcode = {result.retcode}")
             elif position_type == 1:
                 # Open SELL, but signal is BUY: close SELL, open BUY
                 # Use existing position's volume for closing
@@ -1504,7 +1504,7 @@ try:
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[NOTIFY] Closed SELL, opened BUY, ticket: {close_result.order}, price: {ask}")
+                    log_notify(f"[EURUSD BUY] Closed SELL, opened BUY, ticket: {close_result.order}, price: {ask}")
                     # Remove old position from tracking
                     if ticket in tracked_positions:
                         old_conf = tracked_positions[ticket].get('confidence')
@@ -1529,10 +1529,10 @@ try:
                     }
                     # Log account balance after reversal to BUY
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
+                    log_notify(f"[EURUSD BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                 else:
-                    log_notify(f"Failed to close SELL and open BUY, retcode = {close_result.retcode}")
+                    log_notify(f"[EURUSD ERROR] Failed to close SELL and open BUY, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
             if position_type is None:
                 # No open position, open SELL
@@ -1552,7 +1552,7 @@ try:
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[NOTIFY] SELL order placed, ticket: {result.order}, price: {bid}")
+                    log_notify(f"[EURUSD SELL] order placed, ticket: {result.order}, price: {bid}")
                     # Track this position for SL/TP detection
                     ml_conf = last_trade_confidence if strategy == "ml_xgboost" else None
                     tracked_positions[result.order] = {
@@ -1562,13 +1562,13 @@ try:
                     }
                     # Log account balance after successful SELL
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after SELL: ${balance:.2f}")
+                    log_notify(f"[EURUSD BALANCE] Account balance after SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                 elif result and result.retcode == 10031:
                     # Error 10031 = "No changes" - likely already have a position (never notify)
                     log_only(f"[SKIP] SELL order skipped - retcode 10031 (position likely exists)")
                 else:
-                    log_notify(f"SELL order failed, retcode = {result.retcode}")
+                    log_notify(f"[EURUSD ERROR] SELL order failed, retcode = {result.retcode}")
             elif position_type == 0:
                 # Open BUY, but signal is SELL: close BUY, open SELL
                 # Use existing position's volume for closing
@@ -1588,7 +1588,7 @@ try:
                 }
                 close_result = mt5.order_send(close_request)
                 if close_result and close_result.retcode == mt5.TRADE_RETCODE_DONE:
-                    log_notify(f"[NOTIFY] Closed BUY, opened SELL, ticket: {close_result.order}, price: {bid}")
+                    log_notify(f"[EURUSD SELL] Closed BUY, opened SELL, ticket: {close_result.order}, price: {bid}")
                     # Remove old position from tracking
                     if ticket in tracked_positions:
                         old_conf = tracked_positions[ticket].get('confidence')
@@ -1613,10 +1613,10 @@ try:
                     }
                     # Log account balance after reversal to SELL
                     balance = mt5.account_info().balance
-                    log_notify(f"[BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
+                    log_notify(f"[EURUSD BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                 else:
-                    log_notify(f"Failed to close BUY and open SELL, retcode = {close_result.retcode}")
+                    log_notify(f"[EURUSD ERROR] Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
             log_only("No trade signal.")
 
@@ -1655,7 +1655,7 @@ try:
                             }
                             modify_result = mt5.order_send(modify_request)
                             if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
-                                log_notify(f"[TRAILING SL ATR] BUY position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
+                                log_notify(f"[EURUSD TRAILING SL] BUY position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
                     elif pos.type == mt5.POSITION_TYPE_SELL:
                         new_sl = tick.ask + trailing_pips
                         if (pos.sl is None or pos.sl == 0) or (new_sl < pos.sl):
@@ -1670,7 +1670,7 @@ try:
                             }
                             modify_result = mt5.order_send(modify_request)
                             if modify_result and modify_result.retcode == mt5.TRADE_RETCODE_DONE:
-                                log_notify(f"[TRAILING SL ATR] SELL position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
+                                log_notify(f"[EURUSD TRAILING SL] SELL position {pos.ticket}: SL updated to {new_sl:.5f} (ATR trailing)")
 
         # --- Trade summary and critical alert enhancements ---
         max_daily_loss = config.get("max_daily_loss", 100)  # USD, set in config.json
@@ -1687,7 +1687,7 @@ try:
             num_trades = len(trade_log)
             buys = sum(1 for t in trade_log if t[1] == "BUY")
             sells = sum(1 for t in trade_log if t[1] == "SELL")
-            msg = f"[SUMMARY] {period.capitalize()} Trade Summary:\nTotal Trades: {num_trades}\nBuys: {buys}, Sells: {sells}\nTotal P/L: {total_profit:.2f} USD"
+            msg = f"[EURUSD SUMMARY] {period.capitalize()} Trade Summary:\nTotal Trades: {num_trades}\nBuys: {buys}, Sells: {sells}\nTotal P/L: {total_profit:.2f} USD"
             send_telegram_message(msg)
             # Optionally, email or other notification here
 
@@ -1718,10 +1718,10 @@ try:
                 last_pl_date = today
                 log_only(f"[RESET] New trading day - trade count reset")
             if daily_pl <= -max_daily_loss:
-                send_telegram_message(f"[ALERT] Max daily loss reached: {abs(daily_pl):.2f} USD. Trading paused.")
+                send_telegram_message(f"[EURUSD ALERT] Max daily loss reached: {abs(daily_pl):.2f} USD. Trading paused.")
                 time.sleep(3600)  # Pause for 1 hour
             if daily_pl >= max_daily_profit:
-                send_telegram_message(f"[ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
+                send_telegram_message(f"[EURUSD ALERT] Max daily profit reached: {daily_pl:.2f} USD. Trading paused.")
                 time.sleep(3600)  # Pause for 1 hour
 
         # Heartbeat: push bot status to Supabase every 2 minutes so dashboard shows live status
@@ -1741,13 +1741,13 @@ try:
         time.sleep(60)
         check_and_send_summaries()
 except Exception as e:
-    log_notify(f"[SHUTDOWN] Bot crashed with error: {e} (PID: {os.getpid()})")
+    log_notify(f"[EURUSD SHUTDOWN] Bot crashed with error: {e} (PID: {os.getpid()})")
     raise
 finally:
     try:
         account = mt5.account_info()
         final_balance = account.balance if account else 0
-        log_notify(f"[SHUTDOWN] Bot shutting down (PID: {os.getpid()}) | Final Balance: ${final_balance:.2f}")
+        log_notify(f"[EURUSD SHUTDOWN] Bot shutting down (PID: {os.getpid()}) | Final Balance: ${final_balance:.2f}")
     except Exception:
-        log_only(f"[SHUTDOWN] Bot shutting down (PID: {os.getpid()}) | Balance unavailable")
+        log_only(f"[EURUSD SHUTDOWN] Bot shutting down (PID: {os.getpid()}) | Balance unavailable")
     mt5.shutdown()
