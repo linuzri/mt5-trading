@@ -165,6 +165,21 @@ def get_ema_trend(prices, fast_period=50, slow_period=200):
     else:
         return "DOWNTREND"
 
+# --- Crash Detector ---
+def check_crash_condition(symbol, lookback_minutes, threshold_percent, timeframe_val):
+    """Check if price moved more than threshold_percent in lookback_minutes."""
+    utc_now = datetime.now(UTC)
+    rates = mt5.copy_rates_from(symbol, timeframe_val, utc_now, lookback_minutes + 5)
+    if rates is None or len(rates) < 2:
+        return False, 0.0
+    closes = np.array([bar[4] for bar in rates])
+    current_price = closes[-1]
+    old_price = closes[0]
+    if old_price == 0:
+        return False, 0.0
+    pct_change = abs((current_price - old_price) / old_price) * 100
+    return pct_change >= threshold_percent, pct_change
+
 # --- ML Model Training automation DAILY at 8:00 AM US Eastern ---
 def is_daily_training_time():
     """Check if it's time for daily ML model training (8am-9am ET every day)."""
@@ -208,6 +223,12 @@ higher_timeframe = TIMEFRAME_MAP.get(higher_timeframe_str.upper(), mt5.TIMEFRAME
 max_spread_percent = config.get("max_spread_percent", 0.05)  # Max spread as % of price (0 = disabled)
 loss_cooldown_minutes = config.get("loss_cooldown_minutes", 15)  # Minutes to wait after a loss (0 = disabled)
 max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after X consecutive losses (0 = disabled)
+
+# --- Crash Detector Configs ---
+crash_detector_enabled = config.get("crash_detector_enabled", True)
+crash_price_change_percent = config.get("crash_price_change_percent", 1.5)  # % price change threshold (gold moves less than BTC)
+crash_lookback_minutes = config.get("crash_lookback_minutes", 15)  # Window to check for crash
+crash_halt_minutes = config.get("crash_halt_minutes", 30)  # How long to halt after crash detected
 
 # --- EMA Trend Filter Configs ---
 enable_ema_trend_filter = config.get("enable_ema_trend_filter", True)  # Enable/disable EMA trend filter
@@ -786,6 +807,8 @@ try:
         log_notify(f"[XAUUSD STARTUP] Smart Exit: ENABLED - Max hold {max_hold_minutes}min, stagnation check {'ON' if close_if_stagnant else 'OFF'}")
     if strategy == "ml_xgboost":
         log_notify(f"[XAUUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
+    if crash_detector_enabled:
+        log_notify(f"[XAUUSD STARTUP] Crash Detector: ENABLED (threshold={crash_price_change_percent}%, lookback={crash_lookback_minutes}min, halt={crash_halt_minutes}min)")
 
     last_filter_message = None  # Track last filter message to avoid spamming
 
@@ -811,6 +834,10 @@ try:
     reversal_signal_count = 0  # consecutive signals in the pending direction
     REVERSAL_CONFIRMATION_REQUIRED = 2  # number of consecutive signals needed before opening
 
+    # Crash detector state
+    crash_mode_active = False
+    crash_mode_until = None  # datetime when crash mode expires
+
     # Daily trade limit tracking
     daily_trade_count = 0
     max_trades_per_day = 10  # Default, will be updated from ml_config if available
@@ -829,7 +856,7 @@ try:
 
     def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
         """Log trade result with statistics to both screen and Telegram"""
-        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time
+        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time, crash_mode_active, crash_mode_until
 
         # Update statistics
         if profit > 0:
@@ -1447,6 +1474,35 @@ try:
             )
             if market_closed:
                 msg = f"[MARKET] {symbol} not available for trading (tick age: {tick_age}s). Skipping."
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+
+        # --- Crash Detector: halt trading on extreme price moves ---
+        if crash_detector_enabled:
+            # Check if crash mode should be deactivated
+            if crash_mode_active and crash_mode_until is not None:
+                if datetime.now(UTC) >= crash_mode_until:
+                    crash_mode_active = False
+                    crash_mode_until = None
+                    log_notify(f"[XAUUSD CRASH] Crash mode DEACTIVATED — resuming normal trading")
+
+            # Check for new crash condition
+            if not crash_mode_active:
+                try:
+                    is_crash, pct_change = check_crash_condition(symbol, crash_lookback_minutes, crash_price_change_percent, mt5.TIMEFRAME_M1)
+                    if is_crash:
+                        crash_mode_active = True
+                        crash_mode_until = datetime.now(UTC) + timedelta(minutes=crash_halt_minutes)
+                        log_notify(f"[XAUUSD CRASH] Crash mode ACTIVATED — price moved {pct_change:.2f}% in {crash_lookback_minutes}min. Halting trades for {crash_halt_minutes}min until {crash_mode_until.strftime('%H:%M:%S')} UTC")
+                except Exception as e:
+                    log_only(f"[XAUUSD CRASH] Error checking crash condition: {e}")
+
+            # Block trades if crash mode is active
+            if trade_signal is not None and crash_mode_active:
+                remaining = (crash_mode_until - datetime.now(UTC)).total_seconds() / 60 if crash_mode_until else 0
+                msg = f"[XAUUSD CRASH] Trade blocked — crash mode active ({remaining:.1f}min remaining)"
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
