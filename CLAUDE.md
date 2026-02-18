@@ -6,21 +6,40 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 17, 2026)
-- **Account:** ~$49,577 | **All-time P/L:** +$1,178
-- **BTCUSD:** Star performer (+$220). Ensemble ML (RF+XGB+LGB). 61% WR since Feb 15.
-- **XAUUSD:** +$173 all-time. Reversal confirmation + crash detector added. 50% WR.
-- **EURUSD:** +$155 all-time. Session-aware ATR thresholds. Low volume but positive.
+### Current Status (Feb 18, 2026)
+- **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$194 | Bot: `bot-btcusd-live`
+- **Demo:** ~$49,577 | All-time P/L: +$1,178 | **ALL DEMO BOTS STOPPED** (MT5 conflict)
+- **MQL5 Signal:** https://www.mql5.com/en/signals/2359955 — LIVE, $30/month, APPROVED ✅
 - **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
 
-### Recent Changes (Feb 17)
-- **XAUUSD reversal confirmation** (`8dd5588`): Require 2 consecutive signals before reversing. Reversals had 32.9% WR vs 46.9% continuations.
-- **XAUUSD crash detector** (`a5faaf7`): Halt trading on >1.5% price move in 15min
-- **EURUSD session-aware ATR** (`b569593`): Per-session thresholds (Asian=0.00003, EU/US=0.00008)
-- **Unicode console fix** (`0b3eb90`): ASCII-safe print encoding for all 3 bots (Windows cp1252)
-- **Symbol identifiers** (PR #36): All notifications now prefixed with bot name
-- **Sklearn warning fix** (PR #37): Suppressed feature name warnings, removed duplicate prediction call
+### Live Bot (`btcusd-live/`)
+- **Directory:** `btcusd-live/` (separate from demo `btcusd/`)
+- **PM2 Process:** `bot-btcusd-live`
+- **Account:** 51439249 (Pepperstone-MT5-Live01, Razor, 1:500 leverage)
+- **First trade:** SELL @ 68199.73
+- **Conservative settings:** max_lot 0.01, circuit_breaker 5 losses, cooldown 10min, confidence 60%
+- **Notifications:** Prefixed `[LIVE]` in Telegram
+
+### Recent Changes (Feb 18)
+- **Live BTCUSD bot deployed** — `btcusd-live/` directory, PM2 process `bot-btcusd-live`
+- **New Pepperstone account** — 51439249 replaced 51439211 (copy trading issues on old account)
+- **Zombie XAUUSD bot killed** — PM2 showed stopped but process was alive, traded on live account
+- **CSV restore bug fixed** — live bot was loading demo trade stats from CSV, caused false 9-loss cooldown
+- **All demo bots stopped** — MT5 multi-terminal limitation (see below)
+
+### ⚠️ MT5 Multi-Terminal Limitation
+- MT5 Python library (`mt5.initialize()`) can only connect to ONE terminal per Python process
+- Running multiple bots causes them to fight over the MT5 connection
+- A "stopped" bot can still have a zombie process that trades on the wrong account
+- **Current solution:** Only run live bot, all demo bots stopped
+- **Future:** Need separate machine/VM for demo bots
+
+### ⚠️ CSV Stats Restore Gotcha
+- On startup, bots restore daily stats (win/loss count) from `trade_log.csv`
+- If the live bot's CSV contains demo trades, it loads wrong stats
+- This caused a false 9-consecutive-loss cooldown on the live bot
+- **Fix:** Ensure each bot directory has its own clean CSV, never share across live/demo
 
 ## Architecture
 
@@ -73,7 +92,7 @@ eurusd/trading.py  ─┘
 ## Development Guidelines
 
 - **Branch:** `main` only. No other branches needed.
-- **Testing:** Run on demo account first. Current demo balance ~$49,577.
+- **Testing:** Run on demo account first. Current demo balance ~$49,577. **Live bot in `btcusd-live/`.**
 - **Paths:** Bots reference `mt5_auth.json` in their own directory (gitignored).
 - **Retraining:** `python train_ml_model.py --refresh` in each bot folder.
 - **Auto-Retrain:** `python auto_retrain.py` at repo root. Checks model age, retrains if > 7 days, validates accuracy (max 5% drop allowed), backs up old models, restarts PM2. Runs weekly via cron (Sunday 3 AM MYT). Use `--force` to retrain immediately, `--dry-run` to preview, `--bot <name>` for specific bot.

@@ -1,25 +1,33 @@
 # MT5 Trading Bot
 
-Automated trading bots for MetaTrader 5 with machine learning signal prediction. Three bots trade BTCUSD, XAUUSD, and EURUSD 24/7 on a demo account with real-time cloud monitoring.
+Automated trading bots for MetaTrader 5 with machine learning signal prediction. BTCUSD bot runs live on a funded Pepperstone account. Demo bots (XAUUSD, EURUSD) currently paused due to MT5 multi-terminal limitations.
 
 **Live Dashboard:** https://trade-bot-hq.vercel.app
+**MQL5 Signal:** https://www.mql5.com/en/signals/2359955 ($30/month)
 
-## Current Performance (Feb 17, 2026)
+## Live Trading (Feb 18, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Account Balance | ~$49,577 |
-| Grand Total P/L | **+$1,178** |
-| BTCUSD (Star) | **+$220** |
-| XAUUSD | **+$173** |
-| EURUSD (Solid) | **+$155** |
+| **Live Account** | Pepperstone 51439249 (Razor, MT5) |
+| **Live Balance** | ~$194 |
+| **Live Bot** | BTCUSD (`btcusd-live/`) |
+| **First Trade** | SELL @ 68199.73 |
+| Demo Balance | ~$49,577 |
+| Demo P/L | +$1,178 |
 
-### Recent Improvements (Feb 17)
-- **XAUUSD reversal confirmation** — requires 2 consecutive signals before reversing direction (data: reversals 32.9% WR vs continuations 46.9% WR)
-- **XAUUSD crash detector** — halts trading on >1.5% price move in 15min
-- **Session-aware ATR for EURUSD** — per-session thresholds (Asian/EU/US) instead of one-size-fits-all
-- **Unicode console fix** — safe ASCII encoding on all 3 bots for Windows compatibility
-- **Symbol identifiers** — all notifications now prefixed with bot name (BTCUSD/XAUUSD/EURUSD)
+### What's Running
+- ✅ **bot-btcusd-live** — LIVE on account 51439249 (conservative settings: 0.01 lot, 5-loss circuit breaker)
+- ⏸️ bot-btcusd (demo) — STOPPED
+- ⏸️ bot-xauusd (demo) — STOPPED
+- ⏸️ bot-eurusd (demo) — STOPPED
+
+> **Why demo bots are stopped:** MT5 Python library only supports one terminal per process. Running multiple bots causes them to fight over MT5 connections, which caused a zombie XAUUSD bot to accidentally trade on the live account. Demo bots need a separate machine/VM.
+
+### MQL5 Signal Provider
+- **Signal:** [BTCUSD ML Scalper](https://www.mql5.com/en/signals/2359955)
+- **Price:** $30/month (MQL5 takes 20%)
+- **Status:** LIVE & APPROVED ✅
 
 ## Supported Pairs & ML Strategy
 
@@ -40,7 +48,11 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 
 ```
 mt5-trading/
-├── btcusd/              # Bitcoin bot + ML pipeline
+├── btcusd-live/         # LIVE Bitcoin bot (conservative settings)
+│   ├── trading.py       # Live bot logic (prefixed [LIVE])
+│   ├── config.json      # Conservative: 0.01 lot, 5-loss breaker
+│   └── ...              # Same structure as demo bots
+├── btcusd/              # Bitcoin bot + ML pipeline (DEMO - stopped)
 │   ├── trading.py       # Main bot logic (~2000 lines)
 │   ├── ml/              # ML modules
 │   │   ├── ensemble_predictor.py  # Ensemble voting (RF+XGB+LGB)
@@ -167,9 +179,9 @@ Each bot has `config.json` (runtime) and `ml_config.json` (ML training):
 
 ```bash
 pm2 status                # Check all bots
-pm2 logs bot-btcusd       # View BTCUSD logs
-pm2 restart bot-xauusd    # Restart Gold bot
-pm2 restart all           # Restart everything
+pm2 logs bot-btcusd-live  # View LIVE BTCUSD logs
+pm2 logs bot-btcusd       # View demo BTCUSD logs
+pm2 restart bot-btcusd-live # Restart live bot
 pm2 stop all              # Stop everything
 ```
 
