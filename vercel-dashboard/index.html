@@ -1320,7 +1320,8 @@
                 order.forEach(b => { todayStats[b] = { pnl: 0, trades: 0, wins: 0 }; });
                 if (todayTrades) {
                     todayTrades.forEach(t => {
-                        const bot = t.bot_name;
+                        // Normalize bot_name: BTCUSD-LIVE → BTCUSD
+                        const bot = (t.bot_name || '').replace(/-LIVE$/, '');
                         if (todayStats[bot]) {
                             const profit = parseFloat(t.profit) || 0;
                             todayStats[bot].pnl += profit;
@@ -1337,19 +1338,28 @@
                     order.forEach(b => { sparklines[b] = last7.map(d => parseFloat(d.pnl) || 0); });
                 }
 
-                const sorted = statusData.sort((a, b) => order.indexOf(a.bot_name) - order.indexOf(b.bot_name));
+                // Normalize bot_name in status data (BTCUSD-LIVE → BTCUSD)
+                statusData.forEach(b => { b._displayName = (b.bot_name || '').replace(/-LIVE$/, ''); });
+                const sorted = statusData.sort((a, b) => order.indexOf(a._displayName) - order.indexOf(b._displayName));
+                // Deduplicate: prefer -LIVE version over plain (more recent)
+                const seen = {};
+                const deduped = sorted.filter(b => {
+                    if (seen[b._displayName]) return false;
+                    seen[b._displayName] = true;
+                    return true;
+                });
                 const now = new Date();
-                return sorted.map(b => {
-                    const stats = todayStats[b.bot_name] || { pnl: 0, trades: 0, wins: 0 };
+                return deduped.map(b => {
+                    const stats = todayStats[b._displayName] || { pnl: 0, trades: 0, wins: 0 };
                     // Determine live status from updated_at (stale > 5 min = offline)
                     const updatedAt = b.updated_at ? new Date(b.updated_at) : null;
                     const staleSec = updatedAt ? (now - updatedAt) / 1000 : Infinity;
                     const isLive = staleSec < 300; // 5 minutes
                     const liveStatus = isLive ? 'running' : 'stopped';
                     return {
-                        key: b.bot_name,
-                        name: b.bot_name + ' Bot',
-                        symbol: b.bot_name,
+                        key: b._displayName,
+                        name: b._displayName + ' Bot',
+                        symbol: b._displayName,
                         status: liveStatus,
                         updated_at: b.updated_at,
                         last_seen: updatedAt ? timeAgo(updatedAt) : 'Never',
@@ -1358,8 +1368,8 @@
                         wins: stats.wins,
                         losses: stats.trades - stats.wins,
                         win_rate: stats.trades > 0 ? Math.round((stats.wins / stats.trades) * 1000) / 10 : 0,
-                        sparkline: sparklines[b.bot_name] || [],
-                        color: botColors[b.bot_name] || '#3b82f6'
+                        sparkline: sparklines[b._displayName] || [],
+                        color: botColors[b._displayName] || '#3b82f6'
                     };
                 });
             }
@@ -1386,7 +1396,7 @@
 
                 if (trades) {
                     trades.forEach(t => {
-                        const bot = t.bot_name;
+                        const bot = (t.bot_name || '').replace(/-LIVE$/, '');
                         if (!botDayPnl[bot]) return;
                         const date = getMYTDateStr(new Date(t.created_at));
                         if (!date) return;

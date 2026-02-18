@@ -76,6 +76,7 @@ timeframe = TIMEFRAME_MAP.get(timeframe_str.upper(), mt5.TIMEFRAME_M5)
 symbols_list = config.get("symbols", [config.get("symbol", "BTCUSD")])
 symbol_configs = config.get("symbol_configs", {})
 symbol = symbols_list[0]  # Primary symbol for trading
+dashboard_bot_name = f"{symbol}-LIVE"  # Name used for Supabase dashboard (distinguishes live from demo)
 lot = symbol_configs.get(symbol, {}).get("lot", 0.01)
 
 if len(symbols_list) > 1:
@@ -943,7 +944,7 @@ try:
         # Push trade to Supabase for cloud dashboard
         if SUPABASE_ENABLED:
             supabase_sync.push_trade(
-                bot_name=symbol,
+                bot_name=dashboard_bot_name,
                 symbol=symbol,
                 direction=direction,
                 entry_price=entry_price,
@@ -954,7 +955,7 @@ try:
             )
             # Update bot status
             supabase_sync.update_bot_status(
-                bot_name=symbol,
+                bot_name=dashboard_bot_name,
                 status="online",
                 today_pnl=daily_pl,
                 today_trades=daily_trade_count,
@@ -1861,7 +1862,7 @@ try:
         if SUPABASE_ENABLED and int(time.time()) % 120 < 60:
             try:
                 supabase_sync.update_bot_status(
-                    bot_name=symbol,
+                    bot_name=dashboard_bot_name,
                     status="online",
                     today_pnl=daily_pl,
                     today_trades=daily_trade_count,
