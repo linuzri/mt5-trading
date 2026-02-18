@@ -15,19 +15,28 @@ from pathlib import Path
 # Bot configurations
 BOTS = {
     "BTCUSD": {
-        "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\\btcusd",
+        "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\btcusd",
         "trade_log": "trade_log.csv",
-        "notification_log": "trade_notifications.log"
+        "notification_log": "trade_notifications.log",
+        "source": "demo"
     },
     "XAUUSD": {
         "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\xauusd",
         "trade_log": "trade_log.csv",
-        "notification_log": "trade_notifications.log"
+        "notification_log": "trade_notifications.log",
+        "source": "demo"
     },
     "EURUSD": {
         "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\eurusd",
         "trade_log": "trade_log.csv",
-        "notification_log": "trade_notifications.log"
+        "notification_log": "trade_notifications.log",
+        "source": "demo"
+    },
+    "BTCUSD-LIVE": {
+        "path": r"C:\Users\Nazri Hussain\projects\mt5-trading\btcusd-live",
+        "trade_log": "trade_log.csv",
+        "notification_log": "trade_notifications.log",
+        "source": "live"
     }
 }
 
