@@ -20,7 +20,7 @@ load_dotenv()
 
 # Config
 ANTHROPIC_API_KEY = None
-SYMBOLS = ["btcusd", "xauusd", "eurusd"]
+SYMBOLS = ["btcusd", "xauusd", "eurusd", "btcusd-live"]
 BOT_DIR = Path(__file__).parent
 JSON_PATH = BOT_DIR / "vercel-dashboard" / "data" / "daily_analysis.json"
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://cxpablqwnwvacuvhcjen.supabase.co")

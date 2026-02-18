@@ -1094,6 +1094,14 @@
                 </div>
                 <div class="trade-filters">
                     <div class="filter-group">
+                        <label>Source</label>
+                        <select id="tradeFilterSource" class="filter-select" onchange="applyTradeFilters()">
+                            <option value="all">All</option>
+                            <option value="live">🔴 Live</option>
+                            <option value="demo">🟡 Demo</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
                         <label>Bot</label>
                         <select id="tradeFilterBot" class="filter-select" onchange="applyTradeFilters()">
                             <option value="all">All Bots</option>
@@ -1385,7 +1393,8 @@
                     pnl: parseFloat(t.profit) || 0,
                     confidence: parseFloat(t.confidence) || 0,
                     bot: bot,
-                    symbol: bot
+                    symbol: bot,
+                    source: t.source || 'demo'
                 }));
             }
 
@@ -1638,11 +1647,21 @@
 
         async function renderTrades() {
             allTradesCache = [];
-            for (const bot of ['BTCUSD', 'XAUUSD', 'EURUSD']) {
-                const trades = await fetchData(`/api/trades/${bot}`);
-                if (trades) allTradesCache.push(...trades);
+            // Fetch all trades directly (includes all bot_names and source field)
+            const allData = await supabaseFetch('trades', '?select=*&order=created_at.desc&limit=500');
+            if (allData) {
+                allTradesCache = allData.map(t => ({
+                    timestamp: t.created_at || t.timestamp || '',
+                    side: t.side || t.direction || 'BUY',
+                    entry_price: parseFloat(t.entry_price) || 0,
+                    exit_price: parseFloat(t.exit_price) || 0,
+                    pnl: parseFloat(t.profit) || 0,
+                    confidence: parseFloat(t.confidence) || 0,
+                    bot: t.symbol || t.bot_name || '',
+                    symbol: t.symbol || t.bot_name || '',
+                    source: t.source || 'demo'
+                }));
             }
-            allTradesCache.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
             tradeDisplayCount = 50;
             applyTradeFilters();
         }
@@ -1658,10 +1677,14 @@
         function applyTradeFilters() {
             const botFilter = document.getElementById('tradeFilterBot').value;
             const sideFilter = document.getElementById('tradeFilterSide').value;
+            const sourceFilter = document.getElementById('tradeFilterSource').value;
             const container = document.getElementById('tradesTable');
 
             let filtered = allTradesCache;
 
+            if (sourceFilter !== 'all') {
+                filtered = filtered.filter(t => t.source === sourceFilter);
+            }
             if (botFilter !== 'all') {
                 filtered = filtered.filter(t => t.bot === botFilter);
             }
@@ -1703,6 +1726,7 @@
                     <thead>
                         <tr>
                             <th>Bot</th>
+                            <th>Source</th>
                             <th>Side</th>
                             <th>Entry</th>
                             <th>Exit</th>
@@ -1716,9 +1740,14 @@
                             const sideClass = trade.side === 'BUY' ? 'side-buy' : 'side-sell';
                             const pnlClass = isProfitable ? 'trade-profit' : 'trade-loss';
                             const botColor = botColors[trade.bot] || 'var(--text-primary)';
+                            const isLive = trade.source === 'live';
+                            const sourceBadge = isLive 
+                                ? '<span style="background:rgba(239,68,68,0.15);color:#ef4444;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.7rem;font-weight:600;border:1px solid rgba(239,68,68,0.3)">🔴 LIVE</span>'
+                                : '<span style="background:rgba(234,179,8,0.12);color:#eab308;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.7rem;font-weight:600;border:1px solid rgba(234,179,8,0.2)">🟡 DEMO</span>';
                             return `
                                 <tr class="fade-in">
                                     <td><span style="color:${botColor};font-weight:600">${trade.bot}</span></td>
+                                    <td>${sourceBadge}</td>
                                     <td class="${sideClass}">${trade.side}</td>
                                     <td>${trade.entry_price.toFixed(2)}</td>
                                     <td>${trade.exit_price.toFixed(2)}</td>

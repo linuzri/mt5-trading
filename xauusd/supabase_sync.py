@@ -98,7 +98,7 @@ def push_account_snapshot(balance: float, equity: float = None, initial_fund: fl
 
 
 def push_trade(bot_name: str, symbol: str, direction: str, entry_price: float, 
-               exit_price: float, profit: float, confidence: float = None):
+               exit_price: float, profit: float, confidence: float = None, source: str = "demo"):
     """Push completed trade to history"""
     def _push():
         data = {
@@ -108,7 +108,8 @@ def push_trade(bot_name: str, symbol: str, direction: str, entry_price: float,
             "entry_price": entry_price,
             "exit_price": exit_price,
             "profit": profit,
-            "confidence": confidence
+            "confidence": confidence,
+            "source": source
         }
         _api_request("POST", "trades", data)
     _async_push(_push)
@@ -208,5 +209,6 @@ if __name__ == "__main__":
     import time
     time.sleep(3)
     print("Done! Check Supabase dashboard for data.")
+
 
 
