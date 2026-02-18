@@ -32,6 +32,15 @@ TRADE_LOGS = {
     "BTCUSD": r"C:\Users\Nazri Hussain\projects\mt5-trading\btcusd\trade_log.csv",
     "XAUUSD": r"C:\Users\Nazri Hussain\projects\mt5-trading\xauusd\trade_log.csv",
     "EURUSD": r"C:\Users\Nazri Hussain\projects\mt5-trading\eurusd\trade_log.csv",
+    "BTCUSD-LIVE": r"C:\Users\Nazri Hussain\projects\mt5-trading\btcusd-live\trade_log.csv",
+}
+
+# Source mapping: which bots are live vs demo
+BOT_SOURCE = {
+    "BTCUSD": "demo",
+    "XAUUSD": "demo",
+    "EURUSD": "demo",
+    "BTCUSD-LIVE": "live",
 }
 
 BATCH_SIZE = 50
@@ -109,11 +118,12 @@ def import_incremental():
                     all_new_trades.append({
                         "created_at": timestamp,
                         "bot_name": bot_name,
-                        "symbol": bot_name,
+                        "symbol": bot_name.replace("-LIVE", ""),
                         "direction": direction.upper(),
                         "entry_price": float(entry) if entry else None,
                         "exit_price": float(exit_price) if exit_price else None,
                         "profit": profit_val,
+                        "source": BOT_SOURCE.get(bot_name, "demo"),
                     })
                     new_count += 1
 
@@ -179,11 +189,12 @@ def full_reimport():
                     all_trades.append({
                         "created_at": timestamp,
                         "bot_name": bot_name,
-                        "symbol": bot_name,
+                        "symbol": bot_name.replace("-LIVE", ""),
                         "direction": direction.upper(),
                         "entry_price": float(entry) if entry else None,
                         "exit_price": float(exit_price) if exit_price else None,
                         "profit": profit_val,
+                        "source": BOT_SOURCE.get(bot_name, "demo"),
                     })
                     count += 1
 
