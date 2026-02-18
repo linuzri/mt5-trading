@@ -1015,6 +1015,41 @@
         </div>
     </div>
 
+    <!-- LIVE Summary Hero Card -->
+    <div style="max-width: 1600px; margin: 0 auto; padding: 1.5rem 1.5rem 0;">
+        <div id="liveHeroCard" style="background: linear-gradient(135deg, #1a1d26 0%, #1e1215 100%); border: 1.5px solid rgba(239,68,68,0.3); border-radius: 16px; padding: 1.75rem 2rem; margin-bottom: 0; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #ef4444, #f97316, #ef4444); border-radius: 16px 16px 0 0;"></div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+                <span style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(239,68,68,0.4); display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 2s infinite;"></span> LIVE
+                </span>
+                <span style="color: var(--text-muted); font-size: 0.8rem;">BTCUSD · Live since Feb 18, 2026</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;" id="liveHeroStats">
+                <div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Account Balance</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveBalance">—</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Today's P/L</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;" id="liveTodayPL">—</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Live P/L</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;" id="liveTotalPL">—</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Win Rate</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;" id="liveWinRate">—</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Trades</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveTradeCount">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <div class="container">
         <!-- Bot Performance Cards -->
@@ -1033,10 +1068,17 @@
             <div class="chart-card">
                 <div class="chart-header">
                     <h2 class="section-header" style="margin-bottom:0">📈 Daily P/L Performance</h2>
-                    <div class="time-toggle">
-                        <button class="time-btn" data-days="7">Week</button>
-                        <button class="time-btn active" data-days="14">2 Weeks</button>
-                        <button class="time-btn" data-days="30">Month</button>
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <div class="filter-pills" id="chartSourceFilter">
+                            <button class="filter-pill active" data-chart-source="live" onclick="setChartSource(this,'live')">🔴 Live</button>
+                            <button class="filter-pill" data-chart-source="demo" onclick="setChartSource(this,'demo')">🟡 Demo</button>
+                            <button class="filter-pill" data-chart-source="all" onclick="setChartSource(this,'all')">All</button>
+                        </div>
+                        <div class="time-toggle">
+                            <button class="time-btn" data-days="7">Week</button>
+                            <button class="time-btn active" data-days="14">2 Weeks</button>
+                            <button class="time-btn" data-days="30">Month</button>
+                        </div>
                     </div>
                 </div>
                 <div class="chart-container" style="position: relative;">
@@ -1097,7 +1139,7 @@
                         <label>Source</label>
                         <select id="tradeFilterSource" class="filter-select" onchange="applyTradeFilters()">
                             <option value="all">All</option>
-                            <option value="live">🔴 Live</option>
+                            <option value="live" selected>🔴 Live</option>
                             <option value="demo">🟡 Demo</option>
                         </select>
                     </div>
@@ -1165,6 +1207,7 @@
         let pnlChart = null;
         let currentDays = 14;
         let botsData = [];
+        let chartSourceFilter = 'live';
 
         // Supabase REST fetch helper
         async function supabaseFetch(table, params = '') {
@@ -1334,7 +1377,8 @@
 
                 // Fetch all closed trades in the date range (has bot_name + profit + created_at)
                 const startUTC = new Date(new Date(`${startStr}T00:00:00Z`).getTime() - 8 * 60 * 60 * 1000).toISOString().replace('.000Z','');
-                const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startUTC}&order=created_at.asc`);
+                const sourceParam = chartSourceFilter && chartSourceFilter !== 'all' ? `&source=eq.${chartSourceFilter}` : '';
+                const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startUTC}${sourceParam}&order=created_at.asc`);
 
                 // Group trades by bot and date
                 const botDayPnl = {}; // { BTCUSD: { '2025-02-06': 100, ... }, ... }
@@ -1461,12 +1505,15 @@
                 const pnlClass = isProfitable ? 'profit' : 'loss';
                 const arrow = isProfitable ? '▲' : '▼';
                 const statusClass = `status-${bot.status}`;
+                const isStoppedDemo = bot.status === 'stopped';
+                const greyStyle = isStoppedDemo ? 'opacity: 0.4; filter: grayscale(0.7);' : '';
+                const demoLabel = isStoppedDemo ? ' <span style="background:rgba(234,179,8,0.12);color:#eab308;padding:0.15rem 0.5rem;border-radius:12px;font-size:0.65rem;font-weight:600;border:1px solid rgba(234,179,8,0.2);">DEMO · STOPPED</span>' : '';
 
                 return `
-                    <div class="card bot-card fade-in" data-bot="${bot.key}">
+                    <div class="card bot-card fade-in" data-bot="${bot.key}" style="${greyStyle}">
                         <div class="bot-card-header">
                             <div class="bot-name">
-                                <h3>${bot.name}</h3>
+                                <h3>${bot.name}${demoLabel}</h3>
                                 <span class="bot-symbol">${bot.symbol}</span>
                             </div>
                             <div class="status-indicator ${statusClass}" title="Last seen: ${bot.last_seen}">
@@ -1862,6 +1909,7 @@
         async function init() {
             await Promise.allSettled([
                 renderAccountBalance(),
+                renderLiveHero(),
                 renderBots(),
                 renderPnLChart(currentDays),
                 loadPerformanceMetrics(),
@@ -1876,6 +1924,7 @@
         async function refresh() {
             await Promise.allSettled([
                 renderAccountBalance(),
+                renderLiveHero(),
                 renderBots(),
                 renderTrades(),
                 renderLogs(),
@@ -2199,6 +2248,80 @@
 
             // Render equity curve
             renderEquityCurve(pnlByBot);
+        }
+
+        // Chart source filter
+        function setChartSource(btn, source) {
+            document.querySelectorAll('#chartSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            chartSourceFilter = source;
+            document.getElementById('chartLoading').style.display = 'flex';
+            renderPnLChart(currentDays).then(() => {
+                document.getElementById('chartLoading').style.display = 'none';
+            });
+        }
+
+        // LIVE Summary Hero Card
+        async function renderLiveHero() {
+            // Get live bot status
+            const statusData = await supabaseFetch('bot_status', '?bot_name=eq.bot-btcusd-live&select=*&limit=1');
+            
+            // Get all live trades
+            const liveTrades = await supabaseFetch('trades', '?source=eq.live&select=profit,created_at&order=created_at.desc&limit=5000');
+            
+            if (!liveTrades) return;
+
+            // Account balance from bot_status
+            let balance = '—';
+            if (statusData && statusData.length > 0 && statusData[0].balance) {
+                balance = formatCurrency(parseFloat(statusData[0].balance));
+            }
+
+            // Today's P/L
+            function getMYTDateStr(d) {
+                const myt = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+                return myt.toISOString().split('T')[0];
+            }
+            const today = getMYTDateStr(new Date());
+            const todayStart = new Date(new Date(`${today}T00:00:00Z`).getTime() - 8 * 60 * 60 * 1000);
+            
+            let todayPL = 0;
+            let totalPL = 0;
+            let wins = 0;
+            let total = liveTrades.length;
+
+            liveTrades.forEach(t => {
+                const pnl = parseFloat(t.profit) || 0;
+                totalPL += pnl;
+                if (pnl > 0) wins++;
+                if (new Date(t.created_at) >= todayStart) todayPL += pnl;
+            });
+
+            const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
+
+            document.getElementById('liveBalance').textContent = balance;
+            
+            const todayEl = document.getElementById('liveTodayPL');
+            todayEl.textContent = (todayPL >= 0 ? '+' : '') + formatCurrency(todayPL);
+            todayEl.style.color = todayPL >= 0 ? 'var(--green)' : 'var(--red)';
+
+            const totalEl = document.getElementById('liveTotalPL');
+            totalEl.textContent = (totalPL >= 0 ? '+' : '') + formatCurrency(totalPL);
+            totalEl.style.color = totalPL >= 0 ? 'var(--green)' : 'var(--red)';
+
+            const wrEl = document.getElementById('liveWinRate');
+            wrEl.textContent = winRate + '%';
+            wrEl.style.color = parseFloat(winRate) >= 50 ? 'var(--green)' : 'var(--red)';
+
+            document.getElementById('liveTradeCount').textContent = total;
+
+            // Update hero card border color based on total P/L
+            const card = document.getElementById('liveHeroCard');
+            if (totalPL >= 0) {
+                card.style.borderColor = 'rgba(34,197,94,0.3)';
+                card.style.background = 'linear-gradient(135deg, #1a1d26 0%, #121e15 100%)';
+                card.querySelector('div[style*="height: 3px"]').style.background = 'linear-gradient(90deg, #22c55e, #06b6d4, #22c55e)';
+            }
         }
 
         // Polymarket + Sniper JS removed - revisit later
