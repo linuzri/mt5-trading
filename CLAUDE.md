@@ -9,7 +9,7 @@ Automated MT5 trading bots with ML-based signal prediction. Three bots run simul
 ### Current Status (Feb 18, 2026)
 - **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$194 | Bot: `bot-btcusd-live`
 - **Demo:** ~$49,577 | All-time P/L: +$1,178 | **ALL DEMO BOTS STOPPED** (MT5 conflict)
-- **MQL5 Signal:** https://www.mql5.com/en/signals/2359955 — LIVE, $30/month, APPROVED ✅
+- **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, $30/month, APPROVED ✅
 - **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
 
