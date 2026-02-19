@@ -1017,37 +1017,6 @@
 
     <!-- LIVE Summary Hero Card -->
     <div style="max-width: 1600px; margin: 0 auto; padding: 1.5rem 1.5rem 0;">
-        <div id="liveHeroCard" style="background: linear-gradient(135deg, #1a1d26 0%, #1e1215 100%); border: 1.5px solid rgba(239,68,68,0.3); border-radius: 16px; padding: 1.75rem 2rem; margin-bottom: 0; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #ef4444, #f97316, #ef4444); border-radius: 16px 16px 0 0;"></div>
-            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-                <span style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(239,68,68,0.4); display: flex; align-items: center; gap: 0.4rem;">
-                    <span style="width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 2s infinite;"></span> LIVE
-                </span>
-                <span style="color: var(--text-muted); font-size: 0.8rem;">BTCUSD · Live since Feb 18, 2026</span>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;" id="liveHeroStats">
-                <div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Account Balance</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveBalance">—</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Today's P/L</div>
-                    <div style="font-size: 1.5rem; font-weight: 700;" id="liveTodayPL">—</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Live P/L</div>
-                    <div style="font-size: 1.5rem; font-weight: 700;" id="liveTotalPL">—</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Win Rate</div>
-                    <div style="font-size: 1.5rem; font-weight: 700;" id="liveWinRate">—</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Trades</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveTradeCount">—</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Main Content -->
@@ -1055,6 +1024,37 @@
         <!-- Bot Performance Cards -->
         <section class="bots-section">
             <h2 class="section-header">🤖 Robot Performance</h2>
+            <div id="liveHeroCard" style="background: linear-gradient(135deg, #1a1d26 0%, #1e1215 100%); border: 1.5px solid rgba(239,68,68,0.3); border-radius: 16px; padding: 1.75rem 2rem; margin-bottom: 1.5rem; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #ef4444, #f97316, #ef4444); border-radius: 16px 16px 0 0;"></div>
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+                    <span style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(239,68,68,0.4); display: flex; align-items: center; gap: 0.4rem;">
+                        <span style="width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 2s infinite;"></span> LIVE
+                    </span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">BTCUSD · Live since Feb 18, 2026</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;" id="liveHeroStats">
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Account Balance</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveBalance">—</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Today's P/L</div>
+                        <div style="font-size: 1.5rem; font-weight: 700;" id="liveTodayPL">—</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Live P/L</div>
+                        <div style="font-size: 1.5rem; font-weight: 700;" id="liveTotalPL">—</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Win Rate</div>
+                        <div style="font-size: 1.5rem; font-weight: 700;" id="liveWinRate">—</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Trades</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveTradeCount">—</div>
+                    </div>
+                </div>
+            </div>
             <div class="bots-grid" id="botsGrid">
                 <div class="loading">
                     <div class="spinner"></div>
@@ -2274,7 +2274,7 @@
         // LIVE Summary Hero Card
         async function renderLiveHero() {
             // Get live bot status
-            const statusData = await supabaseFetch('bot_status', '?bot_name=eq.bot-btcusd-live&select=*&limit=1');
+            const statusData = await supabaseFetch('bot_status', '?bot_name=eq.BTCUSD-LIVE&select=*&limit=1');
             
             // Get all live trades
             const liveTrades = await supabaseFetch('trades', '?source=eq.live&select=profit,created_at&order=created_at.desc&limit=5000');

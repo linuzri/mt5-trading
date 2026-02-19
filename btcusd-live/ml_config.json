@@ -1,0 +1,102 @@
+{
+  "model_type": "ensemble",
+  "symbol": "BTCUSD",
+  "timeframe": "M5",
+
+  "data_collection": {
+    "training_period_days": 30,
+    "lookback_candles": 100,
+    "min_data_points": 10000
+  },
+
+  "features": [
+    "rsi_14",
+    "macd_line",
+    "macd_signal",
+    "atr_14",
+    "bb_upper",
+    "bb_lower",
+    "bb_width",
+    "volume_ratio",
+    "price_change_1min",
+    "price_change_5min",
+    "candle_body_ratio",
+    "upper_shadow_ratio",
+    "lower_shadow_ratio",
+    "engulfing",
+    "ema_cross",
+    "price_vs_ema20",
+    "price_vs_ema50",
+    "trend_strength",
+    "is_trending",
+    "momentum_10",
+    "higher_high",
+    "lower_low",
+    "htf_bias",
+    "price_vs_ema200",
+    "consecutive_direction",
+    "price_velocity",
+    "range_position",
+    "drawdown_pct"
+  ],
+
+  "labeling": {
+    "method": "sltp_aware",
+    "lookahead_candles": 18,
+    "profit_threshold": 0.0015,
+    "stop_loss_threshold": 0.0010,
+    "label_classes": ["buy", "sell", "hold"],
+    "_comment_lookahead": "18 candles on M5 = 1.5 hours. Previous 90 candles (7.5h) was too long for scalping and produced noisy labels.",
+    "_comment_thresholds": "profit_threshold and stop_loss_threshold now aligned with config.json SL/TP ratio (1.5:1 TP:SL). At BTC ~$100K: SL=$100 (0.10%), TP=$150 (0.15%)."
+  },
+
+  "model_params": {
+    "n_estimators": 200,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "min_child_weight": 3,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "gamma": 0.1,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "_comment": "XGBoost params. For Random Forest, only n_estimators, max_depth, random_state are used."
+  },
+
+  "training": {
+    "test_size": 0.15,
+    "validation_size": 0.15,
+    "retrain_frequency_days": 7,
+    "cross_validation_folds": 5
+  },
+
+  "prediction": {
+    "confidence_threshold": 0.55,
+    "min_probability_diff": 0.12,
+    "max_hold_probability": 0.50,
+    "_comment": "2026-01-29: Lowered thresholds after 41h of no trades. Old: 65%/15%/55%. With 3-class model, 50% threshold is realistic for volatile BTC markets."
+  },
+
+  "risk_management": {
+    "min_atr_threshold": 50,
+    "max_trades_per_day": 999,
+    "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
+    "min_win_rate": 0.50
+  },
+
+  "ensemble_paths": {
+    "rf_model": "models/ensemble_rf.pkl",
+    "xgb_model": "models/ensemble_xgb.pkl",
+    "lgb_model": "models/ensemble_lgb.pkl",
+    "scaler": "models/ensemble_scaler.pkl",
+    "metadata": "models/ensemble_metadata.json"
+  },
+
+  "paths": {
+    "model_file": "models/random_forest_btcusd.pkl",
+    "scaler_file": "models/scaler_btcusd.pkl",
+    "training_data": "models/training_data_btcusd.csv",
+    "performance_log": "models/ml_performance.csv"
+  }
+}

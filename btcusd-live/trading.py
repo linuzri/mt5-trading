@@ -953,13 +953,19 @@ try:
                 confidence=confidence,
                 source="live"
             )
-            # Update bot status
+            # Update bot status (with balance)
+            try:
+                _acct = mt5.account_info()
+                _bal = _acct.balance if _acct else 0
+            except:
+                _bal = 0
             supabase_sync.update_bot_status(
                 bot_name=dashboard_bot_name,
                 status="online",
                 today_pnl=daily_pl,
                 today_trades=daily_trade_count,
-                today_wins=total_wins
+                today_wins=total_wins,
+                balance=_bal
             )
             # Push account snapshot
             try:
@@ -1861,12 +1867,18 @@ try:
         # Heartbeat: push bot status to Supabase every 2 minutes so dashboard shows live status
         if SUPABASE_ENABLED and int(time.time()) % 120 < 60:
             try:
+                try:
+                    _acct2 = mt5.account_info()
+                    _bal2 = _acct2.balance if _acct2 else 0
+                except:
+                    _bal2 = 0
                 supabase_sync.update_bot_status(
                     bot_name=dashboard_bot_name,
                     status="online",
                     today_pnl=daily_pl,
                     today_trades=daily_trade_count,
-                    today_wins=total_wins
+                    today_wins=total_wins,
+                    balance=_bal2
                 )
             except Exception:
                 pass

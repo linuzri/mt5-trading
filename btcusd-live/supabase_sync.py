@@ -129,7 +129,7 @@ def push_trade(bot_name: str, symbol: str, direction: str, entry_price: float,
 
 
 def update_bot_status(bot_name: str, status: str = "online", today_pnl: float = 0, 
-                      today_trades: int = 0, today_wins: int = 0):
+                      today_trades: int = 0, today_wins: int = 0, balance: float = 0):
     """Update bot status (upsert - creates row if not exists)"""
     def _push():
         data = {
@@ -138,11 +138,12 @@ def update_bot_status(bot_name: str, status: str = "online", today_pnl: float = 
             "today_pnl": today_pnl,
             "today_trades": today_trades,
             "today_wins": today_wins,
+            "balance": balance,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
-        # Use POST with upsert (on conflict update)
-        upsert_headers = {**HEADERS, "Prefer": "resolution=merge-duplicates"}
-        url = f"{SUPABASE_URL}/rest/v1/bot_status"
+        # Use POST with upsert (on conflict update by bot_name)
+        upsert_headers = {**HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"}
+        url = f"{SUPABASE_URL}/rest/v1/bot_status?on_conflict=bot_name"
         try:
             resp = requests.post(url, headers=upsert_headers, json=data, timeout=5)
             if resp.status_code not in [200, 201, 204]:

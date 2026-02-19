@@ -1,0 +1,63 @@
+{
+  "model_type": "ensemble",
+  "models": [
+    "rf",
+    "xgb",
+    "lgb"
+  ],
+  "feature_names": [
+    "rsi_14",
+    "macd_line",
+    "macd_signal",
+    "atr_14",
+    "bb_upper",
+    "bb_lower",
+    "bb_width",
+    "volume_ratio",
+    "price_change_1min",
+    "price_change_5min",
+    "candle_body_ratio",
+    "upper_shadow_ratio",
+    "lower_shadow_ratio",
+    "engulfing",
+    "ema_cross",
+    "price_vs_ema20",
+    "price_vs_ema50",
+    "trend_strength",
+    "is_trending",
+    "momentum_10",
+    "higher_high",
+    "lower_low",
+    "htf_bias",
+    "price_vs_ema200",
+    "consecutive_direction",
+    "price_velocity",
+    "range_position",
+    "drawdown_pct"
+  ],
+  "individual_accuracies": {
+    "rf": 0.4083850931677019,
+    "xgb": 0.43788819875776397,
+    "lgb": 0.46506211180124224
+  },
+  "ensemble_accuracy": 0.44254658385093165,
+  "performance_metrics": {
+    "individual_accuracies": {
+      "rf": 0.4083850931677019,
+      "xgb": 0.43788819875776397,
+      "lgb": 0.46506211180124224
+    },
+    "validation_accuracies": {
+      "rf": 0.4355590062111801,
+      "xgb": 0.5131987577639752,
+      "lgb": 0.5139751552795031
+    },
+    "ensemble_test_accuracy": 0.44254658385093165,
+    "test_metrics": {
+      "accuracy": 0.44254658385093165
+    },
+    "cv_mean": 0.4371118012422361,
+    "cv_std": 0.023144807986864767
+  },
+  "trained_at": "2026-02-14T21:11:05.998976"
+}

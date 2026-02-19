@@ -1117,7 +1117,7 @@ try:
         terminal_info = mt5.terminal_info()
         if terminal_info is None:
             # Not connected, need to initialize
-            if not mt5.initialize(login=login, password=password, server=server):
+            if not mt5.initialize(path=r"C:\Program Files\MetaTrader 5\terminal64.exe", login=login, password=password, server=server):
                 log_only(f"[ERROR] MT5 initialize() failed, error code={mt5.last_error()}")
                 time.sleep(60)
                 continue
