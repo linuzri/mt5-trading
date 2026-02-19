@@ -43,7 +43,7 @@ module.exports = {
       autorestart: true,
       watch: false,
       env: {
-        TELEGRAM_BOT_TOKEN: "7088277359:AAGU_s4uqXfOenQp9eFHCgB-NqV7aE5o9pw"
+        TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || ""
       }
     },
     {
