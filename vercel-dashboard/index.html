@@ -1095,15 +1095,16 @@
         <section class="chart-section" id="performanceMetricsSection">
             <div class="chart-card">
                 <h2 class="section-header" style="margin-bottom:0">📈 Performance Metrics</h2>
+                <div class="filter-pills" id="metricsSourceFilter" style="margin-top:0.5rem;">
+                    <button class="filter-pill active" data-metrics-source="live" onclick="setMetricsSource(this,'live')">🔴 Live</button>
+                    <button class="filter-pill" data-metrics-source="demo" onclick="setMetricsSource(this,'demo')">🟡 Demo</button>
+                </div>
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Hover over the <span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-muted);font-size:0.55rem;font-weight:700;vertical-align:middle;">i</span> icon on each card to learn what it means.</p>
                 <div class="metrics-grid" id="metricsCards">
                     <div class="loading"><div class="spinner"></div>Loading metrics...</div>
                 </div>
                 <div class="equity-filters" id="equityFilters">
-                    <button class="equity-filter-btn active" data-symbol="BTCUSD" onclick="toggleEquityLine(this, 'BTCUSD')" style="border-color: #f7931a; color: #f7931a; background: rgba(247,147,26,0.1);">BTCUSD</button>
-                    <button class="equity-filter-btn active" data-symbol="XAUUSD" onclick="toggleEquityLine(this, 'XAUUSD')" style="border-color: #ffd700; color: #ffd700; background: rgba(255,215,0,0.1);">XAUUSD</button>
-                    <button class="equity-filter-btn active" data-symbol="EURUSD" onclick="toggleEquityLine(this, 'EURUSD')" style="border-color: #0052b4; color: #0052b4; background: rgba(0,82,180,0.1);">EURUSD</button>
-                    <button class="equity-filter-btn active" data-symbol="Combined" onclick="toggleEquityLine(this, 'Combined')" style="border-color: #06b6d4; color: #06b6d4; background: rgba(6,182,212,0.1);">Combined</button>
+                    <!-- Dynamically populated by loadPerformanceMetrics -->
                 </div>
                 <div class="chart-container">
                     <canvas id="equityCurveChart"></canvas>
@@ -2006,6 +2007,14 @@
 
         // --- Performance Metrics ---
         let equityCurveChart = null;
+        let metricsSourceFilter = 'live';
+
+        function setMetricsSource(btn, source) {
+            document.querySelectorAll('#metricsSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            metricsSourceFilter = source;
+            loadPerformanceMetrics();
+        }
 
         function calculateSharpe(dailyReturns) {
             if (!dailyReturns || dailyReturns.length < 2) return null;
@@ -2149,10 +2158,12 @@
         }
 
         async function loadPerformanceMetrics() {
-            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
+            const isLiveMetrics = metricsSourceFilter === 'live';
+            const bots = isLiveMetrics ? ['BTCUSD'] : ['BTCUSD', 'XAUUSD', 'EURUSD'];
 
-            // Fetch trades (has per-bot data with symbol + profit + created_at)
-            const trades = await supabaseFetch('trades', '?select=symbol,profit,created_at&order=created_at.asc&limit=5000');
+            // Fetch trades filtered by source
+            const sourceParam = `&source=eq.${metricsSourceFilter}`;
+            const trades = await supabaseFetch('trades', `?select=symbol,profit,created_at${sourceParam}&order=created_at.asc&limit=5000`);
 
             if (!trades || trades.length === 0) {
                 document.getElementById('metricsCards').innerHTML = '<div class="no-data">No metrics data available</div>';
@@ -2255,6 +2266,14 @@
                     <div class="metric-sub">${botPfHtml}</div>
                 </div>
             `;
+
+            // Render equity filter buttons
+            const colors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4', Combined: '#06b6d4' };
+            const filterBtns = bots.map(b => 
+                `<button class="equity-filter-btn active" data-symbol="${b}" onclick="toggleEquityLine(this, '${b}')" style="border-color: ${colors[b]}; color: ${colors[b]}; background: rgba(${b === 'BTCUSD' ? '247,147,26' : b === 'XAUUSD' ? '255,215,0' : '0,82,180'},0.1);">${b}</button>`
+            ).join('');
+            const combinedBtn = bots.length > 1 ? `<button class="equity-filter-btn active" data-symbol="Combined" onclick="toggleEquityLine(this, 'Combined')" style="border-color: #06b6d4; color: #06b6d4; background: rgba(6,182,212,0.1);">Combined</button>` : '';
+            document.getElementById('equityFilters').innerHTML = filterBtns + combinedBtn;
 
             // Render equity curve
             renderEquityCurve(pnlByBot);
