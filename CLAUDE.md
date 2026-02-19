@@ -6,10 +6,12 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 18, 2026)
-- **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$194 | Bot: `bot-btcusd-live`
+### Current Status (Feb 19, 2026)
+- **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$186 | Bot: `bot-btcusd-live` | 113 trades
 - **Demo:** ~$49,577 | All-time P/L: +$1,178 | **ALL DEMO BOTS STOPPED** (MT5 conflict)
-- **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, $30/month, APPROVED ✅
+- **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
+- **Mission Control:** http://localhost:3456 — Task board (Next.js + Supabase), PM2 managed
+- **MT5 Watchdog:** `mt5_watchdog.js` — auto-restarts MT5 if crashed, Telegram alerts
 - **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
 
@@ -21,7 +23,14 @@ Automated MT5 trading bots with ML-based signal prediction. Three bots run simul
 - **Conservative settings:** max_lot 0.01, circuit_breaker 5 losses, cooldown 10min, confidence 60%
 - **Notifications:** Prefixed `[LIVE]` in Telegram
 
-### Recent Changes (Feb 18)
+### Recent Changes (Feb 19)
+- **Mission Control deployed** — Task board at localhost:3456 (PM2: `mission-control`)
+- **MT5 Watchdog deployed** — Auto-restart MT5 terminal, silent mode (no CMD popups)
+- **Telegram token rotated** — Old leaked via ecosystem.config.js, now uses env var
+- **Dashboard updates** — Live/Demo toggles, balance column, cleaned trade data
+- **Supabase trades cleaned** — 85 dupes removed, 49 accurate trades imported from MT5 Excel
+
+### Changes (Feb 18)
 - **Live BTCUSD bot deployed** — `btcusd-live/` directory, PM2 process `bot-btcusd-live`
 - **New Pepperstone account** — 51439249 replaced 51439211 (copy trading issues on old account)
 - **Zombie XAUUSD bot killed** — PM2 showed stopped but process was alive, traded on live account

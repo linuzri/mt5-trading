@@ -5,19 +5,21 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 **Live Dashboard:** https://trade-bot-hq.vercel.app
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## Live Trading (Feb 18, 2026)
+## Live Trading (Feb 19, 2026)
 
 | Metric | Value |
 |--------|-------|
 | **Live Account** | Pepperstone 51439249 (Razor, MT5) |
-| **Live Balance** | ~$194 |
+| **Live Balance** | ~$186 |
 | **Live Bot** | BTCUSD (`btcusd-live/`) |
-| **First Trade** | SELL @ 68199.73 |
+| **Total Trades** | 113 |
 | Demo Balance | ~$49,577 |
 | Demo P/L | +$1,178 |
 
 ### What's Running
 - ✅ **bot-btcusd-live** — LIVE on account 51439249 (conservative settings: 0.01 lot, 5-loss circuit breaker)
+- ✅ **mt5-watchdog** — Auto-restarts MT5 terminal if it crashes, sends Telegram alert
+- ✅ **mission-control** — Task board at localhost:3456 (Next.js + Supabase)
 - ⏸️ bot-btcusd (demo) — STOPPED
 - ⏸️ bot-xauusd (demo) — STOPPED
 - ⏸️ bot-eurusd (demo) — STOPPED
