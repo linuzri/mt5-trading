@@ -109,7 +109,7 @@ def log_notify(message):
     send_telegram_message(f"[LIVE] {message}")
     # Push to Supabase for cloud dashboard
     if SUPABASE_ENABLED:
-        supabase_sync.push_log(symbol, f"{datetime.now(UTC).isoformat()} {message}")
+        supabase_sync.push_log(dashboard_bot_name, f"{datetime.now(UTC).isoformat()} {message}")
 
 def log_only(message):
     """Log to console and file only (NO Telegram)."""
@@ -118,7 +118,7 @@ def log_only(message):
         f.write(f"{datetime.now(UTC).isoformat()} {message}\n")
     # Push important logs to Supabase (filter out noise)
     if SUPABASE_ENABLED and any(tag in message for tag in ['[ML]', '[NOTIFY]', '[BALANCE]', '[SESSION]', '[MARKET]', '[POSITION']):
-        supabase_sync.push_log(symbol, f"{datetime.now(UTC).isoformat()} {message}")
+        supabase_sync.push_log(dashboard_bot_name, f"{datetime.now(UTC).isoformat()} {message}")
 
 # Hourly heartbeat tracking
 last_heartbeat_hour = None
@@ -221,6 +221,9 @@ max_consecutive_losses = config.get("max_consecutive_losses", 3)  # Pause after 
 volatility_filter_enabled = config.get("volatility_filter_enabled", True)
 volatility_atr_rolling_period = config.get("volatility_atr_rolling_period", 20)  # Rolling average window for ATR
 volatility_atr_multiplier = config.get("volatility_atr_multiplier", 2.0)  # Skip when ATR > multiplier * rolling avg
+
+# --- General Trade Cooldown ---
+trade_cooldown_seconds = config.get("trade_cooldown_seconds", 0)  # Minimum seconds between ANY trades (0 = disabled)
 
 # --- [COOLDOWN] Adaptive Cooldown Configs ---
 adaptive_cooldown_enabled = config.get("adaptive_cooldown_enabled", True)
@@ -843,6 +846,10 @@ try:
         log_notify(f"[BTCUSD STARTUP] Adaptive Cooldown: ENABLED (base={adaptive_cooldown_base_minutes}min, increment={adaptive_cooldown_increment_minutes}min, max={adaptive_cooldown_max_minutes}min)")
     if crash_detector_enabled:
         log_notify(f"[BTCUSD STARTUP] Crash Detector: ENABLED (threshold={crash_price_change_percent}%, lookback={crash_lookback_minutes}min, halt={crash_halt_minutes}min)")
+    if min_atr > 0:
+        log_notify(f"[BTCUSD STARTUP] ATR Floor Filter: ENABLED (min_atr={min_atr}, skips low-volatility chop)")
+    if trade_cooldown_seconds > 0:
+        log_notify(f"[BTCUSD STARTUP] General Trade Cooldown: {trade_cooldown_seconds}s between ALL trades")
     if strategy == "ml_xgboost":
         log_notify(f"[BTCUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -862,6 +869,7 @@ try:
     daily_trade_count = 0
     consecutive_losses = 0
     last_loss_time = None
+    last_trade_time = None  # Track time of ANY trade (for general cooldown)
     try:
         today_str = datetime.now(UTC).strftime('%Y-%m-%d')
         with open(trade_log_file, 'r') as f:
@@ -914,7 +922,9 @@ try:
 
     def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
         """Log trade result with statistics to both screen and Telegram"""
-        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time, crash_mode_active, crash_mode_until
+        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time, last_trade_time, crash_mode_active, crash_mode_until
+
+        last_trade_time = datetime.now(UTC)  # Track time of ANY trade for general cooldown
 
         # Update statistics
         if profit > 0:
@@ -1489,6 +1499,17 @@ try:
                     last_filter_message = msg
                 trade_signal = None
         
+        # General trade cooldown (between ANY trades, win or loss)
+        if trade_signal is not None and trade_cooldown_seconds > 0 and last_trade_time is not None:
+            seconds_since_trade = (datetime.now(UTC) - last_trade_time).total_seconds()
+            if seconds_since_trade < trade_cooldown_seconds:
+                remaining = trade_cooldown_seconds - seconds_since_trade
+                msg = f"[COOLDOWN] General cooldown: {remaining:.0f}s remaining since last trade"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                trade_signal = None
+
         # [VOLATILITY] ATR spike filter
         if trade_signal is not None and volatility_filter_enabled:
             try:
