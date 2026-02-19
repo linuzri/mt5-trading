@@ -3,7 +3,7 @@
 Automated trading bots for MetaTrader 5 with machine learning signal prediction. BTCUSD bot runs live on a funded Pepperstone account. Demo bots (XAUUSD, EURUSD) currently paused due to MT5 multi-terminal limitations.
 
 **Live Dashboard:** https://trade-bot-hq.vercel.app
-**MQL5 Signal:** https://www.mql5.com/en/signals/2359964 ($30/month)
+**MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
 ## Live Trading (Feb 18, 2026)
 
@@ -26,7 +26,6 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 
 ### MQL5 Signal Provider
 - **Signal:** [BTCUSD ML Scalpers](https://www.mql5.com/en/signals/2359964)
-- **Price:** $30/month (MQL5 takes 20%)
 - **Status:** LIVE & APPROVED ✅
 
 ## Supported Pairs & ML Strategy
