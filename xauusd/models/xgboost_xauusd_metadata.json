@@ -44,140 +44,140 @@
   },
   "performance_metrics": {
     "cv_scores": [
-      0.43317972350230416,
-      0.4162826420890937,
-      0.45468509984639016,
-      0.5745007680491552,
-      0.4685099846390169
+      0.43823529411764706,
+      0.42205882352941176,
+      0.5220588235294118,
+      0.5411764705882353,
+      0.47794117647058826
     ],
-    "cv_mean": 0.4694316436251921,
-    "cv_std": 0.055492069690732546,
+    "cv_mean": 0.4802941176470588,
+    "cv_std": 0.0460798915079461,
     "validation_metrics": {
-      "accuracy": 0.3811230585424134,
-      "precision": 0.3297212385244038,
-      "recall": 0.3811230585424134,
-      "f1_score": 0.2982040087672454
+      "accuracy": 0.36498855835240274,
+      "precision": 0.295562859438856,
+      "recall": 0.36498855835240274,
+      "f1_score": 0.29113785563521344
     },
     "test_metrics": {
-      "accuracy": 0.39498806682577564,
-      "precision": 0.31158469104135383,
-      "recall": 0.39498806682577564,
-      "f1_score": 0.3336438765962148
+      "accuracy": 0.39085714285714285,
+      "precision": 0.5207033433925687,
+      "recall": 0.39085714285714285,
+      "f1_score": 0.34162234964817173
     },
     "feature_importance": [
       {
         "feature": "bb_lower",
-        "importance": 0.04693980515003204
-      },
-      {
-        "feature": "atr_14",
-        "importance": 0.04543885216116905
-      },
-      {
-        "feature": "ema_cross",
-        "importance": 0.04441478103399277
+        "importance": 0.04708392918109894
       },
       {
         "feature": "bb_upper",
-        "importance": 0.04388083517551422
+        "importance": 0.04558195918798447
+      },
+      {
+        "feature": "atr_14",
+        "importance": 0.04508829861879349
       },
       {
         "feature": "bb_width",
-        "importance": 0.04272735118865967
-      },
-      {
-        "feature": "range_position",
-        "importance": 0.0419643260538578
+        "importance": 0.04367437586188316
       },
       {
         "feature": "price_vs_ema200",
-        "importance": 0.04177364706993103
+        "importance": 0.042855698615312576
       },
       {
-        "feature": "macd_line",
-        "importance": 0.0395200289785862
-      },
-      {
-        "feature": "price_vs_ema50",
-        "importance": 0.03880968317389488
+        "feature": "range_position",
+        "importance": 0.04226115345954895
       },
       {
         "feature": "drawdown_pct",
-        "importance": 0.03722403198480606
+        "importance": 0.038404591381549835
       },
       {
-        "feature": "trend_strength",
-        "importance": 0.03667628765106201
-      },
-      {
-        "feature": "price_vs_ema20",
-        "importance": 0.03641768917441368
+        "feature": "macd_line",
+        "importance": 0.038304269313812256
       },
       {
         "feature": "price_velocity",
-        "importance": 0.035513587296009064
+        "importance": 0.03722270950675011
+      },
+      {
+        "feature": "price_vs_ema50",
+        "importance": 0.03648539260029793
+      },
+      {
+        "feature": "trend_strength",
+        "importance": 0.03641040250658989
       },
       {
         "feature": "macd_signal",
-        "importance": 0.035313498228788376
-      },
-      {
-        "feature": "momentum_10",
-        "importance": 0.034773048013448715
+        "importance": 0.03527827188372612
       },
       {
         "feature": "price_change_5min",
-        "importance": 0.03419772535562515
-      },
-      {
-        "feature": "engulfing",
-        "importance": 0.033414386212825775
-      },
-      {
-        "feature": "rsi_14",
-        "importance": 0.03255876898765564
-      },
-      {
-        "feature": "volume_ratio",
-        "importance": 0.03249356895685196
-      },
-      {
-        "feature": "htf_bias",
-        "importance": 0.03164719417691231
-      },
-      {
-        "feature": "price_change_1min",
-        "importance": 0.0312521867454052
-      },
-      {
-        "feature": "is_trending",
-        "importance": 0.030317213386297226
-      },
-      {
-        "feature": "upper_shadow_ratio",
-        "importance": 0.03025144152343273
-      },
-      {
-        "feature": "consecutive_direction",
-        "importance": 0.029763471335172653
-      },
-      {
-        "feature": "lower_shadow_ratio",
-        "importance": 0.028785185888409615
+        "importance": 0.03525679558515549
       },
       {
         "feature": "lower_low",
-        "importance": 0.028214480727910995
+        "importance": 0.03505886346101761
       },
       {
-        "feature": "candle_body_ratio",
-        "importance": 0.028072496876120567
+        "feature": "momentum_10",
+        "importance": 0.035035356879234314
+      },
+      {
+        "feature": "ema_cross",
+        "importance": 0.034923259168863297
+      },
+      {
+        "feature": "htf_bias",
+        "importance": 0.033790796995162964
+      },
+      {
+        "feature": "price_vs_ema20",
+        "importance": 0.03346484899520874
+      },
+      {
+        "feature": "rsi_14",
+        "importance": 0.03342745453119278
+      },
+      {
+        "feature": "volume_ratio",
+        "importance": 0.032215628772974014
+      },
+      {
+        "feature": "is_trending",
+        "importance": 0.032093487679958344
+      },
+      {
+        "feature": "price_change_1min",
+        "importance": 0.031974755227565765
+      },
+      {
+        "feature": "consecutive_direction",
+        "importance": 0.031277913600206375
+      },
+      {
+        "feature": "upper_shadow_ratio",
+        "importance": 0.03101206198334694
       },
       {
         "feature": "higher_high",
-        "importance": 0.027644431218504906
+        "importance": 0.02983717806637287
+      },
+      {
+        "feature": "lower_shadow_ratio",
+        "importance": 0.0291000846773386
+      },
+      {
+        "feature": "candle_body_ratio",
+        "importance": 0.027621347457170486
+      },
+      {
+        "feature": "engulfing",
+        "importance": 0.0252591110765934
       }
     ]
   },
-  "trained_at": "2026-02-16T21:01:34.160500"
+  "trained_at": "2026-02-17T21:02:23.703413"
 }
