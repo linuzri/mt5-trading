@@ -564,6 +564,7 @@ def check_smart_exit(symbol, positions, tracked_positions):
         should_close = False
         close_reason = ""
         
+        # Max hold exit is an EMERGENCY exit - bypasses min hold floor
         if max_hold_minutes > 0 and minutes_held >= max_hold_minutes:
             should_close = True
             close_reason = f"Time limit ({minutes_held:.0f}min)"
@@ -921,6 +922,10 @@ try:
     cumulative_pl = 0.0
     daily_trade_count = 0
     consecutive_losses = 0
+    circuit_breaker_triggered = False  # Sticky flag: once True, stays True until new MYT day
+    off_hours_trade_count = 0  # Nightly off-hours trade counter (resets when session changes)
+    off_hours_max_trades = config.get("off_hours_max_trades", 5)  # Hard cap during off-hours
+    last_off_hours_date = ""  # Track which MYT date the off-hours counter belongs to
     last_loss_time = None
     last_trade_time = None  # Track time of ANY trade (for general cooldown)
     weekly_trade_count = 0  # Weekly trade counter (MYT week Mon-Sun)
@@ -999,7 +1004,7 @@ try:
 
     def log_trade_result(direction, entry_price, exit_price, profit, confidence=None, close_reason=""):
         """Log trade result with statistics to both screen and Telegram"""
-        global total_wins, total_losses, cumulative_pl, consecutive_losses, last_loss_time, last_trade_time, crash_mode_active, crash_mode_until
+        global total_wins, total_losses, cumulative_pl, consecutive_losses, circuit_breaker_triggered, last_loss_time, last_trade_time, crash_mode_active, crash_mode_until
 
         last_trade_time = datetime.now(UTC)  # Track time of ANY trade for general cooldown
 
@@ -1063,8 +1068,9 @@ try:
                 pass
         
         # Alert if consecutive losses threshold reached
-        if max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
-            log_notify(f"[BTCUSD ALERT] {consecutive_losses} consecutive losses! Trading paused for 1 hour.")
+        if max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses and not circuit_breaker_triggered:
+            circuit_breaker_triggered = True
+            log_notify(f"[BTCUSD CIRCUIT BREAKER] {consecutive_losses} consecutive losses! Trading STOPPED for rest of MYT day.")
 
     def sync_existing_positions():
         """Sync tracked_positions with actual open positions (for bot restart scenarios)"""
@@ -1625,6 +1631,21 @@ try:
                                _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
             trade_signal = None
 
+        # Off-hours hard cap: max 5 trades per off-hours session per MYT night
+        if trade_signal is not None and current_session == "off_hours" and off_hours_max_trades > 0:
+            _myt_tonight = (datetime.now(UTC) + timedelta(hours=8)).strftime('%Y-%m-%d')
+            if last_off_hours_date != _myt_tonight:
+                off_hours_trade_count = 0
+                last_off_hours_date = _myt_tonight
+            if off_hours_trade_count >= off_hours_max_trades:
+                msg = f"[OFF-HOURS] Nightly cap of {off_hours_max_trades} trades reached -- no more off-hours trades tonight"
+                if last_filter_message != msg:
+                    log_only(msg)
+                    last_filter_message = msg
+                log_blocked_signal(trade_signal.upper(), "off_hours_cap", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
+                trade_signal = None
+
         # Check daily trade limit before executing any new trades
         if trade_signal is not None and daily_trade_count >= max_trades_per_day:
             msg = f"[LIMIT] Max daily trades reached ({daily_trade_count}/{max_trades_per_day}) - no new trades"
@@ -1750,14 +1771,20 @@ try:
         _myt_now = datetime.now(UTC) + timedelta(hours=8)
         _myt_date_str = _myt_now.strftime('%Y-%m-%d')
         
-        # Reset circuit breaker on new MYT calendar day
+        # Reset circuit breaker on new MYT calendar day (midnight MYT)
         if hasattr(check_closed_positions, '_circuit_breaker_date') and check_closed_positions._circuit_breaker_date != _myt_date_str:
-            if consecutive_losses >= max_consecutive_losses:
+            if circuit_breaker_triggered:
+                circuit_breaker_triggered = False
                 consecutive_losses = 0
                 log_notify(f"[CIRCUIT BREAKER] New MYT day ({_myt_date_str}) -- circuit breaker reset. Trading resumed.")
         check_closed_positions._circuit_breaker_date = _myt_date_str
         
-        if trade_signal is not None and max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
+        # Trigger sticky circuit breaker on 3 consecutive losses
+        if not circuit_breaker_triggered and max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
+            circuit_breaker_triggered = True
+            log_notify(f"[CIRCUIT BREAKER] {consecutive_losses} consecutive losses -- trading STOPPED for rest of day (MYT {_myt_date_str})")
+        
+        if trade_signal is not None and circuit_breaker_triggered:
             msg = f"[CIRCUIT BREAKER] {consecutive_losses} consecutive losses -- trading stopped for rest of day (MYT)"
             if last_filter_message != msg:
                 log_notify(msg)
@@ -1778,6 +1805,11 @@ try:
                     if not np.isnan(_current_atr) and _current_atr > 0:
                         effective_sl = _current_atr * sl_atr_multiplier
                         effective_tp = _current_atr * tp_atr_multiplier
+                        # Minimum TP floor: at least $75 to cover spread + slippage
+                        min_tp = dynamic_sltp_config.get("min_tp", 75.0)
+                        if effective_tp < min_tp:
+                            log_only(f"[DYNAMIC SLTP] TP ${effective_tp:.2f} below floor ${min_tp:.2f} -- raising to floor")
+                            effective_tp = min_tp
                         log_only(f"[DYNAMIC SLTP] ATR={_current_atr:.2f} | SL=${effective_sl:.2f} (x{sl_atr_multiplier}) | TP=${effective_tp:.2f} (x{tp_atr_multiplier})")
             except Exception as e:
                 log_only(f"[DYNAMIC SLTP] Error calculating ATR: {e}, using fixed SL/TP")
@@ -1838,6 +1870,8 @@ try:
                     log_notify(f"[BTCUSD BALANCE] Account balance after BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                     weekly_trade_count += 1  # Increment weekly trade counter
+                    if current_session == 'off_hours':
+                        off_hours_trade_count += 1
                 elif result and result.retcode == 10031:
                     # Error 10031 = "No changes" - likely already have a position (never notify)
                     log_only(f"[SKIP] BUY order skipped - retcode 10031 (position likely exists)")
@@ -1890,6 +1924,8 @@ try:
                     log_notify(f"[BTCUSD BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                     weekly_trade_count += 1  # Increment weekly trade counter
+                    if current_session == 'off_hours':
+                        off_hours_trade_count += 1
                 else:
                     log_notify(f"[BTCUSD ERROR] Failed to close SELL and open BUY, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
@@ -1924,6 +1960,8 @@ try:
                     log_notify(f"[BTCUSD BALANCE] Account balance after SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                     weekly_trade_count += 1  # Increment weekly trade counter
+                    if current_session == 'off_hours':
+                        off_hours_trade_count += 1
                 elif result and result.retcode == 10031:
                     # Error 10031 = "No changes" - likely already have a position (never notify)
                     log_only(f"[SKIP] SELL order skipped - retcode 10031 (position likely exists)")
@@ -1976,6 +2014,8 @@ try:
                     log_notify(f"[BTCUSD BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
                     weekly_trade_count += 1  # Increment weekly trade counter
+                    if current_session == 'off_hours':
+                        off_hours_trade_count += 1
                 else:
                     log_notify(f"[BTCUSD ERROR] Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:

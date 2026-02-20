@@ -116,8 +116,10 @@
     "enabled": true,
     "sl_atr_multiplier": 1.0,
     "tp_atr_multiplier": 1.5,
-    "_explanation": "SL = 1.0x ATR(14), TP = 1.5x ATR(14). Scales with volatility. E.g. ATR=100: SL=$100, TP=$150."
+    "min_tp": 75.0,
+    "_explanation": "SL = 1.0x ATR(14), TP = 1.5x ATR(14). Min TP floor $75 ensures spread doesn't eat profits in low vol. E.g. ATR=100: SL=$100, TP=$150."
   },
+  "off_hours_max_trades": 5,
   "max_weekly_trades": 15,
   "_max_weekly_trades_comment": "Maximum 15 trades per MYT calendar week (Mon-Sun). Counter persisted via trade_log.csv, survives restarts."
 }
