@@ -5,7 +5,7 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 **Live Dashboard:** https://trade-bot-hq.vercel.app
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## Live Trading (Feb 20, 2026)
+## Live Trading (Feb 21, 2026)
 
 | Metric | Value |
 |--------|-------|
@@ -78,7 +78,7 @@ Automated trading bots for MetaTrader 5 with machine learning signal prediction.
 - **3-class prediction:** BUY / SELL / HOLD with probability scores
 - **BTCUSD Ensemble:** Three models vote independently. Signal only fires when **3/3 agree unanimously**
 - **Auto-retrain:** Weekly automated retraining (Sunday 3 AM MYT) with accuracy validation, backup/rollback safety, and PM2 auto-restart
-- **Class weighting:** SELL=2x, BUY=1x, HOLD=0.5x to counteract bullish bias in training data
+- **Class weighting:** `balanced` (auto-adjusts to class frequency in training data)
 
 ## Project Structure
 
