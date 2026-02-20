@@ -885,6 +885,29 @@ try:
 
     last_filter_message = None  # Track last filter message to avoid spamming
 
+    # --- Blocked Signal CSV Logger ---
+    blocked_signals_file = "blocked_signals.csv"
+    if not os.path.exists(blocked_signals_file):
+        with open(blocked_signals_file, "w", newline="") as _bf:
+            _bw = csv.writer(_bf)
+            _bw.writerow(["timestamp", "signal", "reason", "rf_signal", "xgb_signal", "lgb_signal",
+                           "confidence", "atr", "ema_trend", "price_momentum"])
+
+    def log_blocked_signal(signal_dir, reason, rf_sig="", xgb_sig="", lgb_sig="",
+                           confidence="", atr_val="", ema_trend_val="", momentum_val=""):
+        """Append a blocked signal to blocked_signals.csv"""
+        try:
+            with open(blocked_signals_file, "a", newline="") as _bf:
+                _bw = csv.writer(_bf)
+                _bw.writerow([datetime.now(UTC).isoformat(), signal_dir, reason,
+                              rf_sig, xgb_sig, lgb_sig, confidence, atr_val,
+                              ema_trend_val, momentum_val])
+        except Exception as _e:
+            log_only(f"[BLOCKED LOG] Error writing: {_e}")
+
+    # Shared state for current cycle's ML details (populated during ML prediction)
+    _cycle_ml = {"signal": "", "rf": "", "xgb": "", "lgb": "", "confidence": "", "atr": "", "reason": ""}
+
     # Trade logging setup
     trade_log = []  # In-memory log for current day/week
     trade_log_file = "trade_log.csv"
@@ -1186,6 +1209,9 @@ try:
 
     while True:
         last_trade_confidence = None  # Reset each iteration
+        # Reset per-cycle ML tracking for blocked signal logging
+        _cycle_ml = {"signal": "", "rf": "", "xgb": "", "lgb": "", "confidence": "", "atr": "", "reason": ""}
+        _cycle_momentum = ""
         now = datetime.now(UTC)
         try:
             eastern = ZoneInfo("America/New_York")
@@ -1409,13 +1435,34 @@ try:
                     # Restore original threshold
                     ml_predictor.confidence_threshold = original_threshold
 
+                    # Capture ML details for blocked signal logging
+                    import re as _re
+                    _cycle_ml["atr"] = f"{current_atr:.1f}"
+                    _cycle_ml["confidence"] = f"{confidence:.1%}" if confidence else ""
+                    _cycle_ml["reason"] = reason or ""
+                    # Parse individual model votes from reason string (e.g. "RF:SELL:68% XGB:SELL:76% LGB:SELL:63%")
+                    _rf_m = _re.search(r'RF:(\w+):\d+%', reason or "")
+                    _xgb_m = _re.search(r'XGB:(\w+):\d+%', reason or "")
+                    _lgb_m = _re.search(r'LGB:(\w+):\d+%', reason or "")
+                    _cycle_ml["rf"] = _rf_m.group(1) if _rf_m else ""
+                    _cycle_ml["xgb"] = _xgb_m.group(1) if _xgb_m else ""
+                    _cycle_ml["lgb"] = _lgb_m.group(1) if _lgb_m else ""
+
                     if signal is not None:
                         trade_signal = signal
+                        _cycle_ml["signal"] = signal.upper()
                         last_trade_confidence = confidence  # Store for position tracking
                         log_only(f"[ML] {reason} | ATR: {current_atr:.1f}")
                         last_filter_message = None  # Reset filter message
                     else:
                         trade_signal = None
+                        _cycle_ml["signal"] = ""
+                        # Log as blocked by confidence gate
+                        log_blocked_signal(
+                            _cycle_ml["rf"] or "HOLD", "confidence_gate",
+                            _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                            _cycle_ml["confidence"], _cycle_ml["atr"],
+                            ema_trend or "", "")
                         msg = f"[ML] {reason}"
                         if last_filter_message != msg:
                             log_only(msg)
@@ -1435,6 +1482,14 @@ try:
             trade_signal = None
         # log_only(debug_msg)  # Commented out for future troubleshooting
         # log_only(f"[DEBUG] trade_signal={trade_signal}")  # Commented out for future troubleshooting
+
+        # Compute price momentum for this cycle (used by momentum filter and blocked signal logging)
+        if len(closes) > momentum_lookback_candles:
+            _mom_cur = closes[-1]
+            _mom_past = closes[-(momentum_lookback_candles + 1)]
+            _cycle_momentum = f"{(_mom_cur - _mom_past) / _mom_past * 100:.2f}"
+        else:
+            _cycle_momentum = ""
 
         # --- TREND MOMENTUM CHECK: Override signal based on recent profitable trade streak ---
         if trade_signal is not None and len(trade_log) >= 3:
@@ -1488,12 +1543,16 @@ try:
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal("BUY", "ema_trend", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None  # Block the BUY trade in downtrend
             elif trade_signal == "sell" and ema_trend == "UPTREND":
                 msg = f"[TREND FILTER] SELL signal blocked - Market in UPTREND (EMA{ema_fast_period} > EMA{ema_slow_period})"
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal("SELL", "ema_trend", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None  # Block the SELL trade in uptrend
 
         # --- MOMENTUM FILTER: Check price direction aligns with signal ---
@@ -1509,12 +1568,16 @@ try:
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg
+                        log_blocked_signal("BUY", "momentum_filter", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                           _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                         trade_signal = None
                     elif trade_signal == "sell" and momentum_pct > momentum_min_alignment_pct:
                         msg = f"[MOMENTUM FILTER] SELL blocked -- price moved {momentum_pct:.2f}% in opposite direction (last {momentum_lookback_candles} candles)"
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg
+                        log_blocked_signal("SELL", "momentum_filter", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                           _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                         trade_signal = None
             except Exception as e:
                 log_only(f"[MOMENTUM FILTER] Error: {e}")
@@ -1558,6 +1621,8 @@ try:
             if last_filter_message != msg:
                 log_only(msg)
                 last_filter_message = msg
+            log_blocked_signal(trade_signal.upper(), "weekly_limit", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                               _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
             trade_signal = None
 
         # Check daily trade limit before executing any new trades
@@ -1566,6 +1631,8 @@ try:
             if last_filter_message != msg:
                 log_only(msg)
                 last_filter_message = msg
+            log_blocked_signal(trade_signal.upper(), "daily_limit", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                               _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
             trade_signal = None  # Block the trade
 
         # --- DEFENSIVE TRADING FILTERS ---
@@ -1580,6 +1647,8 @@ try:
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal(trade_signal.upper(), "spread_filter", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None
         
         # Check loss cooldown
@@ -1591,6 +1660,8 @@ try:
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal(trade_signal.upper(), "loss_cooldown", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None
         
         # General trade cooldown (between ANY trades, win or loss)
@@ -1602,6 +1673,8 @@ try:
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal(trade_signal.upper(), "trade_cooldown", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None
 
         # [VOLATILITY] ATR spike filter
@@ -1618,6 +1691,8 @@ try:
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg
+                        log_blocked_signal(trade_signal.upper(), "atr_spike", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                           _cycle_ml["confidence"], f"{current_atr:.2f}", ema_trend or "", _cycle_momentum)
                         trade_signal = None
             except Exception as e:
                 log_only(f"[VOLATILITY] Error checking ATR spike: {e}")
@@ -1635,6 +1710,8 @@ try:
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal(trade_signal.upper(), "adaptive_cooldown", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None
 
         # [BTCUSD CRASH] Crash detector — halt trading on extreme price moves
@@ -1664,6 +1741,8 @@ try:
                 if last_filter_message != msg:
                     log_only(msg)
                     last_filter_message = msg
+                log_blocked_signal(trade_signal.upper(), "crash_detector", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                   _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None
 
         # Check consecutive losses circuit breaker (DAILY SHUTDOWN - MYT timezone)
@@ -1683,6 +1762,8 @@ try:
             if last_filter_message != msg:
                 log_notify(msg)
                 last_filter_message = msg
+            log_blocked_signal(trade_signal.upper(), "circuit_breaker", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                               _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
             trade_signal = None
 
         # --- DYNAMIC SL/TP based on ATR ---
