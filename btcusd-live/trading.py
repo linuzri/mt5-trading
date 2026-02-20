@@ -519,8 +519,24 @@ def cleanup_partial_profit_tracking():
 smart_exit_config = config.get("smart_exit", {})
 enable_smart_exit = smart_exit_config.get("enabled", False)
 max_hold_minutes = smart_exit_config.get("max_hold_minutes", 120)
+min_hold_minutes = smart_exit_config.get("min_hold_minutes", 15)
 close_if_stagnant = smart_exit_config.get("close_if_stagnant", True)
 stagnant_threshold_percent = smart_exit_config.get("stagnant_threshold_percent", 0.02)
+
+# --- Momentum Filter Configs ---
+momentum_filter_config = config.get("momentum_filter", {})
+momentum_filter_enabled = momentum_filter_config.get("enabled", False)
+momentum_lookback_candles = momentum_filter_config.get("lookback_candles", 3)
+momentum_min_alignment_pct = momentum_filter_config.get("min_alignment_pct", 0.1)
+
+# --- Dynamic SL/TP Configs ---
+dynamic_sltp_config = config.get("dynamic_sltp", {})
+dynamic_sltp_enabled = dynamic_sltp_config.get("enabled", False)
+sl_atr_multiplier = dynamic_sltp_config.get("sl_atr_multiplier", 1.0)
+tp_atr_multiplier = dynamic_sltp_config.get("tp_atr_multiplier", 1.5)
+
+# --- Weekly Trade Limit ---
+max_weekly_trades = config.get("max_weekly_trades", 15)
 
 def check_smart_exit(symbol, positions, tracked_positions):
     """
@@ -552,7 +568,8 @@ def check_smart_exit(symbol, positions, tracked_positions):
             should_close = True
             close_reason = f"Time limit ({minutes_held:.0f}min)"
         
-        if not should_close and close_if_stagnant and minutes_held >= 30:
+        # Min hold floor: stagnant exit only after min_hold_minutes
+        if not should_close and close_if_stagnant and minutes_held >= max(30, min_hold_minutes):
             price_change_percent = abs((current_price - entry_price) / entry_price) * 100
             if price_change_percent < stagnant_threshold_percent:
                 should_close = True
@@ -657,10 +674,15 @@ def is_high_impact_news_near(symbol, block_minutes=15):
         # Check if event's currency is relevant to our symbol
         if event['currency'] not in relevant_currencies:
             continue
-        # Check if event is within block_minutes of now
-        time_diff = abs((event['time'] - now).total_seconds()) / 60
-        if time_diff <= block_minutes:
-            log_only(f"[NEWS] High-impact event nearby: {event['title']} ({event['currency']}) in {time_diff:.0f} min")
+        # Check if event is upcoming within block_minutes, or just passed (within block_minutes after)
+        seconds_until = (event['time'] - now).total_seconds()
+        minutes_until = seconds_until / 60
+        # Block: from block_minutes BEFORE to block_minutes AFTER the event
+        if -block_minutes <= minutes_until <= block_minutes:
+            if minutes_until >= 0:
+                log_only(f"[NEWS] High-impact event upcoming: {event['title']} ({event['currency']}) in {minutes_until:.0f} min")
+            else:
+                log_only(f"[NEWS] High-impact event just passed: {event['title']} ({event['currency']}) {abs(minutes_until):.0f} min ago")
             return True
 
     return False
@@ -850,6 +872,14 @@ try:
         log_notify(f"[BTCUSD STARTUP] ATR Floor Filter: ENABLED (min_atr={min_atr}, skips low-volatility chop)")
     if trade_cooldown_seconds > 0:
         log_notify(f"[BTCUSD STARTUP] General Trade Cooldown: {trade_cooldown_seconds}s between ALL trades")
+    if momentum_filter_enabled:
+        log_notify(f"[BTCUSD STARTUP] Momentum Filter: ENABLED (lookback={momentum_lookback_candles} candles, min={momentum_min_alignment_pct}%)")
+    if dynamic_sltp_enabled:
+        log_notify(f"[BTCUSD STARTUP] Dynamic SL/TP: ENABLED (SL={sl_atr_multiplier}x ATR, TP={tp_atr_multiplier}x ATR)")
+    if max_weekly_trades > 0:
+        log_notify(f"[BTCUSD STARTUP] Weekly Trade Limit: {max_weekly_trades} trades per MYT week")
+    log_notify(f"[BTCUSD STARTUP] Min Hold Floor: {min_hold_minutes}min (trailing stop + stagnant exit delayed)")
+    log_notify(f"[BTCUSD STARTUP] Circuit Breaker: {max_consecutive_losses} consecutive losses = DAILY SHUTDOWN (MYT)")
     if strategy == "ml_xgboost":
         log_notify(f"[BTCUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -870,32 +900,56 @@ try:
     consecutive_losses = 0
     last_loss_time = None
     last_trade_time = None  # Track time of ANY trade (for general cooldown)
+    weekly_trade_count = 0  # Weekly trade counter (MYT week Mon-Sun)
+    
+    # Calculate current MYT week boundaries for weekly trade counting
+    _myt_startup = datetime.now(UTC) + timedelta(hours=8)
+    _myt_week_start = _myt_startup - timedelta(days=_myt_startup.weekday())  # Monday of current week
+    _myt_week_start = _myt_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    _myt_week_start_utc = _myt_week_start - timedelta(hours=8)  # Convert back to UTC for comparison
+    _current_myt_week_iso = _myt_startup.isocalendar()[1]
+    
     try:
         today_str = datetime.now(UTC).strftime('%Y-%m-%d')
         with open(trade_log_file, 'r') as f:
             reader = csv.reader(f)
             for row in reader:
-                if len(row) >= 5 and today_str in row[0]:
+                if len(row) >= 5:
                     try:
-                        pl = float(row[4]) if row[4] not in ['N/A', '', None] else 0.0
-                        daily_pl += pl
-                        cumulative_pl += pl
-                        daily_trade_count += 1
-                        if pl > 0:
-                            total_wins += 1
-                            consecutive_losses = 0
-                        elif pl < 0:
-                            total_losses += 1
-                            consecutive_losses += 1
-                            last_loss_time = datetime.now(UTC)
-                        else:
-                            total_wins += 1
-                            consecutive_losses = 0
-                    except (ValueError, IndexError):
-                        pass
+                        row_time = datetime.fromisoformat(row[0].replace('Z', '+00:00')) if 'T' in row[0] else datetime.strptime(row[0].split('.')[0], '%Y-%m-%d %H:%M:%S').replace(tzinfo=UTC)
+                    except Exception:
+                        row_time = None
+                    
+                    # Count weekly trades (MYT week)
+                    if row_time is not None:
+                        row_myt = row_time.replace(tzinfo=None) + timedelta(hours=8) if row_time.tzinfo else row_time + timedelta(hours=8)
+                        if row_myt.isocalendar()[1] == _current_myt_week_iso and row_myt.year == _myt_startup.year:
+                            weekly_trade_count += 1
+                    
+                    # Count daily stats
+                    if today_str in row[0]:
+                        try:
+                            pl = float(row[4]) if row[4] not in ['N/A', '', None] else 0.0
+                            daily_pl += pl
+                            cumulative_pl += pl
+                            daily_trade_count += 1
+                            if pl > 0:
+                                total_wins += 1
+                                consecutive_losses = 0
+                            elif pl < 0:
+                                total_losses += 1
+                                consecutive_losses += 1
+                                last_loss_time = datetime.now(UTC)
+                            else:
+                                total_wins += 1
+                                consecutive_losses = 0
+                        except (ValueError, IndexError):
+                            pass
         if daily_trade_count > 0:
             wr = total_wins / (total_wins + total_losses) * 100 if (total_wins + total_losses) > 0 else 0
             log_only(f"[BTCUSD RESTORE] Restored today's stats from CSV: {total_wins}W/{total_losses}L ({wr:.0f}% WR) | P/L: ${daily_pl:.2f} | Trades: {daily_trade_count}")
+        if weekly_trade_count > 0:
+            log_only(f"[BTCUSD RESTORE] Weekly trades this week: {weekly_trade_count}/{max_weekly_trades}")
     except FileNotFoundError:
         pass
     except Exception as e:
@@ -1442,6 +1496,29 @@ try:
                     last_filter_message = msg
                 trade_signal = None  # Block the SELL trade in uptrend
 
+        # --- MOMENTUM FILTER: Check price direction aligns with signal ---
+        if trade_signal is not None and momentum_filter_enabled:
+            try:
+                if len(closes) > momentum_lookback_candles:
+                    current_close = closes[-1]
+                    past_close = closes[-(momentum_lookback_candles + 1)]
+                    momentum_pct = (current_close - past_close) / past_close * 100
+                    
+                    if trade_signal == "buy" and momentum_pct < -momentum_min_alignment_pct:
+                        msg = f"[MOMENTUM FILTER] BUY blocked -- price moved {momentum_pct:.2f}% in opposite direction (last {momentum_lookback_candles} candles)"
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
+                        trade_signal = None
+                    elif trade_signal == "sell" and momentum_pct > momentum_min_alignment_pct:
+                        msg = f"[MOMENTUM FILTER] SELL blocked -- price moved {momentum_pct:.2f}% in opposite direction (last {momentum_lookback_candles} candles)"
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
+                        trade_signal = None
+            except Exception as e:
+                log_only(f"[MOMENTUM FILTER] Error: {e}")
+
         # Get current price
         tick = mt5.symbol_info_tick(symbol)
         if tick is None:
@@ -1465,6 +1542,23 @@ try:
             position_type = pos.type  # 0=buy, 1=sell
             ticket = pos.ticket
             entry_price = pos.price_open
+
+        # Weekly trade limit check (MYT week Mon-Sun)
+        _myt_now_wk = datetime.now(UTC) + timedelta(hours=8)
+        _current_week_iso = _myt_now_wk.isocalendar()[1]
+        if not hasattr(check_closed_positions, '_last_week_iso'):
+            check_closed_positions._last_week_iso = _current_week_iso
+        if check_closed_positions._last_week_iso != _current_week_iso:
+            weekly_trade_count = 0
+            check_closed_positions._last_week_iso = _current_week_iso
+            log_only(f"[TRADE LIMIT] New MYT week -- weekly trade count reset")
+        
+        if trade_signal is not None and max_weekly_trades > 0 and weekly_trade_count >= max_weekly_trades:
+            msg = f"[TRADE LIMIT] Weekly limit of {max_weekly_trades} trades reached -- no more trades until next week"
+            if last_filter_message != msg:
+                log_only(msg)
+                last_filter_message = msg
+            trade_signal = None
 
         # Check daily trade limit before executing any new trades
         if trade_signal is not None and daily_trade_count >= max_trades_per_day:
@@ -1572,22 +1666,43 @@ try:
                     last_filter_message = msg
                 trade_signal = None
 
-        # Check consecutive losses circuit breaker
+        # Check consecutive losses circuit breaker (DAILY SHUTDOWN - MYT timezone)
+        # Get current MYT date
+        _myt_now = datetime.now(UTC) + timedelta(hours=8)
+        _myt_date_str = _myt_now.strftime('%Y-%m-%d')
+        
+        # Reset circuit breaker on new MYT calendar day
+        if hasattr(check_closed_positions, '_circuit_breaker_date') and check_closed_positions._circuit_breaker_date != _myt_date_str:
+            if consecutive_losses >= max_consecutive_losses:
+                consecutive_losses = 0
+                log_notify(f"[CIRCUIT BREAKER] New MYT day ({_myt_date_str}) -- circuit breaker reset. Trading resumed.")
+        check_closed_positions._circuit_breaker_date = _myt_date_str
+        
         if trade_signal is not None and max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses:
-            msg = f"[BTCUSD CIRCUIT BREAKER] {consecutive_losses} consecutive losses - trading paused"
+            msg = f"[CIRCUIT BREAKER] {consecutive_losses} consecutive losses -- trading stopped for rest of day (MYT)"
             if last_filter_message != msg:
-                log_only(msg)
+                log_notify(msg)
                 last_filter_message = msg
-            # Reset after 1 hour of pause
-            if last_loss_time is not None:
-                hours_since_loss = (datetime.now(UTC) - last_loss_time).total_seconds() / 3600
-                if hours_since_loss >= 1:
-                    consecutive_losses = 0
-                    log_notify(f"[BTCUSD CIRCUIT BREAKER] Reset after 1 hour cooldown. Trading resumed.")
             trade_signal = None
 
+        # --- DYNAMIC SL/TP based on ATR ---
+        effective_sl = sl_pips
+        effective_tp = tp_pips
+        if trade_signal is not None and dynamic_sltp_enabled:
+            try:
+                _rates_for_atr = mt5.copy_rates_from(symbol, timeframe, datetime.now(UTC), atr_period + 5)
+                if _rates_for_atr is not None and len(_rates_for_atr) > atr_period:
+                    _atr_df = pd.DataFrame(_rates_for_atr)
+                    _current_atr = get_atr(_atr_df, atr_period)
+                    if not np.isnan(_current_atr) and _current_atr > 0:
+                        effective_sl = _current_atr * sl_atr_multiplier
+                        effective_tp = _current_atr * tp_atr_multiplier
+                        log_only(f"[DYNAMIC SLTP] ATR={_current_atr:.2f} | SL=${effective_sl:.2f} (x{sl_atr_multiplier}) | TP=${effective_tp:.2f} (x{tp_atr_multiplier})")
+            except Exception as e:
+                log_only(f"[DYNAMIC SLTP] Error calculating ATR: {e}, using fixed SL/TP")
+
         # Calculate position size (dynamic or fixed)
-        trade_lot = calculate_position_size(symbol, sl_pips) if trade_signal else lot
+        trade_lot = calculate_position_size(symbol, effective_sl) if trade_signal else lot
         if trade_signal and dynamic_sizing_enabled and trade_lot != lot:
             log_only(f"[POSITION SIZE] Dynamic: {trade_lot:.4f} lots (Risk: {risk_percent}%, SL: ${sl_pips})")
 
@@ -1619,8 +1734,8 @@ try:
                     "volume": trade_lot,
                     "type": mt5.ORDER_TYPE_BUY,
                     "price": ask,
-                    "sl": ask - sl_pips,
-                    "tp": ask + tp_pips,
+                    "sl": ask - effective_sl,
+                    "tp": ask + effective_tp,
                     "deviation": 20,
                     "magic": 234000,
                     "comment": "python scalping buy",
@@ -1641,6 +1756,7 @@ try:
                     balance = mt5.account_info().balance
                     log_notify(f"[BTCUSD BALANCE] Account balance after BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
+                    weekly_trade_count += 1  # Increment weekly trade counter
                 elif result and result.retcode == 10031:
                     # Error 10031 = "No changes" - likely already have a position (never notify)
                     log_only(f"[SKIP] BUY order skipped - retcode 10031 (position likely exists)")
@@ -1692,6 +1808,7 @@ try:
                     balance = mt5.account_info().balance
                     log_notify(f"[BTCUSD BALANCE] Account balance after reversing to BUY: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
+                    weekly_trade_count += 1  # Increment weekly trade counter
                 else:
                     log_notify(f"[BTCUSD ERROR] Failed to close SELL and open BUY, retcode = {close_result.retcode}")
         elif trade_signal == "sell":
@@ -1703,8 +1820,8 @@ try:
                     "volume": trade_lot,
                     "type": mt5.ORDER_TYPE_SELL,
                     "price": bid,
-                    "sl": bid + sl_pips,
-                    "tp": bid - tp_pips,
+                    "sl": bid + effective_sl,
+                    "tp": bid - effective_tp,
                     "deviation": 20,
                     "magic": 234000,
                     "comment": "python scalping sell",
@@ -1725,6 +1842,7 @@ try:
                     balance = mt5.account_info().balance
                     log_notify(f"[BTCUSD BALANCE] Account balance after SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
+                    weekly_trade_count += 1  # Increment weekly trade counter
                 elif result and result.retcode == 10031:
                     # Error 10031 = "No changes" - likely already have a position (never notify)
                     log_only(f"[SKIP] SELL order skipped - retcode 10031 (position likely exists)")
@@ -1776,13 +1894,35 @@ try:
                     balance = mt5.account_info().balance
                     log_notify(f"[BTCUSD BALANCE] Account balance after reversing to SELL: ${balance:.2f}")
                     daily_trade_count += 1  # Increment daily trade counter
+                    weekly_trade_count += 1  # Increment weekly trade counter
                 else:
                     log_notify(f"[BTCUSD ERROR] Failed to close BUY and open SELL, retcode = {close_result.retcode}")
         else:
             log_only("No trade signal.")
 
         # --- Trailing Stop Loss Management (ATR-based) ---
-        if enable_trailing_stop:
+        # Min hold floor: skip trailing stop if position held < min_hold_minutes
+        if enable_trailing_stop and min_hold_minutes > 0:
+            _skip_trailing = False
+            _current_positions = mt5.positions_get(symbol=symbol)
+            if _current_positions:
+                for _pos in _current_positions:
+                    try:
+                        _pos_open_time = datetime.fromtimestamp(_pos.time, UTC)
+                        _mins_held = (datetime.now(UTC) - _pos_open_time).total_seconds() / 60
+                        if _mins_held < min_hold_minutes:
+                            _skip_trailing = True
+                            break
+                    except Exception:
+                        pass
+            if _skip_trailing:
+                log_only(f"[TRAILING] Skipped - position held < {min_hold_minutes} min (min hold floor)")
+                enable_trailing_stop_this_cycle = False
+            else:
+                enable_trailing_stop_this_cycle = True
+        else:
+            enable_trailing_stop_this_cycle = enable_trailing_stop
+        if enable_trailing_stop_this_cycle:
             # Fetch recent bars for ATR calculation
             atr_bars = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_M1, datetime.now(UTC) - timedelta(minutes=atr_period+2), atr_period+2)
             trailing_pips = 0.0020  # fallback default
