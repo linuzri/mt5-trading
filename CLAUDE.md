@@ -6,7 +6,7 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 20, 2026)
+### Current Status (Feb 21, 2026)
 - **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$181 | Bot: `bot-btcusd-live` | 172 trades
 - **Demo:** ~$49,577 | All-time P/L: +$1,178 | **ALL DEMO BOTS STOPPED** (MT5 conflict)
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
@@ -21,21 +21,26 @@ Automated MT5 trading bots with ML-based signal prediction. Three bots run simul
 - **Account:** 51439249 (Pepperstone-MT5-Live01, Razor, 1:500 leverage)
 - **Lot size:** Fixed 0.01
 
-### Recent Changes (Feb 20) — Major Logic Overhaul
-Seven changes implemented:
+### The Complete Overhaul (Week of Feb 17-21, 2026)
+Starting point: **18.8% win rate, -$9.91 P/L.** Everything below was built this week:
 
-1. **3/3 Unanimous Voting** — Changed from 2/3 majority to 3/3 unanimous (all RF+XGB+LGB must agree)
-2. **Min 15-min Hold Floor** — Trailing stop + stagnant exit cannot trigger until trade is 15min old
-3. **Daily Circuit Breaker** — 3 consecutive losses = shutdown for rest of MYT calendar day (was 15min cooldown)
-4. **Off-Hours Threshold 75%** — Confidence adjustment raised from +10% to +20% (55% base + 20% = 75%)
-5. **Momentum Pre-Check** — Blocks trades where price moved 0.1%+ against signal direction in last 3 candles
-6. **Dynamic SL/TP** — SL = 1.0× ATR, TP = 1.5× ATR (replaces fixed 200/300 pips)
-7. **Weekly Trade Limit** — Max 15 trades per MYT week (Mon-Sun), counted from trade_log.csv on startup
-8. **Blocked Signals CSV** — Every blocked signal logged to `blocked_signals.csv` with reason, model votes, ATR, momentum
-9. **Stagnant Exit Disabled** — Conflicts with trailing stop; let trades develop
-10. **News Filter Disabled** — Bug with `abs()` treating past events as future (set to 0 in config)
-11. **ATR Floor Filter** — Min ATR of 50 (filters chop zones)
-12. **General Trade Cooldown** — 180s between ALL trades
+| # | Change | Detail |
+|---|--------|--------|
+| ⏱️ | **15-min Hold Floor** | Trailing stop + stagnant exit cannot trigger until 15min old |
+| 🛑 | **Daily Circuit Breaker** | 3 consecutive losses = shutdown for rest of MYT day (resets midnight) |
+| 🔒 | **Circuit Breaker Loophole Closed** | $0.50 minimum profit to count as a "win" (no micro-win resets) |
+| 🌙 | **Off-Hours Confidence 75%** | 00:00-06:00 MYT requires 75% (base 55% + 20%) |
+| 📈 | **Momentum Pre-Check** | Signal must align with price direction (≥0.1% over 3 candles) |
+| 📊 | **Dynamic SL/TP** | SL = 1.0× ATR, TP = 1.5× ATR (replaces fixed 200/300 pips) |
+| 📋 | **Weekly Trade Cap** | Max 15 trades per MYT week (Mon-Sun) |
+| 📝 | **Blocked Signals Logging** | Every blocked signal → `blocked_signals.csv` with full context |
+| 🗳 | **3/3 Unanimous Voting** | All RF+XGB+LGB must agree (was 2/3 majority) |
+| 🧠 | **Training Data 180 days** | Was 30 days — now uses full 6 months of MT5 M5 history |
+| ⚖️ | **Balanced Class Weights** | Was SELL=2x, BUY=1x, HOLD=0.5x → now `'balanced'` (auto-adjusts) |
+| 🏔️ | **ATR Floor Filter** | ATR(14) must be ≥ 50 (filters chop zones) |
+| ⏳ | **General Trade Cooldown** | 180s between ALL trades |
+
+Also: stagnant exit disabled (conflicts with trailing stop), news filter disabled (bug with `abs()`)
 
 ### ⚠️ Known Issues
 - **News filter bug:** `abs()` in time calculation treated past events as upcoming. Disabled for now (news_block_minutes=0). Needs proper fix.
