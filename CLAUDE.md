@@ -6,11 +6,11 @@ This file provides context for AI agents (Claude, etc.) working on this codebase
 
 Automated MT5 trading bots with ML-based signal prediction. Three bots run simultaneously via PM2, each trading a different pair.
 
-### Current Status (Feb 19, 2026)
-- **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$186 | Bot: `bot-btcusd-live` | 113 trades
+### Current Status (Feb 20, 2026)
+- **LIVE:** Account 51439249 (Pepperstone Razor MT5) | Balance: ~$181 | Bot: `bot-btcusd-live` | 172 trades
 - **Demo:** ~$49,577 | All-time P/L: +$1,178 | **ALL DEMO BOTS STOPPED** (MT5 conflict)
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
-- **Mission Control:** http://localhost:3456 — Task board (Next.js + Supabase), PM2 managed
+- **Mission Control:** STOPPED (Node.js v24 crash loop — backlogged)
 - **MT5 Watchdog:** `mt5_watchdog.js` — auto-restarts MT5 if crashed, Telegram alerts
 - **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
@@ -19,139 +19,118 @@ Automated MT5 trading bots with ML-based signal prediction. Three bots run simul
 - **Directory:** `btcusd-live/` (separate from demo `btcusd/`)
 - **PM2 Process:** `bot-btcusd-live`
 - **Account:** 51439249 (Pepperstone-MT5-Live01, Razor, 1:500 leverage)
-- **First trade:** SELL @ 68199.73
-- **Conservative settings:** max_lot 0.01, circuit_breaker 5 losses, cooldown 10min, confidence 60%
-- **Notifications:** Prefixed `[LIVE]` in Telegram
+- **Lot size:** Fixed 0.01
 
-### Recent Changes (Feb 19)
-- **Mission Control deployed** — Task board at localhost:3456 (PM2: `mission-control`)
-- **MT5 Watchdog deployed** — Auto-restart MT5 terminal, silent mode (no CMD popups)
-- **Telegram token rotated** — Old leaked via ecosystem.config.js, now uses env var
-- **Dashboard updates** — Live/Demo toggles, balance column, cleaned trade data
-- **Supabase trades cleaned** — 85 dupes removed, 49 accurate trades imported from MT5 Excel
+### Recent Changes (Feb 20) — Major Logic Overhaul
+Seven changes implemented:
 
-### Changes (Feb 18)
-- **Live BTCUSD bot deployed** — `btcusd-live/` directory, PM2 process `bot-btcusd-live`
-- **New Pepperstone account** — 51439249 replaced 51439211 (copy trading issues on old account)
-- **Zombie XAUUSD bot killed** — PM2 showed stopped but process was alive, traded on live account
-- **CSV restore bug fixed** — live bot was loading demo trade stats from CSV, caused false 9-loss cooldown
-- **All demo bots stopped** — MT5 multi-terminal limitation (see below)
+1. **3/3 Unanimous Voting** — Changed from 2/3 majority to 3/3 unanimous (all RF+XGB+LGB must agree)
+2. **Min 15-min Hold Floor** — Trailing stop + stagnant exit cannot trigger until trade is 15min old
+3. **Daily Circuit Breaker** — 3 consecutive losses = shutdown for rest of MYT calendar day (was 15min cooldown)
+4. **Off-Hours Threshold 75%** — Confidence adjustment raised from +10% to +20% (55% base + 20% = 75%)
+5. **Momentum Pre-Check** — Blocks trades where price moved 0.1%+ against signal direction in last 3 candles
+6. **Dynamic SL/TP** — SL = 1.0× ATR, TP = 1.5× ATR (replaces fixed 200/300 pips)
+7. **Weekly Trade Limit** — Max 15 trades per MYT week (Mon-Sun), counted from trade_log.csv on startup
+8. **Blocked Signals CSV** — Every blocked signal logged to `blocked_signals.csv` with reason, model votes, ATR, momentum
+9. **Stagnant Exit Disabled** — Conflicts with trailing stop; let trades develop
+10. **News Filter Disabled** — Bug with `abs()` treating past events as future (set to 0 in config)
+11. **ATR Floor Filter** — Min ATR of 50 (filters chop zones)
+12. **General Trade Cooldown** — 180s between ALL trades
 
-### ⚠️ MT5 Multi-Terminal Limitation
-- MT5 Python library (`mt5.initialize()`) can only connect to ONE terminal per Python process
-- Running multiple bots causes them to fight over the MT5 connection
-- A "stopped" bot can still have a zombie process that trades on the wrong account
-- **Current solution:** Only run live bot, all demo bots stopped
-- **Future:** Need separate machine/VM for demo bots
-
-### ⚠️ CSV Stats Restore Gotcha
-- On startup, bots restore daily stats (win/loss count) from `trade_log.csv`
-- If the live bot's CSV contains demo trades, it loads wrong stats
-- This caused a false 9-consecutive-loss cooldown on the live bot
-- **Fix:** Ensure each bot directory has its own clean CSV, never share across live/demo
+### ⚠️ Known Issues
+- **News filter bug:** `abs()` in time calculation treated past events as upcoming. Disabled for now (news_block_minutes=0). Needs proper fix.
+- **Weekly counter on first week:** Bot counted 172 pre-existing trades from CSV as this week's trades. Will reset next Monday.
+- **Mission Control crash loop:** SyntaxError from Node.js v24 upgrade. PM2 process stopped. Low priority.
+- **MT5 multi-terminal limitation:** Only one MT5 account per Python process. Demo bots need separate machine.
 
 ## Architecture
 
 ```
-btcusd/trading.py  ─┐
-xauusd/trading.py  ─┼─→ MetaTrader 5 API ─→ Broker
-eurusd/trading.py  ─┘
+btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (account 51439249)
          │
-         └─→ supabase_sync.py ─→ Supabase (cloud DB)
-                                      │
-         dashboard/server.py ─→ Local UI (Flask)
-         vercel-dashboard/   ─→ Cloud UI (Vercel)
+         ├─→ blocked_signals.csv (every blocked signal)
+         ├─→ trade_log.csv (executed trades)
+         ├─→ Telegram notifications
+         └─→ sync_to_supabase.py ─→ Supabase (cloud DB)
+                                          │
+              vercel-dashboard/ ─→ Cloud UI (Vercel)
 ```
 
-## Bot Loop (each bot)
+## Bot Loop (btcusd-live)
 
-1. Every 60 seconds: fetch latest candles from MT5
-2. Calculate features (28 total: RSI, MACD, Bollinger, EMA, crash detection, etc.)
-3. Run ML model prediction (Random Forest for BTC, XGBoost for XAU/EUR)
-4. Apply filters: spread check, session confidence, momentum, market hours
-5. If signal passes all filters with sufficient confidence → place trade
-6. Monitor open positions, apply trailing stop / take profit
+1. Every 60 seconds: fetch 100 M5 candles + H1 candles from MT5
+2. Calculate 28 features (RSI, MACD, Bollinger, EMA, ATR, volume, momentum, etc.)
+3. Run ensemble prediction: RF, XGB, LGB each vote BUY/SELL/HOLD
+4. **3/3 unanimous agreement required** — if any model disagrees, no trade
+5. Apply filter chain (in order):
+   a. Confidence gate (≥55% avg, session-adjusted: +5% Asian, +20% off-hours)
+   b. EMA trend filter (BUY only in uptrend, SELL only in downtrend)
+   c. Momentum filter (price must move ≥0.1% in signal direction over 3 candles)
+   d. ATR floor (≥50)
+   e. Spread filter (≤0.05% of price)
+   f. Trade cooldown (180s since last trade)
+   g. Circuit breaker (3 consecutive losses = daily shutdown)
+   h. Weekly limit (15 trades/week)
+6. If signal passes ALL filters → execute with dynamic SL/TP (1.0×/1.5× ATR)
+7. Monitor open positions: trailing stop, partial profit at 1R (after 15min hold floor)
+8. Log blocked signals to `blocked_signals.csv`
 
-## Key Files Per Bot
+## Key Files
 
-- `trading.py` — Main bot loop (~2000 lines). All trading logic lives here.
-- `config.json` — Runtime config (risk %, thresholds, lot sizes)
-- `ml/feature_engineering.py` — Feature calculation (28 features)
-- `ml/model_trainer.py` — Model training pipeline
-- `ml/model_predictor.py` — Prediction wrapper
-- `train_ml_model.py` — CLI to retrain model
-- `supabase_sync.py` — Push trade data to cloud
+### Live Bot
+- `btcusd-live/trading.py` — Main bot loop (~2000 lines). ALL trading logic.
+- `btcusd-live/config.json` — Runtime config (filters, thresholds, lot sizes)
+- `btcusd-live/ml/ensemble_predictor.py` — Ensemble voting logic (3/3 unanimous)
+- `btcusd-live/blocked_signals.csv` — Blocked signal audit log
+- `btcusd-live/trade_log.csv` — Executed trades
+
+### ML Pipeline
+- `btcusd/ml/feature_engineering.py` — 28 feature calculation
+- `btcusd/ml/ensemble_trainer.py` — Train RF+XGB+LGB
+- `btcusd/train_ml_model.py` — CLI to retrain
+
+### Infrastructure
+- `ecosystem.config.js` — PM2 config (reads TELEGRAM_BOT_TOKEN from env)
+- `auto_retrain.py` — Weekly model retraining
+- `sync_to_supabase.py` — Trade data sync
+- `daily_digest.py` — End-of-day summary
 
 ## Important Patterns
 
-- **Momentum Filter:** Check trend momentum section in trading.py. Uses last 3 trades to continue streaks or block losing directions. **Important:** If momentum flips signal but trend filter would block the flip, keeps original signal (prevents deadlock — fixed Feb 16).
-- **Session Trading:** Asian (00:00-08:00 UTC), EU (08:00-14:00), US (14:00-21:00). Each has different confidence thresholds.
-- **Cooldown:** Minimum wait between trades to prevent overtrading. BTCUSD: 5min, EURUSD: 10min.
-- **Circuit Breaker:** Currently disabled (set to 999) to allow demo learning.
-- **Volatility Filter (BTCUSD):** Skips trades when ATR > 2x rolling 20-period average.
-- **Adaptive Cooldown (BTCUSD):** 5min base, +5min per consecutive loss (max 30min), resets on win.
-- **Crash Detector (BTCUSD):** Halts trading 30min if price moves >3% in 15 minutes.
-- **Crash Detector (XAUUSD):** Halts trading 30min if price moves >1.5% in 15 minutes.
-- **Reversal Confirmation (XAUUSD):** Requires 2 consecutive signals before reversing direction. Variables: `reversal_pending_direction`, `reversal_signal_count`, `REVERSAL_CONFIRMATION_REQUIRED=2`. Prevents whipsaw losses.
-- **Session-Aware ATR (EURUSD):** Per-session min ATR thresholds in config.json (Asian=0.00003, EU/US=0.00008). Global threshold was blocking all Asian trades.
-- **EMA Trend Filter (BTCUSD, EURUSD):** Only BUY in uptrend, only SELL in downtrend.
-- **Partial Profit Taking:** All bots close 50% at 1:1 RR, move SL to breakeven. Note: may not trigger on XAUUSD at minimum lot (0.05) due to lot size constraints.
-- **Smart Exit (EURUSD):** Closes stagnant trades after 60min if price moved <0.003%.
+- **Ensemble Voting (BTCUSD):** `ml/ensemble_predictor.py` line ~202. `most_common_count >= 3` for unanimous.
+- **Session Trading:** Asian (00:00-08:00 UTC), EU (08:00-14:00), US (14:00-21:00). Off-hours = everything else.
+- **Circuit Breaker:** 3 consecutive losses → `circuit_breaker_triggered = True`, checks MYT date. Resets on new MYT day.
+- **Weekly Limit:** Counts trades from CSV on startup. Increments on each trade. Resets when ISO week number changes.
+- **Momentum Filter:** `(current_close - close_3_ago) / close_3_ago * 100`. BUY blocked if momentum < -0.1%, SELL blocked if > 0.1%.
+- **Dynamic SL/TP:** `sl_points = int(atr * sl_atr_multiplier)`, `tp_points = int(atr * tp_atr_multiplier)`. Currently 1.0× and 1.5×.
+- **Min Hold Floor:** 15 minutes. Check `minutes_held < min_hold_minutes` before any exit logic.
+- **Blocked Signal Logging:** `log_blocked_signal()` writes to `blocked_signals.csv` with columns: timestamp, signal, reason, rf/xgb/lgb signals, confidence, atr, ema_trend, price_momentum.
+- **EMA Trend Filter:** `ema50 > ema200` = UPTREND (only BUY), `ema50 < ema200` = DOWNTREND (only SELL).
+- **Partial Profit:** At 1R (price moves SL distance in profit), close 50% + move SL to breakeven.
+- **Adaptive Cooldown:** 5min base, +5min per consecutive loss (max 30min), resets on win.
+- **Crash Detector:** Halts 30min if >3% move in 15min.
 
 ## Development Guidelines
 
 - **Branch:** `main` only. No other branches needed.
-- **Testing:** Run on demo account first. Current demo balance ~$49,577. **Live bot in `btcusd-live/`.**
+- **Auto-merge:** PRs can be merged without review.
+- **Testing:** Always restart PM2 after code changes: `pm2 restart bot-btcusd-live --update-env`
 - **Paths:** Bots reference `mt5_auth.json` in their own directory (gitignored).
-- **Retraining:** `python train_ml_model.py --refresh` in each bot folder.
-- **Auto-Retrain:** `python auto_retrain.py` at repo root. Checks model age, retrains if > 7 days, validates accuracy (max 5% drop allowed), backs up old models, restarts PM2. Runs weekly via cron (Sunday 3 AM MYT). Use `--force` to retrain immediately, `--dry-run` to preview, `--bot <name>` for specific bot.
-- **PM2:** Config in `ecosystem.config.js` at repo root. `pm2 restart all` after code changes.
-- **SECURITY:** Never commit files with hardcoded tokens/keys. Use `.env` for secrets. Root-level `check_*.py` scripts are gitignored.
+- **SECURITY:** Never commit tokens/keys. Use env vars or .env files. The Telegram token is in env var `TELEGRAM_BOT_TOKEN`.
+- **Windows:** Use PowerShell syntax (semicolons not &&). ASCII-safe print (no emoji — cp1252 crashes).
+- **Config changes:** Edit `config.json` then restart PM2. No code rebuild needed.
 
 ## Cloud Infrastructure
 
-- **Supabase:** Stores trades, bot status, daily P/L, daily analysis. Bots push data after each trade.
-- **Supabase Tables:** trades, daily_pnl, daily_analysis, bot_status, account_snapshots, logs
-- **Supabase Management API:** Available for schema changes (token in .env as SUPABASE_MGMT_TOKEN)
-- **Vercel:** Static dashboard reading from Supabase REST API. Auto-deploys when `vercel-dashboard/` changes.
-- **Vercel ignore step:** `git diff --quiet HEAD^ HEAD -- .` (skips deploy if dashboard unchanged)
-- **Daily Analysis:** `save_daily_analysis.py` writes to Supabase `daily_analysis` table + JSON backup. Dashboard reads from Supabase.
-- **Daily Analysis Gap Fix:** `gen_analysis.py` generates analysis on-demand (fixes missed cron runs)
-
-## Bot-Specific Settings
-
-### BTCUSD
-- Model: **Ensemble** (Random Forest + XGBoost + LightGBM) — majority vote, 2/3 must agree
-- Confidence: 55% (65% off-hours) | EMA filter: ON
-- Smart filters: volatility, adaptive cooldown, crash detector
-- Ensemble predictor: `ml/ensemble_predictor.py` | Trainer: `ml/ensemble_trainer.py`
-- Train: `python train_ml_model.py --refresh --ensemble`
-- 24/7 trading (crypto never sleeps)
-
-### XAUUSD  
-- Model: XGBoost | SL: $40 | TP: $60
-- **Reversal confirmation:** 2 consecutive signals required before reversing direction
-- **Crash detector:** Halts trading on >1.5% price move in 15min
-- Partial profit may not work at 0.05 lots (min lot constraint)
-- Market hours: Mon-Fri only (closes Fri 22:00 UTC, opens Sun 22:00 UTC)
-
-### EURUSD
-- Model: XGBoost | Confidence: 40% (50% Asian session) | Timeframe: M5
-- SL: 15 pips | TP: 20 pips (tightened for slow forex)
-- EMA filter: ON | Cooldown: 10min | Smart exit: 60min max hold
-- Market hours: Mon-Fri only
-
-## Dashboard
-
-- **Local:** Removed from PM2 (no longer used)
-- **Cloud:** https://trade-bot-hq.vercel.app (Vercel + Supabase) — primary dashboard
-- **Daily P/L chart:** Single green/red bars (total P/L). Hover tooltip shows per-bot breakdown (BTCUSD, XAUUSD, EURUSD).
+- **Supabase:** Tables: trades, daily_pnl, daily_analysis, bot_status, account_snapshots, logs
+- **Vercel:** https://trade-bot-hq.vercel.app — auto-deploys when `vercel-dashboard/` changes
+- **Daily Digest:** Cron at 11:55 PM MYT
+- **Supabase Sync:** Every 30 min (incremental, no reimport)
 
 ## Common Issues
 
-- **MT5 error 10018:** Market closed. Bot handles this with market hours check.
-- **ML bias:** Models can learn directional bias from trending markets. Fix with class weighting (SELL=2x, BUY=1x, HOLD=0.5x).
-- **Spread spikes:** During low liquidity, spreads widen. Spread filter catches this.
-- **Supabase sync:** Real-time push works (bots push after each trade). Incremental sync cron runs every 30 min as safety net (only adds new trades, no longer clears+reimports).
-- **Supabase schema changes:** Use Management API (`SUPABASE_MGMT_TOKEN` in .env) to run SQL. Direct psycopg2 connection doesn't work with Supabase pooler.
-- **EURUSD stagnant trades:** Forex moves slowly. Smart exit closes dead trades after 60min.
+- **MT5 error 10018:** Market closed (weekends). Normal.
+- **News filter stuck:** Known bug — disabled. Set `news_block_minutes: 0` in config.
+- **Weekly limit on first run:** Old trades counted toward limit. Resets next Monday.
+- **Balance shows $0.00 on startup:** MT5 not yet connected. Resolves after first cycle.
+- **Mission Control crash:** Node.js v24 incompatibility. Low priority fix.
