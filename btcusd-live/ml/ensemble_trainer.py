@@ -93,13 +93,12 @@ class EnsembleTrainer:
     def _train_rf(self, X_train, y_train):
         """Train Random Forest"""
         print("\n[i] Training Random Forest (n_estimators=200, max_depth=6)...")
-        # Class weights: SELL=2x, BUY=1x, HOLD=0.5x
         model = RandomForestClassifier(
             n_estimators=200,
             max_depth=6,
             random_state=42,
             n_jobs=-1,
-            class_weight={0: 2, 1: 1, 2: 0.5}
+            class_weight='balanced'
         )
         model.fit(X_train, y_train)
         print("[OK] Random Forest trained")
@@ -127,12 +126,8 @@ class EnsembleTrainer:
 
         print(f"\n[i] Training XGBoost (n_estimators={xgb_params['n_estimators']}, lr={xgb_params['learning_rate']})...")
 
-        # SELL-boosted weights
-        class_weight_map = {0: 2.0, 1: 1.0, 2: 0.5}
-        sample_weights = np.array([class_weight_map[label] for label in y_train])
-
         model = xgb.XGBClassifier(**xgb_params)
-        model.fit(X_train, y_train, sample_weight=sample_weights)
+        model.fit(X_train, y_train)
         print("[OK] XGBoost trained")
         return model
 
@@ -147,7 +142,7 @@ class EnsembleTrainer:
             n_estimators=200,
             max_depth=6,
             learning_rate=0.05,
-            class_weight={0: 2, 1: 1, 2: 0.5},
+            class_weight='balanced',
             random_state=42,
             n_jobs=-1,
             verbose=-1
