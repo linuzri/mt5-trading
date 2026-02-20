@@ -46,7 +46,7 @@
   "news_block_minutes": 0,
   "_news_block_comment": "DISABLED Feb 20 - news filter bug (abs() treated past events as upcoming, API returns stale data). Set to 0 to disable.",
   "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
-  "_ema_trend_filter_comment": "EMA Trend Filter DISABLED - allowing bidirectional trading (BUY and SELL in any trend)",
+  "_ema_trend_filter_comment": "EMA Trend Filter ENABLED - BUY only in uptrend (EMA50>EMA200), SELL only in downtrend",
   "enable_ema_trend_filter": true,
   "ema_fast_period": 50,
   "ema_slow_period": 200,

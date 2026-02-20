@@ -961,16 +961,19 @@ try:
                             daily_pl += pl
                             cumulative_pl += pl
                             daily_trade_count += 1
-                            if pl > 0:
+                            if pl > 0.50:
                                 total_wins += 1
-                                consecutive_losses = 0
+                                consecutive_losses = 0  # Meaningful win resets counter
+                            elif pl > 0:
+                                total_wins += 1
+                                # Micro-win: don't reset consecutive losses
                             elif pl < 0:
                                 total_losses += 1
                                 consecutive_losses += 1
                                 last_loss_time = datetime.now(UTC)
                             else:
-                                total_wins += 1
-                                consecutive_losses = 0
+                                # Breakeven ($0.00): don't reset consecutive losses
+                                pass
                         except (ValueError, IndexError):
                             pass
         if daily_trade_count > 0:
@@ -1009,10 +1012,18 @@ try:
         last_trade_time = datetime.now(UTC)  # Track time of ANY trade for general cooldown
 
         # Update statistics
-        if profit > 0:
+        # Min win threshold: only reset consecutive losses on meaningful wins (> $0.50)
+        # Micro-wins ($0.02) should NOT reset the counter — prevents circuit breaker bypass
+        min_meaningful_win = 0.50
+        if profit > min_meaningful_win:
             total_wins += 1
-            consecutive_losses = 0  # Reset consecutive losses on win
+            consecutive_losses = 0  # Reset consecutive losses on meaningful win only
             result = "WIN"
+        elif profit > 0:
+            total_wins += 1
+            # Micro-win: do NOT reset consecutive_losses (treat as neutral for breaker purposes)
+            result = "WIN"
+            log_only(f"[CIRCUIT BREAKER] Micro-win ${profit:.2f} < ${min_meaningful_win} -- consecutive loss counter NOT reset ({consecutive_losses})")
         else:
             total_losses += 1
             consecutive_losses += 1
@@ -1070,7 +1081,8 @@ try:
         # Alert if consecutive losses threshold reached
         if max_consecutive_losses > 0 and consecutive_losses >= max_consecutive_losses and not circuit_breaker_triggered:
             circuit_breaker_triggered = True
-            log_notify(f"[BTCUSD CIRCUIT BREAKER] {consecutive_losses} consecutive losses! Trading STOPPED for rest of MYT day.")
+            _myt_today = (datetime.now(UTC) + timedelta(hours=8)).strftime('%Y-%m-%d')
+            log_notify(f"[BTCUSD CIRCUIT BREAKER] {consecutive_losses} consecutive losses! Trading STOPPED until midnight MYT ({_myt_today}).")
 
     def sync_existing_positions():
         """Sync tracked_positions with actual open positions (for bot restart scenarios)"""
