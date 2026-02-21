@@ -30,9 +30,10 @@ ACCURACY_DROP_THRESHOLD = 0.05  # Allow up to 5% drop
 TRAINING_TIMEOUT_SECONDS = 600  # 10 minutes
 
 BOT_CONFIG = {
-    "btcusd": {"pm2_name": "bot-btcusd", "pm2_id": 0},
-    "xauusd": {"pm2_name": "bot-xauusd", "pm2_id": 1},
-    "eurusd": {"pm2_name": "bot-eurusd", "pm2_id": 2},
+    "btcusd-live": {"pm2_name": "bot-btcusd-live", "pm2_id": 5},
+    "btcusd": {"pm2_name": "bot-btcusd", "pm2_id": 2},
+    "xauusd": {"pm2_name": "bot-xauusd", "pm2_id": 3},
+    "eurusd": {"pm2_name": "bot-eurusd", "pm2_id": 4},
 }
 
 # ── Logging Setup ─────────────────────────────────────────────────────────────
