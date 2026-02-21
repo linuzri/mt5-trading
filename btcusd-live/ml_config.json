@@ -4,7 +4,7 @@
   "timeframe": "M5",
 
   "data_collection": {
-    "training_period_days": 180,
+    "training_period_days": 90,
     "lookback_candles": 100,
     "min_data_points": 10000
   },
@@ -90,7 +90,7 @@
     "xgb_model": "models/ensemble_xgb.pkl",
     "lgb_model": "models/ensemble_lgb.pkl",
     "scaler": "models/ensemble_scaler.pkl",
-    "metadata": "models/ensemble_metadata.json"
+    "metadata": "models/ensemble_btcusd-live_metadata.json"
   },
 
   "paths": {
