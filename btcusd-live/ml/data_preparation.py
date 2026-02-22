@@ -106,8 +106,10 @@ class DataPreparation:
 
         print(f"[OK] Extracted {len(df)} candles")
         print(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
-        print(f"   Expected ~{days * 24 * 12} candles for M5, got {len(df)}")
-        if len(df) < days * 24 * 10:
+        tf = self.timeframe_str
+        cpd = {'M1': 1440, 'M5': 288, 'M15': 96, 'M30': 48, 'H1': 24, 'H4': 6, 'D1': 1}.get(tf, 288)
+        print(f"   Expected ~{days * cpd} candles for {tf}, got {len(df)}")
+        if len(df) < days * cpd * 0.83:
             print(f"[WARN] Fewer candles than expected. Check MT5 history availability.")
 
         return df

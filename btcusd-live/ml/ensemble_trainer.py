@@ -90,17 +90,30 @@ class EnsembleTrainer:
         X_test_s = self.scaler.transform(X_test)
         return X_train_s, X_val_s, X_test_s
 
+    def _balance_training_data(self, X, y):
+        """Downsample majority class to match minority class count."""
+        classes, counts = np.unique(y, return_counts=True)
+        min_count = min(counts)
+        balanced_indices = []
+        for cls in classes:
+            cls_indices = np.where(y == cls)[0]
+            sampled = np.random.choice(cls_indices, size=min_count, replace=False)
+            balanced_indices.extend(sampled)
+        np.random.shuffle(balanced_indices)
+        print(f"    Balanced: {len(X)} -> {len(balanced_indices)} samples ({min_count} per class)")
+        return X[balanced_indices], y[balanced_indices]
+
     def _train_rf(self, X_train, y_train):
         """Train Random Forest"""
         print("\n[i] Training Random Forest (n_estimators=200, max_depth=6)...")
+        X_bal, y_bal = self._balance_training_data(X_train, y_train)
         model = RandomForestClassifier(
             n_estimators=200,
             max_depth=6,
             random_state=42,
-            n_jobs=-1,
-            class_weight={0: 1.0, 1: 1.0, 2: 0.5}
+            n_jobs=-1
         )
-        model.fit(X_train, y_train)
+        model.fit(X_bal, y_bal)
         print("[OK] Random Forest trained")
         return model
 
@@ -126,8 +139,9 @@ class EnsembleTrainer:
 
         print(f"\n[i] Training XGBoost (n_estimators={xgb_params['n_estimators']}, lr={xgb_params['learning_rate']})...")
 
+        X_bal, y_bal = self._balance_training_data(X_train, y_train)
         model = xgb.XGBClassifier(**xgb_params)
-        model.fit(X_train, y_train)
+        model.fit(X_bal, y_bal)
         print("[OK] XGBoost trained")
         return model
 
@@ -138,19 +152,19 @@ class EnsembleTrainer:
 
         print("\n[i] Training LightGBM (n_estimators=200, max_depth=6, lr=0.05)...")
 
+        X_bal, y_bal = self._balance_training_data(X_train, y_train)
         model = lgb.LGBMClassifier(
             n_estimators=200,
             max_depth=6,
             learning_rate=0.05,
-            class_weight={0: 1.0, 1: 1.0, 2: 0.5},
             random_state=42,
             n_jobs=-1,
             verbose=-1
         )
         # Pass feature names via DataFrame to avoid sklearn warning
         import pandas as _pd
-        X_train_df = _pd.DataFrame(X_train, columns=self.feature_names)
-        model.fit(X_train_df, y_train)
+        X_train_df = _pd.DataFrame(X_bal, columns=self.feature_names)
+        model.fit(X_train_df, y_bal)
         print("[OK] LightGBM trained")
         return model
 
@@ -251,7 +265,12 @@ class EnsembleTrainer:
 
         # Classification report for ensemble
         print(f"\n   Ensemble Classification Report:")
-        target_names = ['SELL', 'BUY', 'HOLD']
+        # Detect binary vs 3-class from unique labels
+        unique_labels = sorted(set(y_test) | set(ensemble_pred))
+        if len(unique_labels) <= 2:
+            target_names = ['SELL', 'BUY']
+        else:
+            target_names = ['SELL', 'BUY', 'HOLD']
         print(classification_report(y_test, ensemble_pred, target_names=target_names, zero_division=0))
 
         # Store metrics
@@ -282,7 +301,7 @@ class EnsembleTrainer:
 
         return self.models, self.performance_metrics
 
-    def walk_forward_validate(self, df, feature_cols, target_col, n_splits=5, train_months=3, test_weeks=2):
+    def walk_forward_validate(self, df, feature_cols, target_col, n_splits=5, train_months=6, test_weeks=4):
         """
         Walk-forward validation: train on rolling window, test on next period.
         Gives a realistic estimate of model performance on unseen future data.
@@ -298,7 +317,14 @@ class EnsembleTrainer:
         X = df[feature_cols].values
         y = df[target_col].values
 
-        candles_per_day = 288  # M5
+        # Auto-detect candles per day from data density
+        total_days = (len(X) / max(1, len(X))) * 365  # rough estimate
+        if len(df) > 0 and 'timestamp' in df.columns:
+            date_range = (df['timestamp'].max() - df['timestamp'].min()).days
+            candles_per_day = max(1, len(df) // max(1, date_range))
+        else:
+            candles_per_day = 24  # Default H1
+        print(f"    Auto-detected ~{candles_per_day} candles/day")
         train_size = train_months * 30 * candles_per_day
         test_size = test_weeks * 7 * candles_per_day
         step_size = test_size
@@ -328,6 +354,7 @@ class EnsembleTrainer:
             X_train_s = scaler_wf.fit_transform(X_train_wf)
             X_test_s = scaler_wf.transform(X_test_wf)
 
+            # Balance training data for each split
             rf = self._train_rf(X_train_s, y_train_wf)
             xgb_m = self._train_xgb(X_train_s, y_train_wf)
             lgb_m = self._train_lgb(X_train_s, y_train_wf)
