@@ -84,10 +84,15 @@ class MLBacktester:
 
         return winner, confidence
 
-    def simulate_trade(self, df, entry_idx, signal, spread_cost=30.0):
-        """Simulate a single trade with SL/TP on future candles."""
+    def simulate_trade(self, df, entry_idx, signal, lot_size=0.01, spread_cost=0.30):
+        """Simulate a single trade with SL/TP on future candles.
+        
+        At 0.01 lots (0.01 BTC):
+        - TP=0.5% ($500 on 1 BTC) = $5.00 per trade
+        - SL=0.4% ($400 on 1 BTC) = $4.00 per trade
+        - Spread: ~$0.30 per trade at 0.01 lots
+        """
         entry_price = df['close'].iloc[entry_idx]
-        spread_pct = spread_cost / entry_price
 
         if signal == 'buy':
             tp_price = entry_price * (1 + self.tp_pct)
@@ -104,38 +109,47 @@ class MLBacktester:
 
             if signal == 'buy':
                 if high >= tp_price:
-                    pnl = entry_price * self.tp_pct - spread_cost
+                    pnl = (tp_price - entry_price) * lot_size - spread_cost
                     return {'signal': signal, 'entry': entry_price, 'exit': tp_price,
                             'pnl': pnl, 'result': 'TP', 'bars_held': j - entry_idx}
                 if low <= sl_price:
-                    pnl = -(entry_price * self.sl_pct + spread_cost)
+                    pnl = (sl_price - entry_price) * lot_size - spread_cost
                     return {'signal': signal, 'entry': entry_price, 'exit': sl_price,
                             'pnl': pnl, 'result': 'SL', 'bars_held': j - entry_idx}
             else:  # sell
                 if low <= tp_price:
-                    pnl = entry_price * self.tp_pct - spread_cost
+                    pnl = (entry_price - tp_price) * lot_size - spread_cost
                     return {'signal': signal, 'entry': entry_price, 'exit': tp_price,
                             'pnl': pnl, 'result': 'TP', 'bars_held': j - entry_idx}
                 if high >= sl_price:
-                    pnl = -(entry_price * self.sl_pct + spread_cost)
+                    pnl = (entry_price - sl_price) * lot_size - spread_cost
                     return {'signal': signal, 'entry': entry_price, 'exit': sl_price,
                             'pnl': pnl, 'result': 'SL', 'bars_held': j - entry_idx}
 
         # Timeout — close at last candle's close
         exit_price = df['close'].iloc[end_idx - 1]
         if signal == 'buy':
-            pnl = exit_price - entry_price - spread_cost
+            pnl = (exit_price - entry_price) * lot_size - spread_cost
         else:
-            pnl = entry_price - exit_price - spread_cost
+            pnl = (entry_price - exit_price) * lot_size - spread_cost
         return {'signal': signal, 'entry': entry_price, 'exit': exit_price,
                 'pnl': pnl, 'result': 'TIMEOUT', 'bars_held': end_idx - entry_idx}
 
-    def run(self, spread_cost=30.0, initial_balance=200.0):
-        """Run full backtest on the last 30% of data (test set)."""
+    def run(self, lot_size=0.01, spread_cost=0.30, initial_balance=200.0):
+        """Run full backtest on the last 30% of data (test set).
+        
+        Args:
+            lot_size: 0.01 = 0.01 BTC. At BTC $100K: TP=$5, SL=$4 per trade.
+            spread_cost: $0.30 per trade at 0.01 lots (~$30 spread on 1 BTC)
+            initial_balance: Starting account balance
+        """
         print("=" * 60)
         print("ML Strategy Backtest — BTCUSD H1")
-        print(f"Spread: ${spread_cost} | TP: {self.tp_pct:.1%} | SL: {self.sl_pct:.1%}")
+        print(f"Lot size: {lot_size} | Spread: ${spread_cost}/trade")
+        print(f"TP: {self.tp_pct:.1%} | SL: {self.sl_pct:.1%}")
+        print(f"At BTC ~$100K: TP=${100000*self.tp_pct*lot_size:.2f}, SL=${100000*self.sl_pct*lot_size:.2f} per trade")
         print(f"Confidence: {self.confidence_threshold:.0%} | Min prob diff: {self.min_prob_diff:.0%}")
+        print(f"Initial balance: ${initial_balance:.2f}")
         print("=" * 60)
 
         # Load data and add features
@@ -180,7 +194,7 @@ class MLBacktester:
                 continue
 
             # Simulate trade
-            result = self.simulate_trade(df_test, i, signal, spread_cost)
+            result = self.simulate_trade(df_test, i, signal, lot_size, spread_cost)
             result['timestamp'] = str(df_test['timestamp'].iloc[i])
             result['confidence'] = confidence
             trades.append(result)
@@ -246,6 +260,8 @@ class MLBacktester:
         print(f"  Sharpe Ratio:     {sharpe:.2f}")
         print(f"  Final Equity:     ${equity[-1]:.2f} (from ${equity[0]:.2f})")
         print(f"  Return:           {(equity[-1]/equity[0]-1)*100:.1f}%")
+        print(f"  Equity Low:       ${min(equity):.2f}")
+        print(f"  Max DD ($):       ${max(peak - equity_arr):.2f}")
         print(f"")
         print(f"  BUY trades:       {len(buys)} (WR: {buy_wr:.1%})")
         print(f"  SELL trades:      {len(sells)} (WR: {sell_wr:.1%})")
@@ -266,4 +282,5 @@ class MLBacktester:
 
 if __name__ == "__main__":
     bt = MLBacktester()
-    results = bt.run(spread_cost=30.0, initial_balance=200.0)
+    # 0.01 lots = 0.01 BTC. Spread ~$30 on 1 BTC = $0.30 on 0.01 lots.
+    results = bt.run(lot_size=0.01, spread_cost=0.30, initial_balance=200.0)
