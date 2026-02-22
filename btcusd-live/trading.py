@@ -1509,8 +1509,12 @@ try:
         else:
             _cycle_momentum = ""
 
-        # --- TREND MOMENTUM CHECK: Override signal based on recent profitable trade streak ---
-        if trade_signal is not None and len(trade_log) >= 3:
+        # --- TREND MOMENTUM CHECK: DISABLED — creates feedback loop ---
+        # The ML model should handle trend detection via its own features.
+        # Overriding ML predictions based on recent bot performance is
+        # momentum-chasing with no statistical validation.
+        if False:  # DISABLED
+        # if trade_signal is not None and len(trade_log) >= 3:
             # Check last 3 trades for momentum
             recent = trade_log[-3:]
             recent_directions = []
