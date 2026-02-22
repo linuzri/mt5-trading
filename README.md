@@ -1,224 +1,179 @@
-# MT5 Trading Bot
+# 🤖 MT5 Trading Bot — BTCUSD H1 ML Scalper
 
-Automated trading bots for MetaTrader 5 with machine learning signal prediction. BTCUSD bot runs live on a funded Pepperstone account. Demo bots (XAUUSD, EURUSD) currently paused due to MT5 multi-terminal limitations.
+Automated Bitcoin trading bot for MetaTrader 5 with **ensemble ML (RF + XGBoost + LightGBM)**, binary classification, and H1 timeframe. Backtested at **64.1% win rate, 1.93 profit factor, 4.76 Sharpe ratio**.
 
-**Live Dashboard:** https://trade-bot-hq.vercel.app
+**Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## Live Trading (Feb 21, 2026)
+## 🔴 Status (Feb 22, 2026)
 
+| Item | Status |
+|------|--------|
+| **Live Bot** | ⏸️ STOPPED — pending demo validation |
+| **Demo Bot** | ✅ Running (H1 binary model, account 61459537) |
+| **Model** | 63.6% walk-forward accuracy, 65.25% test |
+| **MQL5 Signal** | ✅ LIVE & APPROVED ($30/month) |
+| **Auto-Retrain** | Weekly Sunday 3AM MYT |
+
+### Backtest Results (0.01 lots, $200 account)
 | Metric | Value |
 |--------|-------|
-| **Live Account** | Pepperstone 51439249 (Razor, MT5) |
-| **Live Balance** | ~$181 |
-| **Live Bot** | BTCUSD (`btcusd-live/`) |
-| **Total Trades** | 172 |
-| Demo Balance | ~$49,577 |
-| Demo P/L | +$1,178 |
+| Win Rate | **64.1%** |
+| Profit Factor | **1.93** |
+| Sharpe Ratio | **4.76** |
+| Max Drawdown | **9.8%** ($25.76) |
+| Total P/L | **+$363** (181% return) |
+| BUY / SELL WR | 61.7% / 66.9% (balanced ✅) |
+| Trades | 312 over ~110 days |
 
-### What's Running
-- ✅ **bot-btcusd-live** — LIVE on account 51439249 (strict filters: 3/3 unanimous, 15 trades/week max)
-- ✅ **mt5-watchdog** — Auto-restarts MT5 terminal if it crashes, sends Telegram alert
-- ⏸️ mission-control — STOPPED (Node.js v24 compatibility issue)
-- ⏸️ bot-btcusd (demo) — STOPPED
-- ⏸️ bot-xauusd (demo) — STOPPED
-- ⏸️ bot-eurusd (demo) — STOPPED
+## How It Works
 
-> **Why demo bots are stopped:** MT5 Python library only supports one terminal per process. Running multiple bots causes them to fight over MT5 connections, which caused a zombie XAUUSD bot to accidentally trade on the live account. Demo bots need a separate machine/VM.
+```
+Every 60 seconds:
+1. Fetch 100 H1 candles from MT5
+2. Engineer 16 features (Bollinger, EMA, ATR, RSI, MACD, volume, trend, range position)
+3. Run 3 ML models (RF, XGBoost, LightGBM) — binary BUY/SELL prediction
+4. 2/3 majority vote required + 60% confidence minimum
+5. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily/weekly limits
+6. Execute with dynamic SL/TP (1.0× / 1.5× ATR)
+7. Monitor: trailing stop, partial profit at 1R, 15-min hold floor
+```
 
-### MQL5 Signal Provider
-- **Signal:** [BTCUSD ML Scalpers](https://www.mql5.com/en/signals/2359964)
-- **Status:** LIVE & APPROVED ✅
-- **Price:** $30/month
+## ML Pipeline
 
-## BTCUSD Live Bot — Trading Logic (v2, Feb 20)
+### Binary Classification
+- **BUY (1):** Long TP hits before long SL within 12 H1 candles (12 hours)
+- **SELL (0):** Short TP hits before short SL within 12 H1 candles
+- **HOLD:** Dropped from training — these are untradeable sideways candles (~16.5% of data)
+- **Spread cost** (0.03%) baked into TP during labeling
 
-### Signal Generation
-1. Fetch 100 M5 candles + H1 candles from MT5
-2. Engineer **28 features** (RSI, MACD, ATR, Bollinger, EMA, momentum, volume, candle patterns)
-3. Run **3 ML models**: Random Forest, XGBoost, LightGBM
-4. **Unanimous 3/3 vote required** — all models must agree on BUY or SELL
-5. Average confidence must be ≥ 55% (session-adjusted)
+### Training
+- **365 days** of H1 data (~8,700 candles) — covers multiple BTC regimes
+- **Balanced downsampling:** Equal BUY/SELL counts per model (no directional bias)
+- **Walk-forward validation:** 5 splits, 6-month train, 1-month test
+- **TP=0.5%** ($500 at $100K), **SL=0.4%** ($400). After $30 spread, R:R = 1.17:1
 
-### Filter Chain (any filter blocks the trade)
-| Filter | Rule |
-|--------|------|
-| **EMA Trend** | BUY only in uptrend (EMA50 > EMA200), SELL only in downtrend |
-| **Momentum** | Price must move ≥0.1% in signal direction over last 3 candles |
-| **ATR Floor** | ATR(14) must be ≥ 50 (filters dead/chop zones) |
-| **Spread** | Max 0.05% of price |
-| **Off-Hours** | 00:00-06:00 MYT requires 75% confidence (base 55% + 20%) |
-| **Trade Cooldown** | Min 180s between trades |
-| **Circuit Breaker** | 3 consecutive losses = shutdown for rest of MYT day |
-| **Weekly Limit** | Max 15 trades per MYT week (Mon-Sun) |
-
-### Execution
-- **Lot:** Fixed 0.01 (hard cap for $200 account)
-- **Dynamic SL/TP:** SL = 1.0× ATR, TP = 1.5× ATR (scales with volatility)
-- **Trailing stop:** Enabled
-- **Partial profit:** At 1R, close 50% + move SL to breakeven
-- **Min hold floor:** 15 minutes before trailing stop or stagnant exit can trigger
-- **Max hold:** 120 minutes
-
-### Observability
-- **blocked_signals.csv** — Logs every blocked signal with reason, model votes, ATR, momentum
-- **trade_log.csv** — All executed trades with P/L
-- **Telegram notifications** — Trade entries, exits, errors, daily digest
-
-## Supported Pairs & ML Strategy
-
-| Bot | Symbol | ML Strategy | Confidence | Key Features |
-|-----|--------|------------|------------|--------------|
-| BTCUSD Live | Bitcoin/USD | **Ensemble** (RF + XGB + LGB) | 55% (75% off-hours) | 3/3 unanimous vote, momentum filter, dynamic SL/TP, weekly limit |
-| XAUUSD | Gold/USD | XGBoost | 50% (55% Asian) | Reversal confirmation, crash detector, partial profit at 1R |
-| EURUSD | Euro/USD | XGBoost | 40% (50% Asian session) | Tight scalping (15 pip SL, 20 pip TP), M5 timeframe |
-
-### ML Pipeline
-- **28 features** per prediction: RSI, MACD, Bollinger Bands, EMA crossovers, ATR, volume ratio, momentum, crash detection metrics, and more
-- **3-class prediction:** BUY / SELL / HOLD with probability scores
-- **BTCUSD Ensemble:** Three models vote independently. Signal only fires when **3/3 agree unanimously**
-- **Auto-retrain:** Weekly automated retraining (Sunday 3 AM MYT) with accuracy validation, backup/rollback safety, and PM2 auto-restart
-- **Class weighting:** `balanced` (auto-adjusts to class frequency in training data)
+### 16 Features (ranked by importance)
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **daily_range_position** | Where price sits in today's high-low range |
+| 2 | price_vs_ema200 | Distance from 200-period EMA |
+| 3 | price_vs_ema20 | Distance from 20-period EMA |
+| 4 | trend_strength | Trend momentum indicator |
+| 5 | bb_upper | Bollinger Band upper distance |
+| 6 | range_position | Price position in recent range |
+| 7 | atr_14 | Average True Range (14) |
+| 8 | bb_width | Bollinger Band width (volatility) |
+| 9 | rsi_14 | Relative Strength Index |
+| 10 | volume_ratio | Volume vs average |
+| 11 | macd_signal | MACD signal line |
+| 12 | drawdown_pct | Current drawdown % |
+| 13 | bb_lower | Bollinger Band lower distance |
+| 14 | macd_line | MACD line value |
+| 15 | hourly_return | Close-to-close H1 return |
+| 16 | price_vs_ema50 | Distance from 50-period EMA |
 
 ## Project Structure
 
 ```
 mt5-trading/
-├── btcusd-live/         # LIVE Bitcoin bot (strict filters)
-│   ├── trading.py       # Live bot logic (~2000 lines)
-│   ├── config.json      # Conservative: 0.01 lot, 3/3 vote, 15/week
-│   ├── blocked_signals.csv  # Every blocked signal with reason
-│   └── ...
-├── btcusd/              # Bitcoin bot + ML pipeline (DEMO - stopped)
-│   ├── trading.py       # Main bot logic
-│   ├── ml/              # ML modules
-│   │   ├── ensemble_predictor.py  # Ensemble voting (RF+XGB+LGB)
-│   │   ├── ensemble_trainer.py    # Train all 3 models
-│   │   ├── model_predictor.py     # Single model prediction
-│   │   ├── model_trainer.py       # Single model training
-│   │   ├── feature_engineering.py # 28 technical features
-│   │   └── data_preparation.py   # MT5 data fetching
-│   ├── models/          # Trained models + scalers + backups
-│   ├── config.json      # Bot runtime config
-│   ├── ml_config.json   # ML training config
-│   └── train_ml_model.py  # CLI: train models (--refresh, --ensemble)
-├── xauusd/              # Gold bot (same structure, single XGBoost)
-├── eurusd/              # Euro bot (same structure, single XGBoost)
-├── dashboard/           # Local web dashboard (Flask)
-├── vercel-dashboard/    # Cloud dashboard (Vercel + Supabase)
-│   └── index.html       # Single-file dashboard with Chart.js
-├── auto_retrain.py      # Weekly auto-retrain scheduler
-├── ecosystem.config.js  # PM2 process manager config
-├── daily_digest.py      # End-of-day performance summary
-├── gen_analysis.py      # Generate daily AI analysis
-├── save_daily_analysis.py # Save daily AI analysis to Supabase
-└── sync_to_supabase.py  # Incremental trade sync to cloud
-```
-
-## Features
-
-### Trading
-- **ML-Powered Signals:** Trained models predict BUY/SELL/HOLD with confidence scores
-- **Ensemble Voting (BTCUSD):** 3/3 unanimous agreement required — highest conviction trades only
-- **EMA Trend Filter:** Only BUY in uptrend, only SELL in downtrend
-- **Momentum Pre-Check:** Signal must align with recent price direction (0.1% over 3 candles)
-- **Dynamic SL/TP:** Scales with ATR — wider in volatility, tighter in calm markets
-- **Session-Aware Trading:** Off-hours (00:00-06:00 MYT) requires 75% confidence
-- **Partial Profit Taking:** Close 50% at 1:1 RR, move SL to breakeven
-- **Min Hold Floor:** 15 minutes before any exit can trigger (let trades develop)
-
-### Risk Management
-- **Daily Circuit Breaker:** 3 consecutive losses = trading stops for the rest of the MYT day
-- **Weekly Trade Limit:** Max 15 trades per week (Mon-Sun MYT) — forces quality over quantity
-- **ATR Floor Filter:** Skips trades when ATR < 50 (low volatility chop)
-- **Volatility Filter:** Skips trades when ATR > 2x rolling average
-- **Adaptive Cooldown:** 5min base, +5min per consecutive loss (max 30min)
-- **Crash Detector:** Halts trading 30min if price moves >3% in 15 minutes
-- **Spread Filter:** Skips trades when spread exceeds 0.05% of price
-
-### Observability
-- **Blocked Signals Log:** Every blocked signal saved to CSV with reason, model votes, confidence, ATR
-- **Cloud Dashboard:** Real-time monitoring at https://trade-bot-hq.vercel.app
-- **Performance Metrics:** Sharpe ratio, max drawdown, win streaks, profit factor, equity curve
-- **Telegram Notifications:** Trade entries, exits, balance updates, daily digest
-- **Supabase Sync:** Real-time trade data + 30-min incremental safety sync
-
-## Quick Start
-
-### Prerequisites
-- Python 3.10+
-- MetaTrader 5 terminal running
-- MT5 Python package (`pip install MetaTrader5`)
-- PM2 (`npm install -g pm2`)
-
-### Setup
-```bash
-# Install dependencies
-pip install MetaTrader5 scikit-learn xgboost lightgbm pandas numpy joblib requests
-
-# Configure MT5 credentials (create in each bot folder)
-# mt5_auth.json: {"login": 12345, "password": "xxx", "server": "BrokerServer"}
-
-# Start live bot
-pm2 start ecosystem.config.js --only bot-btcusd-live
-pm2 save
-
-# Check status
-pm2 status
-```
-
-### Train ML Models
-```bash
-# Single model (XAUUSD/EURUSD)
-cd xauusd && python train_ml_model.py --refresh
-
-# Ensemble model (BTCUSD)
-cd btcusd && python train_ml_model.py --refresh --ensemble
-
-# Auto-retrain all bots
-python auto_retrain.py              # Retrain if model > 7 days old
-python auto_retrain.py --force      # Force retrain now
-python auto_retrain.py --dry-run    # Preview without changes
-python auto_retrain.py --bot btcusd # Specific bot only
+├── btcusd-live/           # LIVE bot directory (currently stopped)
+│   ├── trading.py         # Main bot loop (~2200 lines)
+│   ├── config.json        # H1, 0.01 lots, 3600s cooldown, 5 max consec losses
+│   ├── ml_config.json     # 365d, binary, 16 features, 60% confidence
+│   ├── backtest_ml.py     # ML-aware backtester with realistic sizing
+│   ├── demo_logger.py     # Structured CSV logging for demo validation
+│   ├── ml/                # ML pipeline
+│   │   ├── ensemble_predictor.py  # 2/3 majority voting (binary)
+│   │   ├── ensemble_trainer.py    # Balanced downsampling + walk-forward
+│   │   ├── feature_engineering.py # 16 features + hourly_return + daily_range
+│   │   ├── data_preparation.py    # MT5 data fetching (H1/M5 aware)
+│   │   └── model_trainer.py       # XGBoost single model trainer
+│   ├── models/            # Trained .pkl files + scaler + metadata
+│   ├── logs/              # Demo week CSV logs
+│   │   ├── trades.csv     # Every closed trade
+│   │   ├── signals.csv    # Every ML signal (executed + blocked)
+│   │   └── daily_summary.csv  # Daily rollup
+│   └── mt5_auth.json      # MT5 credentials (gitignored)
+├── btcusd/                # Demo bot (mirror of btcusd-live)
+├── xauusd/                # Gold bot (single XGBoost, stopped)
+├── eurusd/                # Euro bot (single XGBoost, stopped)
+├── vercel-dashboard/      # Cloud dashboard (Vercel + Supabase)
+├── auto_retrain.py        # Weekly auto-retrain scheduler
+├── ecosystem.config.js    # PM2 process manager config
+├── daily_digest.py        # End-of-day performance summary
+└── sync_to_supabase.py    # Trade sync to cloud
 ```
 
 ## Configuration
 
-### BTCUSD Live (`btcusd-live/config.json`)
+### Runtime (`config.json`)
 | Setting | Value |
 |---------|-------|
-| ML Strategy | Ensemble (RF+XGB+LGB), 3/3 unanimous |
-| Confidence | 55% base, 60% Asian, 75% off-hours |
-| Lot Size | 0.01 (fixed) |
-| Dynamic SL | 1.0× ATR |
-| Dynamic TP | 1.5× ATR |
-| Min Hold | 15 minutes |
-| Circuit Breaker | 3 losses = daily shutdown |
+| Timeframe | **H1** |
+| Lot Size | 0.01 |
+| Trade Cooldown | 3600s (1 hour) |
+| Circuit Breaker | 5 consecutive losses = daily shutdown |
 | Weekly Limit | 15 trades |
-| EMA Filter | ✅ |
-| Momentum Filter | ✅ (0.1%, 3 candles) |
-| ATR Floor | 50 |
-| News Filter | Disabled (bug — to be fixed) |
+| EMA Trend Filter | Disabled (ML handles trend via features) |
+| Momentum Filter | Disabled (ML handles momentum via features) |
 
-## PM2 Commands
+### ML (`ml_config.json`)
+| Setting | Value |
+|---------|-------|
+| Training Period | **365 days** |
+| Lookahead | 12 candles (12 hours) |
+| TP / SL | 0.5% / 0.4% |
+| Confidence Threshold | 60% |
+| Min Probability Diff | 15% |
+| Max Trades/Day | 3 |
+| Features | 16 (binary classification) |
+
+## Quick Start
 
 ```bash
-pm2 status                    # Check all bots
-pm2 logs bot-btcusd-live      # View live bot logs
-pm2 restart bot-btcusd-live   # Restart live bot
-pm2 stop all                  # Stop everything
+# Install dependencies
+pip install MetaTrader5 scikit-learn xgboost lightgbm pandas numpy joblib requests
+
+# Train models (requires MT5 terminal running)
+cd btcusd-live
+python train_ml_model.py --refresh --ensemble
+
+# Run backtest
+python backtest_ml.py
+
+# Start via PM2
+pm2 start ecosystem.config.js --only bot-btcusd-live
+pm2 save
 ```
 
-## Supabase Tables
+## Risk Management
 
-| Table | Description |
-|-------|-------------|
-| `trades` | All closed trades (symbol, direction, entry/exit price, P/L, confidence) |
-| `daily_pnl` | Daily aggregate P/L and trade stats |
-| `daily_analysis` | AI-generated daily trading analysis |
-| `bot_status` | Real-time bot heartbeat status |
-| `account_snapshots` | Account balance history |
-| `logs` | Bot activity logs |
+| Guard | Detail |
+|-------|--------|
+| **Circuit Breaker** | 5 consecutive losses → shutdown for rest of MYT day |
+| **Daily Limit** | Max 3 trades per day |
+| **Weekly Limit** | Max 15 trades per MYT week |
+| **ATR Floor** | ATR(14) must be ≥ 50 (skip chop) |
+| **Spread Filter** | Max 0.05% of price |
+| **1-Hour Cooldown** | Min 3600s between trades |
+| **Partial Profit** | Close 50% at 1R, move SL to breakeven |
+| **Min Hold** | 15 min before trailing stop can trigger |
+| **$0.50 Win Floor** | Micro-wins don't reset circuit breaker counter |
+
+## The Journey (Feb 22 Experiments)
+
+Starting from -5.18% growth, 37.6% WR, 93% SHORT bias:
+
+1. **Removed SELL 2x bias** — class weights equalized
+2. **Expanded to 180 days** — more training data
+3. **Simplified filters** — disabled redundant momentum/EMA filters
+4. **Binary classification** — dropped HOLD, BUY vs SELL only
+5. **Trimmed to 15→16 features** — removed 12 low-importance ones
+6. **Switched to H1** — massive noise reduction, spread becomes negligible
+7. **Balanced downsampling** — forced model to learn patterns, not "BTC goes up"
+
+Result: 36.4% → 51.8% → **63.6% walk-forward accuracy** 🔥
 
 ## License
 
