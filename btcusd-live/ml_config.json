@@ -1,53 +1,41 @@
 {
   "model_type": "ensemble",
   "symbol": "BTCUSD",
-  "timeframe": "M5",
+  "timeframe": "H1",
 
   "data_collection": {
-    "training_period_days": 180,
+    "training_period_days": 365,
     "lookback_candles": 100,
     "min_data_points": 10000
   },
 
   "features": [
-    "rsi_14",
-    "macd_line",
-    "macd_signal",
-    "atr_14",
     "bb_upper",
     "bb_lower",
-    "bb_width",
-    "volume_ratio",
-    "price_change_1min",
-    "price_change_5min",
-    "candle_body_ratio",
-    "upper_shadow_ratio",
-    "lower_shadow_ratio",
-    "engulfing",
-    "ema_cross",
-    "price_vs_ema20",
-    "price_vs_ema50",
-    "trend_strength",
-    "is_trending",
-    "momentum_10",
-    "higher_high",
-    "lower_low",
-    "htf_bias",
-    "price_vs_ema200",
-    "consecutive_direction",
-    "price_velocity",
     "range_position",
-    "drawdown_pct"
+    "price_vs_ema200",
+    "atr_14",
+    "drawdown_pct",
+    "bb_width",
+    "trend_strength",
+    "macd_signal",
+    "volume_ratio",
+    "price_vs_ema50",
+    "macd_line",
+    "rsi_14",
+    "price_vs_ema20",
+    "hourly_return",
+    "daily_range_position"
   ],
 
   "labeling": {
     "method": "sltp_aware",
-    "lookahead_candles": 36,
-    "profit_threshold": 0.003,
-    "stop_loss_threshold": 0.002,
+    "lookahead_candles": 12,
+    "profit_threshold": 0.005,
+    "stop_loss_threshold": 0.004,
     "label_classes": ["buy", "sell", "hold"],
-    "_comment_lookahead": "36 candles on M5 = 3 hours. Gives enough time for a real move to develop.",
-    "_comment_thresholds": "TP=0.3% ($300 at BTC $100K), SL=0.2% ($200). 1.5:1 R:R ratio. Wide enough to clear spread noise."
+    "_comment_lookahead": "12 candles on H1 = 12 hours. Plenty of time for a real move.",
+    "_comment_thresholds": "TP=0.5% ($500 at BTC $100K), SL=0.4% ($400). After $30 spread, effective TP=$470. R:R=1.25:1."
   },
 
   "model_params": {
@@ -80,7 +68,7 @@
 
   "risk_management": {
     "min_atr_threshold": 50,
-    "max_trades_per_day": 5,
+    "max_trades_per_day": 3,
     "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
     "min_win_rate": 0.50
   },

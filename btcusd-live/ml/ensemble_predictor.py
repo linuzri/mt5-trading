@@ -44,7 +44,7 @@ class EnsemblePredictor:
         self.models = {}  # {'rf': model, 'xgb': model, 'lgb': model}
         self.scaler = None
         self.feature_names = None
-        self.label_map = {0: 'sell', 1: 'buy', 2: 'hold'}
+        self.label_map = {0: 'sell', 1: 'buy'}  # Binary classification
 
     def load_model(self):
         """Load all 3 trained models and shared scaler"""
@@ -133,7 +133,7 @@ class EnsemblePredictor:
         prob_dict = {
             'sell': avg_probs[0],
             'buy': avg_probs[1],
-            'hold': avg_probs[2]
+            'hold': 0.0  # Binary model — no HOLD class
         }
 
         if return_probabilities:
@@ -142,13 +142,14 @@ class EnsemblePredictor:
             return prediction, confidence
 
     def _get_model_signal(self, probs):
-        """Get signal from a single model's probabilities"""
-        buy_prob = probs[1]
+        """Get signal from a single model's probabilities (binary: SELL=0, BUY=1)"""
         sell_prob = probs[0]
-        hold_prob = probs[2]
+        buy_prob = probs[1]
 
-        if hold_prob > self.max_hold_probability:
-            return 'hold', hold_prob
+        # In binary mode, HOLD = neither direction is confident enough
+        max_prob = max(buy_prob, sell_prob)
+        if max_prob < self.confidence_threshold:
+            return 'hold', max_prob
 
         if buy_prob > sell_prob:
             return 'buy', buy_prob
@@ -211,8 +212,8 @@ class EnsemblePredictor:
 
             # Check prob diff using averaged probabilities
             avg_probs = np.mean([model_probs[n] for n in model_probs], axis=0)
-            buy_prob = avg_probs[1]
             sell_prob = avg_probs[0]
+            buy_prob = avg_probs[1]
             prob_diff = abs(buy_prob - sell_prob)
             if prob_diff < self.min_prob_diff:
                 return None, confidence, f"Ensemble: {votes_str} | BUY/SELL diff {prob_diff:.0%} too small"
@@ -220,13 +221,8 @@ class EnsemblePredictor:
             reason = f"Ensemble: {signal.upper()} ({votes_str}) | {most_common_count}/3 agree"
             return signal, confidence, reason
         else:
-            # No majority or majority is HOLD
-            avg_probs = np.mean([model_probs[n] for n in model_probs], axis=0)
-            hold_prob = avg_probs[2]
-            if most_common_signal == 'hold' and most_common_count >= 2:
-                return None, hold_prob, f"Ensemble: HOLD ({votes_str}) | {most_common_count}/3 say HOLD"
-            else:
-                return None, max(model_confidences.values()), f"Ensemble: NO CONSENSUS ({votes_str}) | all disagree"
+            # No majority — models disagree = HOLD (no trade)
+            return None, max(model_confidences.values()), f"Ensemble: NO CONSENSUS ({votes_str}) | models disagree"
 
     def batch_predict(self, features_df):
         """

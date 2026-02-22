@@ -32,7 +32,7 @@
   "macd_fast": 12,
   "macd_slow": 26,
   "macd_signal": 9,
-  "timeframe": "M5",
+  "timeframe": "H1",
   "higher_timeframe": "H1",
   "backtest_period_days": 30,
   "forward_test_period_days": 28,
@@ -41,7 +41,7 @@
   "_min_atr_comment": "Minimum ATR(14) on M5 to allow trading. Filters out low-volatility chop zones.",
   "min_atr": 50,
   "_min_atr_explanation": "BTCUSD M5 ATR typically 80-200 during active sessions, 30-60 during chop. 50 filters dead zones while keeping most real moves.",
-  "trade_cooldown_seconds": 300,
+  "trade_cooldown_seconds": 3600,
   "_trade_cooldown_comment": "LIVE: Minimum 3 minutes between ANY trades (win or loss). Prevents overtrading. Was 0 (disabled).",
   "news_block_minutes": 0,
   "_news_block_comment": "DISABLED Feb 20 - news filter bug (abs() treated past events as upcoming, API returns stale data). Set to 0 to disable.",
@@ -120,6 +120,6 @@
     "_explanation": "SL = 1.0x ATR(14), TP = 1.5x ATR(14). Min TP floor $75 ensures spread doesn't eat profits in low vol. E.g. ATR=100: SL=$100, TP=$150."
   },
   "off_hours_max_trades": 5,
-  "max_weekly_trades": 25,
+  "max_weekly_trades": 15,
   "_max_weekly_trades_comment": "Maximum 15 trades per MYT calendar week (Mon-Sun). Counter persisted via trade_log.csv, survives restarts."
 }
