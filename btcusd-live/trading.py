@@ -8,6 +8,7 @@ import json
 import subprocess
 import sys
 import requests
+import demo_logger
 import csv
 import threading
 import os
@@ -896,7 +897,7 @@ try:
 
     def log_blocked_signal(signal_dir, reason, rf_sig="", xgb_sig="", lgb_sig="",
                            confidence="", atr_val="", ema_trend_val="", momentum_val=""):
-        """Append a blocked signal to blocked_signals.csv"""
+        """Append a blocked signal to blocked_signals.csv + demo signals.csv"""
         try:
             with open(blocked_signals_file, "a", newline="") as _bf:
                 _bw = csv.writer(_bf)
@@ -905,6 +906,16 @@ try:
                               ema_trend_val, momentum_val])
         except Exception as _e:
             log_only(f"[BLOCKED LOG] Error writing: {_e}")
+        # Also log to demo signals.csv
+        try:
+            conf_val = float(confidence.replace('%', '')) / 100 if isinstance(confidence, str) and '%' in confidence else (confidence if isinstance(confidence, float) else 0)
+            atr_v = float(atr_val) if atr_val else 0
+            price = mt5.symbol_info_tick(symbol).ask if mt5.symbol_info_tick(symbol) else 0
+            demo_logger.log_signal(signal_dir, conf_val, rf_sig, xgb_sig, lgb_sig,
+                                   False, reason, price, atr_v)
+            demo_logger.track_signal(executed=False)
+        except Exception:
+            pass
 
     # Shared state for current cycle's ML details (populated during ML prediction)
     _cycle_ml = {"signal": "", "rf": "", "xgb": "", "lgb": "", "confidence": "", "atr": "", "reason": ""}
@@ -1043,7 +1054,29 @@ try:
         # Send to both console and Telegram
         log_notify(trade_msg)
         log_notify(stats_msg)
-        
+
+        # Demo week structured logging
+        try:
+            demo_logger.log_trade(
+                timestamp_open="",  # Not tracked pre-open yet
+                timestamp_close=datetime.now(UTC).isoformat(),
+                direction=direction,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                sl_price=0, tp_price=0,  # Filled by tracked_positions if available
+                pnl_dollars=profit,
+                confidence=confidence if confidence else 0,
+                rf_signal=_cycle_ml.get("rf", ""),
+                xgb_signal=_cycle_ml.get("xgb", ""),
+                lgb_signal=_cycle_ml.get("lgb", ""),
+                exit_reason=close_reason or result,
+                bars_held=0,
+                atr_at_entry=float(_cycle_ml.get("atr", 0)) if _cycle_ml.get("atr") else 0
+            )
+            demo_logger.track_trade_close(direction, profit, profit > 0)
+        except Exception as _dle:
+            log_only(f"[DEMO LOG] Error: {_dle}")
+
         # Push trade to Supabase for cloud dashboard
         if SUPABASE_ENABLED:
             supabase_sync.push_trade(
@@ -1250,6 +1283,12 @@ try:
             daily_trade_count = 0
             last_pl_date = today_date
             log_only(f"[RESET] New trading day ({today_date}) - daily trade count and P/L reset")
+            # Flush demo daily summary for previous day
+            try:
+                bal = mt5.account_info().balance if mt5.account_info() else 0
+                demo_logger.flush_daily_summary(bal)
+            except Exception:
+                pass
         elif last_pl_date is None:
             last_pl_date = today_date
 
@@ -1829,6 +1868,19 @@ try:
                         log_only(f"[DYNAMIC SLTP] ATR={_current_atr:.2f} | SL=${effective_sl:.2f} (x{sl_atr_multiplier}) | TP=${effective_tp:.2f} (x{tp_atr_multiplier})")
             except Exception as e:
                 log_only(f"[DYNAMIC SLTP] Error calculating ATR: {e}, using fixed SL/TP")
+
+        # Log executed signal to demo logger
+        if trade_signal is not None:
+            try:
+                _price_now = mt5.symbol_info_tick(symbol).ask if mt5.symbol_info_tick(symbol) else 0
+                conf_val = float(_cycle_ml["confidence"].replace('%', '')) / 100 if isinstance(_cycle_ml.get("confidence", ""), str) and '%' in _cycle_ml.get("confidence", "") else 0
+                atr_v = float(_cycle_ml.get("atr", 0)) if _cycle_ml.get("atr") else 0
+                demo_logger.log_signal(trade_signal.upper(), conf_val,
+                                       _cycle_ml.get("rf", ""), _cycle_ml.get("xgb", ""), _cycle_ml.get("lgb", ""),
+                                       True, "none", _price_now, atr_v)
+                demo_logger.track_signal(executed=True)
+            except Exception:
+                pass
 
         # Calculate position size (dynamic or fixed)
         trade_lot = calculate_position_size(symbol, effective_sl) if trade_signal else lot
