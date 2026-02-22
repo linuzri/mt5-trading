@@ -3,7 +3,7 @@ Ensemble Model Prediction Module for ML Trading Strategy
 
 This module handles:
 - Loading 3 trained models (RF, XGBoost, LightGBM)
-- Making predictions via unanimous voting (3/3 must agree)
+- Making predictions via majority voting (2/3 must agree)
 - Providing confidence scores
 
 Drop-in replacement for ModelPredictor with identical interface.
@@ -157,7 +157,7 @@ class EnsemblePredictor:
 
     def get_trade_signal(self, features_dict):
         """
-        Get actionable trade signal via unanimous voting (3/3 must agree)
+        Get actionable trade signal via majority voting (2/3 must agree)
 
         Args:
             features_dict: Dictionary with feature names and values
@@ -198,8 +198,8 @@ class EnsemblePredictor:
         vote_counts = Counter(model_signals.values())
         most_common_signal, most_common_count = vote_counts.most_common(1)[0]
 
-        # Unanimous vote: need 3/3
-        if most_common_count >= 3 and most_common_signal != 'hold':
+        # Majority vote: need 2/3 to agree
+        if most_common_count >= 2 and most_common_signal != 'hold':
             signal = most_common_signal
             # Average confidence of agreeing models
             agreeing_confs = [model_confidences[n] for n in model_signals if model_signals[n] == signal]

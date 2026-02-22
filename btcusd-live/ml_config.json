@@ -4,7 +4,7 @@
   "timeframe": "M5",
 
   "data_collection": {
-    "training_period_days": 30,
+    "training_period_days": 180,
     "lookback_candles": 100,
     "min_data_points": 10000
   },
@@ -42,12 +42,12 @@
 
   "labeling": {
     "method": "sltp_aware",
-    "lookahead_candles": 18,
-    "profit_threshold": 0.0015,
-    "stop_loss_threshold": 0.0010,
+    "lookahead_candles": 36,
+    "profit_threshold": 0.003,
+    "stop_loss_threshold": 0.002,
     "label_classes": ["buy", "sell", "hold"],
-    "_comment_lookahead": "18 candles on M5 = 1.5 hours. Previous 90 candles (7.5h) was too long for scalping and produced noisy labels.",
-    "_comment_thresholds": "profit_threshold and stop_loss_threshold now aligned with config.json SL/TP ratio (1.5:1 TP:SL). At BTC ~$100K: SL=$100 (0.10%), TP=$150 (0.15%)."
+    "_comment_lookahead": "36 candles on M5 = 3 hours. Gives enough time for a real move to develop.",
+    "_comment_thresholds": "TP=0.3% ($300 at BTC $100K), SL=0.2% ($200). 1.5:1 R:R ratio. Wide enough to clear spread noise."
   },
 
   "model_params": {
@@ -72,15 +72,15 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.55,
-    "min_probability_diff": 0.12,
-    "max_hold_probability": 0.50,
+    "confidence_threshold": 0.60,
+    "min_probability_diff": 0.15,
+    "max_hold_probability": 0.45,
     "_comment": "2026-01-29: Lowered thresholds after 41h of no trades. Old: 65%/15%/55%. With 3-class model, 50% threshold is realistic for volatile BTC markets."
   },
 
   "risk_management": {
     "min_atr_threshold": 50,
-    "max_trades_per_day": 999,
+    "max_trades_per_day": 5,
     "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
     "min_win_rate": 0.50
   },

@@ -4,7 +4,7 @@
   "timeframe": "M5",
 
   "data_collection": {
-    "training_period_days": 30,
+    "training_period_days": 180,
     "lookback_candles": 100,
     "min_data_points": 10000
   },

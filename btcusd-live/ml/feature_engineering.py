@@ -362,10 +362,13 @@ class FeatureEngineering:
             future_highs = future_data['high']
             future_lows = future_data['low']
 
-            # Calculate TP and SL price levels
-            tp_price_long = entry_price * (1 + self.profit_threshold)
+            # Account for spread cost (~$30 on BTCUSD, or 0.03% at $100K)
+            spread_cost_pct = 0.0003  # 0.03% — adjust based on broker
+
+            # Calculate TP and SL price levels (TP must overcome spread)
+            tp_price_long = entry_price * (1 + self.profit_threshold + spread_cost_pct)
             sl_price_long = entry_price * (1 - self.stop_loss_threshold)
-            tp_price_short = entry_price * (1 - self.profit_threshold)
+            tp_price_short = entry_price * (1 - self.profit_threshold - spread_cost_pct)
             sl_price_short = entry_price * (1 + self.stop_loss_threshold)
 
             # --- Check LONG trade (BUY) ---
