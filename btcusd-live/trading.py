@@ -14,6 +14,41 @@ import threading
 import os
 from collections import defaultdict
 
+# --- Persistent State (survives PM2 restarts) ---
+STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
+
+def save_state(daily_trade_count, weekly_trade_count, consecutive_losses, circuit_breaker_triggered, 
+               total_wins=0, total_losses=0, daily_pl=0.0, myt_date=None, myt_week_iso=None):
+    """Save critical counters to state.json so they survive PM2 restarts."""
+    _myt_now = datetime.now(UTC) + timedelta(hours=8)
+    state = {
+        "daily_trade_count": daily_trade_count,
+        "weekly_trade_count": weekly_trade_count,
+        "consecutive_losses": consecutive_losses,
+        "circuit_breaker_triggered": circuit_breaker_triggered,
+        "total_wins": total_wins,
+        "total_losses": total_losses,
+        "daily_pl": daily_pl,
+        "myt_date": myt_date or _myt_now.strftime('%Y-%m-%d'),
+        "myt_week_iso": myt_week_iso or _myt_now.isocalendar()[1],
+        "myt_year": _myt_now.year,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    try:
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+    except Exception as e:
+        print(f"[STATE] Failed to save state: {e}")
+
+def load_state():
+    """Load persisted state from state.json. Returns dict or None if missing/stale."""
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+        return state
+    except (FileNotFoundError, json.JSONDecodeError, Exception):
+        return None
+
 # Supabase sync for cloud dashboard
 try:
     import supabase_sync
@@ -997,6 +1032,35 @@ try:
     except Exception as e:
         log_only(f"[BTCUSD RESTORE] Failed to restore stats: {e}")
 
+    # --- Load persisted state from state.json (overrides CSV restore for circuit breaker) ---
+    _myt_startup = datetime.now(UTC) + timedelta(hours=8)
+    _myt_startup_date = _myt_startup.strftime('%Y-%m-%d')
+    _myt_startup_week = _myt_startup.isocalendar()[1]
+    
+    persisted = load_state()
+    if persisted:
+        state_date = persisted.get("myt_date", "")
+        state_week = persisted.get("myt_week_iso", 0)
+        state_year = persisted.get("myt_year", 0)
+        
+        # Restore daily counters if same MYT day
+        if state_date == _myt_startup_date:
+            daily_trade_count = max(daily_trade_count, persisted.get("daily_trade_count", 0))
+            consecutive_losses = max(consecutive_losses, persisted.get("consecutive_losses", 0))
+            circuit_breaker_triggered = persisted.get("circuit_breaker_triggered", False) or circuit_breaker_triggered
+            total_wins = max(total_wins, persisted.get("total_wins", 0))
+            total_losses = max(total_losses, persisted.get("total_losses", 0))
+            log_only(f"[STATE] Restored from state.json: trades={daily_trade_count}, consec_losses={consecutive_losses}, breaker={circuit_breaker_triggered}")
+        else:
+            log_only(f"[STATE] state.json is from {state_date}, today is {_myt_startup_date} -- starting fresh")
+        
+        # Restore weekly counter if same MYT week
+        if state_week == _myt_startup_week and state_year == _myt_startup.year:
+            weekly_trade_count = max(weekly_trade_count, persisted.get("weekly_trade_count", 0))
+            log_only(f"[STATE] Weekly trades restored: {weekly_trade_count}")
+    else:
+        log_only("[STATE] No state.json found -- using CSV restore only")
+
     # [BTCUSD CRASH] Crash detector state
     crash_mode_active = False
     crash_mode_until = None  # datetime when crash mode expires
@@ -1028,7 +1092,12 @@ try:
         min_meaningful_win = 0.50
         if profit > min_meaningful_win:
             total_wins += 1
-            consecutive_losses = 0  # Reset consecutive losses on meaningful win only
+            # Only reset consecutive_losses if circuit breaker has NOT already fired today
+            # Once breaker fires, it stays for the rest of the MYT day regardless of wins
+            if not circuit_breaker_triggered:
+                consecutive_losses = 0  # Reset consecutive losses on meaningful win only
+            else:
+                log_only(f"[CIRCUIT BREAKER] Win ${profit:.2f} but breaker already triggered -- consecutive loss counter stays at {consecutive_losses}")
             result = "WIN"
         elif profit > 0:
             total_wins += 1
@@ -1116,6 +1185,20 @@ try:
             circuit_breaker_triggered = True
             _myt_today = (datetime.now(UTC) + timedelta(hours=8)).strftime('%Y-%m-%d')
             log_notify(f"[BTCUSD CIRCUIT BREAKER] {consecutive_losses} consecutive losses! Trading STOPPED until midnight MYT ({_myt_today}).")
+
+        # Persist state after every trade close
+        _myt_now = datetime.now(UTC) + timedelta(hours=8)
+        save_state(
+            daily_trade_count=daily_trade_count,
+            weekly_trade_count=weekly_trade_count,
+            consecutive_losses=consecutive_losses,
+            circuit_breaker_triggered=circuit_breaker_triggered,
+            total_wins=total_wins,
+            total_losses=total_losses,
+            daily_pl=daily_pl,
+            myt_date=_myt_now.strftime('%Y-%m-%d'),
+            myt_week_iso=_myt_now.isocalendar()[1],
+        )
 
     def sync_existing_positions():
         """Sync tracked_positions with actual open positions (for bot restart scenarios)"""
@@ -1281,8 +1364,20 @@ try:
         if last_pl_date is not None and last_pl_date != today_date:
             daily_pl = 0
             daily_trade_count = 0
+            consecutive_losses = 0
+            circuit_breaker_triggered = False
+            total_wins = 0
+            total_losses = 0
             last_pl_date = today_date
-            log_only(f"[RESET] New trading day ({today_date}) - daily trade count and P/L reset")
+            _myt_now = datetime.now(UTC) + timedelta(hours=8)
+            save_state(
+                daily_trade_count=0, weekly_trade_count=weekly_trade_count,
+                consecutive_losses=0, circuit_breaker_triggered=False,
+                total_wins=0, total_losses=0, daily_pl=0.0,
+                myt_date=_myt_now.strftime('%Y-%m-%d'),
+                myt_week_iso=_myt_now.isocalendar()[1],
+            )
+            log_only(f"[RESET] New trading day ({today_date}) - daily trade count, P/L, circuit breaker reset")
             # Flush demo daily summary for previous day
             try:
                 bal = mt5.account_info().balance if mt5.account_info() else 0
