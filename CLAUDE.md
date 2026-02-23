@@ -6,13 +6,21 @@ This file provides context for AI agents working on this codebase.
 
 Automated MT5 trading bot with ML-based signal prediction. BTCUSD bot with ensemble ML (RF + XGBoost + LightGBM), binary classification, H1 timeframe.
 
-### Current Status (Feb 22, 2026)
+### Current Status (Feb 23, 2026)
 - **LIVE:** Account 51439249 — **STOPPED** (pending demo validation of new H1 model)
-- **DEMO:** Account 61459537 — Running from `btcusd-live/` (temporary, migrating to `btcusd/`)
+- **DEMO:** Account 61459537 — Running from `btcusd/` (PM2 process: `bot-btcusd`)
+- **Demo Week:** Feb 24-28 — clean evaluation, partial profit DISABLED, state persistence ACTIVE
 - **Model:** H1 binary classification, 63.6% walk-forward accuracy, 1.93 profit factor in backtest
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
 - **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
+
+### Feb 23 Fixes (Critical)
+- **State persistence (`state.json`):** `daily_trade_count`, `weekly_trade_count`, `consecutive_losses`, `circuit_breaker_triggered` now saved after every trade close and loaded on startup. No more counter resets on PM2 restart.
+- **Sticky circuit breaker:** Once triggered (5 consecutive losses), wins do NOT reset `consecutive_losses`. Stays active until midnight MYT.
+- **Partial profit DISABLED:** For clean demo evaluation. Was creating $0 P/L trades (breakeven SL too tight for H1 ATR).
+- **Directory migration:** Demo bot moved from `btcusd-live/` to `btcusd/`. Live codebase untouched for isolation.
+- **Supabase key updated:** New `sb_secret_` format key (old JWT keys deprecated).
 
 ### The H1 Breakthrough (Feb 22, 2026)
 Previous M5 model had 37.6% win rate, 93% SHORT bias, -5.18% growth. After systematic experimentation:
@@ -126,7 +134,8 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 - **Binary Ensemble Voting:** `ensemble_predictor.py` — `most_common_count >= 2` for majority. HOLD = models disagree, not a predicted class.
 - **Balanced Downsampling:** `_balance_training_data()` in `ensemble_trainer.py` — called before each model fit.
 - **Session Trading:** Asian, EU, US sessions. Off-hours = +10% confidence threshold.
-- **Circuit Breaker:** 5 consecutive losses → daily shutdown. $0.50 min win to reset counter.
+- **Circuit Breaker:** 5 consecutive losses → daily shutdown. STICKY: wins don't reset once triggered. $0.50 min win to reset counter (only if breaker hasn't fired).
+- **State Persistence:** `save_state()` writes `state.json` after every trade close. `load_state()` on startup restores counters. Cross-checked with CSV restore (takes max). Resets at MYT midnight (daily) and Monday 00:00 MYT (weekly).
 - **Dynamic SL/TP:** SL = 1.0× ATR, TP = 1.5× ATR.
 - **Demo Logger:** `demo_logger.py` hooks into `log_blocked_signal()` and `log_trade_result()`.
 - **Walk-Forward:** `walk_forward_validate()` in ensemble_trainer — 5 splits, rolling train/test.
@@ -159,7 +168,8 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 ## Development Guidelines
 
 - **Branch:** `main` only. Auto-merge PRs granted.
-- **Testing:** Restart PM2 after code changes: `pm2 restart bot-btcusd-live --update-env`
+- **Testing:** Restart PM2 after code changes: `pm2 restart bot-btcusd --update-env`
 - **SECURITY:** Never commit tokens/keys. Telegram token in env var `TELEGRAM_BOT_TOKEN`.
 - **Windows:** PowerShell syntax. ASCII-safe print (no emoji — cp1252 crashes).
-- **Demo vs Live:** `mt5_auth.json` controls which account. Live backup at `mt5_auth_live.json.bak`.
+- **Demo vs Live:** Demo runs from `btcusd/`, live codebase in `btcusd-live/` (untouched). `mt5_auth.json` controls which account. Live backup at `btcusd-live/mt5_auth_live.json.bak`.
+- **Directory isolation:** ALL demo changes go in `btcusd/`. NEVER modify `btcusd-live/` during demo week.

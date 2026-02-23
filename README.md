@@ -5,15 +5,16 @@ Automated Bitcoin trading bot for MetaTrader 5 with **ensemble ML (RF + XGBoost 
 **Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## 🔴 Status (Feb 22, 2026)
+## 🔴 Status (Feb 23, 2026)
 
 | Item | Status |
 |------|--------|
 | **Live Bot** | ⏸️ STOPPED — pending demo validation |
-| **Demo Bot** | ✅ Running (H1 binary model, account 61459537) |
+| **Demo Bot** | ✅ Running from `btcusd/` (H1 binary model, account 61459537) |
 | **Model** | 63.6% walk-forward accuracy, 65.25% test |
 | **MQL5 Signal** | ✅ LIVE & APPROVED ($30/month) |
 | **Auto-Retrain** | Weekly Sunday 3AM MYT |
+| **Demo Week** | Feb 24-28 — clean evaluation (partial profit disabled, state persistence active) |
 
 ### Backtest Results (0.01 lots, $200 account)
 | Metric | Value |
@@ -77,11 +78,11 @@ Every 60 seconds:
 
 ```
 mt5-trading/
-├── btcusd-live/           # LIVE bot directory (currently stopped)
+├── btcusd/                # DEMO bot directory (active — demo evaluation week)
 │   ├── trading.py         # Main bot loop (~2200 lines)
 │   ├── config.json        # H1, 0.01 lots, 3600s cooldown, 5 max consec losses
 │   ├── ml_config.json     # 365d, binary, 16 features, 60% confidence
-│   ├── backtest_ml.py     # ML-aware backtester with realistic sizing
+│   ├── state.json         # Persisted counters (survives PM2 restarts)
 │   ├── demo_logger.py     # Structured CSV logging for demo validation
 │   ├── ml/                # ML pipeline
 │   │   ├── ensemble_predictor.py  # 2/3 majority voting (binary)
@@ -95,7 +96,7 @@ mt5-trading/
 │   │   ├── signals.csv    # Every ML signal (executed + blocked)
 │   │   └── daily_summary.csv  # Daily rollup
 │   └── mt5_auth.json      # MT5 credentials (gitignored)
-├── btcusd/                # Demo bot (mirror of btcusd-live)
+├── btcusd-live/           # LIVE bot directory (stopped, untouched for isolation)
 ├── xauusd/                # Gold bot (single XGBoost, stopped)
 ├── eurusd/                # Euro bot (single XGBoost, stopped)
 ├── vercel-dashboard/      # Cloud dashboard (Vercel + Supabase)
@@ -157,7 +158,8 @@ pm2 save
 | **ATR Floor** | ATR(14) must be ≥ 50 (skip chop) |
 | **Spread Filter** | Max 0.05% of price |
 | **1-Hour Cooldown** | Min 3600s between trades |
-| **Partial Profit** | Close 50% at 1R, move SL to breakeven |
+| **Partial Profit** | DISABLED for demo week (was: close 50% at 1R, breakeven SL) |
+| **State Persistence** | `state.json` — counters survive PM2 restarts |
 | **Min Hold** | 15 min before trailing stop can trigger |
 | **$0.50 Win Floor** | Micro-wins don't reset circuit breaker counter |
 
