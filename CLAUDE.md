@@ -222,7 +222,11 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 
 - **Branch:** `main` only. Auto-merge PRs granted.
 - **Testing:** Restart PM2 after code changes: `pm2 restart bot-btcusd --update-env`
-- **SECURITY:** Never commit tokens/keys. Telegram token in env var `TELEGRAM_BOT_TOKEN`.
+- **SECURITY — CRITICAL:** NEVER commit tokens/keys/secrets. This has caused GitHub alerts TWICE (Feb 19 + Feb 24). Rules:
+  - ALWAYS use env vars or `.env` (gitignored) for credentials
+  - NEVER use `git add -A` — always `git add <specific files>` and review staged files
+  - One-off scripts with credentials belong in gitignored folders, not the repo
+  - Telegram token in env var `TELEGRAM_BOT_TOKEN`, Supabase key in `.env`
 - **Windows:** PowerShell syntax. ASCII-safe print (no emoji — cp1252 crashes).
 - **Demo vs Live:** Demo runs from `btcusd/`, live codebase in `btcusd-live/` (untouched). `mt5_auth.json` controls which account. Live backup at `btcusd-live/mt5_auth_live.json.bak`.
 - **Directory isolation:** ALL demo changes go in `btcusd/`. NEVER modify `btcusd-live/` during demo week.
