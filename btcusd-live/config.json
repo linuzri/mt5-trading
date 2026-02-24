@@ -84,16 +84,16 @@
       },
       "off_hours": {
         "enabled": true,
-        "confidence_adjustment": 0.10,
+        "confidence_adjustment": 0.1,
         "_comment": "Off-hours: +10% threshold = effective 65% confidence needed. Was 20% which blocked nearly all off-hours trades."
       }
     }
   },
   "_partial_profit_comment": "Partial Profit Taking: Close portion of position at 1R, move SL to breakeven",
   "partial_profit_taking": {
-    "enabled": true,
+    "enabled": false,
     "close_percent": 50,
-    "trigger_at_rr": 1.0,
+    "trigger_at_rr": 1,
     "move_sl_to_breakeven": true,
     "_explanation": "When price moves 1x your risk (SL distance), close 50% and move SL to entry."
   },
@@ -114,9 +114,9 @@
   },
   "dynamic_sltp": {
     "enabled": true,
-    "sl_atr_multiplier": 1.0,
+    "sl_atr_multiplier": 1,
     "tp_atr_multiplier": 1.5,
-    "min_tp": 75.0,
+    "min_tp": 75,
     "_explanation": "SL = 1.0x ATR(14), TP = 1.5x ATR(14). Min TP floor $75 ensures spread doesn't eat profits in low vol. E.g. ATR=100: SL=$100, TP=$150."
   },
   "off_hours_max_trades": 5,

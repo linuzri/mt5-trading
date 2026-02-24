@@ -1,53 +1,41 @@
 {
   "model_type": "ensemble",
   "symbol": "BTCUSD",
-  "timeframe": "M5",
+  "timeframe": "H1",
 
   "data_collection": {
-    "training_period_days": 180,
+    "training_period_days": 365,
     "lookback_candles": 100,
     "min_data_points": 10000
   },
 
   "features": [
-    "rsi_14",
-    "macd_line",
-    "macd_signal",
-    "atr_14",
     "bb_upper",
     "bb_lower",
-    "bb_width",
-    "volume_ratio",
-    "price_change_1min",
-    "price_change_5min",
-    "candle_body_ratio",
-    "upper_shadow_ratio",
-    "lower_shadow_ratio",
-    "engulfing",
-    "ema_cross",
-    "price_vs_ema20",
-    "price_vs_ema50",
-    "trend_strength",
-    "is_trending",
-    "momentum_10",
-    "higher_high",
-    "lower_low",
-    "htf_bias",
-    "price_vs_ema200",
-    "consecutive_direction",
-    "price_velocity",
     "range_position",
-    "drawdown_pct"
+    "price_vs_ema200",
+    "atr_14",
+    "drawdown_pct",
+    "bb_width",
+    "trend_strength",
+    "macd_signal",
+    "volume_ratio",
+    "price_vs_ema50",
+    "macd_line",
+    "rsi_14",
+    "price_vs_ema20",
+    "hourly_return",
+    "daily_range_position"
   ],
 
   "labeling": {
     "method": "sltp_aware",
-    "lookahead_candles": 18,
-    "profit_threshold": 0.0015,
-    "stop_loss_threshold": 0.0010,
+    "lookahead_candles": 12,
+    "profit_threshold": 0.005,
+    "stop_loss_threshold": 0.004,
     "label_classes": ["buy", "sell", "hold"],
-    "_comment_lookahead": "18 candles on M5 = 1.5 hours. Previous 90 candles (7.5h) was too long for scalping and produced noisy labels.",
-    "_comment_thresholds": "profit_threshold and stop_loss_threshold now aligned with config.json SL/TP ratio (1.5:1 TP:SL). At BTC ~$100K: SL=$100 (0.10%), TP=$150 (0.15%)."
+    "_comment_lookahead": "12 candles on H1 = 12 hours. Plenty of time for a real move.",
+    "_comment_thresholds": "TP=0.5% ($500 at BTC $100K), SL=0.4% ($400). After $30 spread, effective TP=$470. R:R=1.25:1."
   },
 
   "model_params": {
@@ -72,15 +60,15 @@
   },
 
   "prediction": {
-    "confidence_threshold": 0.55,
-    "min_probability_diff": 0.12,
-    "max_hold_probability": 0.50,
+    "confidence_threshold": 0.60,
+    "min_probability_diff": 0.15,
+    "max_hold_probability": 0.45,
     "_comment": "2026-01-29: Lowered thresholds after 41h of no trades. Old: 65%/15%/55%. With 3-class model, 50% threshold is realistic for volatile BTC markets."
   },
 
   "risk_management": {
     "min_atr_threshold": 50,
-    "max_trades_per_day": 999,
+    "max_trades_per_day": 3,
     "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
     "min_win_rate": 0.50
   },
@@ -90,7 +78,7 @@
     "xgb_model": "models/ensemble_xgb.pkl",
     "lgb_model": "models/ensemble_lgb.pkl",
     "scaler": "models/ensemble_scaler.pkl",
-    "metadata": "models/ensemble_metadata.json"
+    "metadata": "models/ensemble_btcusd-live_metadata.json"
   },
 
   "paths": {

@@ -326,6 +326,20 @@ class FeatureEngineering:
         df['consecutive_direction'], df['price_velocity'], df['range_position'], df['drawdown_pct'] = \
             self.calculate_crash_features(df)
 
+        # H1-specific features
+        df['hourly_return'] = df['close'].pct_change().fillna(0)
+
+        # Daily range position: where current price sits in today's high-low range
+        if 'timestamp' in df.columns:
+            df['_date'] = df['timestamp'].dt.date
+            daily_high = df.groupby('_date')['high'].transform('max')
+            daily_low = df.groupby('_date')['low'].transform('min')
+            daily_range = daily_high - daily_low
+            df['daily_range_position'] = ((df['close'] - daily_low) / daily_range.replace(0, 1)).fillna(0.5)
+            df.drop('_date', axis=1, inplace=True)
+        else:
+            df['daily_range_position'] = 0.5
+
         print(f"[OK] Added {len(self.feature_names)} features")
 
         return df
@@ -362,10 +376,13 @@ class FeatureEngineering:
             future_highs = future_data['high']
             future_lows = future_data['low']
 
-            # Calculate TP and SL price levels
-            tp_price_long = entry_price * (1 + self.profit_threshold)
+            # Account for spread cost (~$30 on BTCUSD, or 0.03% at $100K)
+            spread_cost_pct = 0.0003  # 0.03% — adjust based on broker
+
+            # Calculate TP and SL price levels (TP must overcome spread)
+            tp_price_long = entry_price * (1 + self.profit_threshold + spread_cost_pct)
             sl_price_long = entry_price * (1 - self.stop_loss_threshold)
-            tp_price_short = entry_price * (1 - self.profit_threshold)
+            tp_price_short = entry_price * (1 - self.profit_threshold - spread_cost_pct)
             sl_price_short = entry_price * (1 + self.stop_loss_threshold)
 
             # --- Check LONG trade (BUY) ---
@@ -415,14 +432,29 @@ class FeatureEngineering:
 
         df['label'] = labels
 
-        # Count label distribution
+        # Count label distribution before dropping HOLD
         label_counts = pd.Series(labels).value_counts().sort_index()
-        print(f"   Label distribution:")
-        label_map = {0: 'SELL', 1: 'BUY', 2: 'HOLD'}
         total = len(labels)
+        label_map = {0: 'SELL', 1: 'BUY', 2: 'HOLD'}
+        print(f"   Label distribution (before HOLD drop):")
         for label, count in label_counts.items():
             label_name = label_map.get(label, f'Unknown({label})')
             percentage = (count / total) * 100
+            print(f"   - {label_name}: {count} ({percentage:.1f}%)")
+
+        # Binary classification: drop HOLD rows (untradeable sideways candles)
+        hold_count = len(df[df['label'] == 2])
+        df = df[df['label'] != 2].reset_index(drop=True)
+        print(f"   Dropped {hold_count} HOLD rows ({hold_count/total*100:.1f}% untradeable)")
+        print(f"   Remaining: {len(df)} tradeable samples (BUY + SELL only)")
+
+        # Final binary distribution
+        final_counts = df['label'].value_counts().sort_index()
+        final_total = len(df)
+        print(f"   Final binary distribution:")
+        for label, count in final_counts.items():
+            label_name = label_map.get(label, f'Unknown({label})')
+            percentage = (count / final_total) * 100
             print(f"   - {label_name}: {count} ({percentage:.1f}%)")
 
         return df

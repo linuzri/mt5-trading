@@ -592,7 +592,8 @@ def check_smart_exit(symbol, positions, tracked_positions):
         current_price = tick.bid if pos.type == 0 else tick.ask
         
         try:
-            position_open_time = datetime.fromtimestamp(pos.time, UTC)
+            # MT5 position.time is in broker server time, not true UTC epoch
+            position_open_time = datetime.fromtimestamp(pos.time - BROKER_UTC_OFFSET, UTC)
             minutes_held = (now - position_open_time).total_seconds() / 60
         except Exception:
             minutes_held = 0
@@ -919,6 +920,17 @@ try:
     log_notify(f"[BTCUSD STARTUP] Circuit Breaker: {max_consecutive_losses} consecutive losses = DAILY SHUTDOWN (MYT)")
     if strategy == "ml_xgboost":
         log_notify(f"[BTCUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
+
+    # Detect broker UTC offset dynamically
+    _tick = mt5.symbol_info_tick(symbol)
+    if _tick:
+        server_epoch = _tick.time
+        utc_epoch = int(datetime.now(UTC).timestamp())
+        BROKER_UTC_OFFSET = round((server_epoch - utc_epoch) / 3600) * 3600  # round to nearest hour in seconds
+        log_notify(f'[BTCUSD STARTUP] Detected broker UTC offset: +{BROKER_UTC_OFFSET // 3600} hours ({BROKER_UTC_OFFSET}s)')
+    else:
+        BROKER_UTC_OFFSET = 7200  # fallback UTC+2
+        log_notify('[BTCUSD STARTUP] Could not detect broker offset, using default UTC+2')
 
     last_filter_message = None  # Track last filter message to avoid spamming
 
@@ -2192,7 +2204,8 @@ try:
             if _current_positions:
                 for _pos in _current_positions:
                     try:
-                        _pos_open_time = datetime.fromtimestamp(_pos.time, UTC)
+                        # MT5 position.time is in broker server time, not true UTC epoch
+                        _pos_open_time = datetime.fromtimestamp(_pos.time - BROKER_UTC_OFFSET, UTC)
                         _mins_held = (datetime.now(UTC) - _pos_open_time).total_seconds() / 60
                         if _mins_held < min_hold_minutes:
                             _skip_trailing = True

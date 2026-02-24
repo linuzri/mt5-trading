@@ -61,7 +61,16 @@ def _worker():
     while True:
         try:
             func, args, kwargs = _push_queue.get(timeout=60)
-            func(*args, **kwargs)
+            for attempt in range(3):
+                try:
+                    func(*args, **kwargs)
+                    break
+                except Exception as e:
+                    if attempt < 2:
+                        import time
+                        time.sleep(1 * (attempt + 1))
+                    else:
+                        print(f"[SUPABASE] Failed after 3 retries: {e}")
         except queue.Empty:
             continue
         except Exception as e:
@@ -111,25 +120,32 @@ def push_trade(bot_name: str, symbol: str, direction: str, entry_price: float,
             "confidence": confidence,
             "source": source
         }
-        _api_request("POST", "trades", data)
+        result = _api_request("POST", "trades", data)
+        if result is not None:
+            print(f"[SUPABASE] Trade pushed: {direction} {symbol} P/L ${profit:.2f} (source={source})")
+        else:
+            print(f"[SUPABASE] Trade push FAILED: {direction} {symbol} P/L ${profit:.2f}")
     _async_push(_push)
 
 
 def update_bot_status(bot_name: str, status: str = "online", today_pnl: float = 0, 
-                      today_trades: int = 0, today_wins: int = 0):
-    """Update bot status (upsert)"""
+                      today_trades: int = 0, today_wins: int = 0, balance: float = 0):
+    """Update bot status (upsert - creates row if not exists)"""
     def _push():
         data = {
+            "bot_name": bot_name,
             "status": status,
             "today_pnl": today_pnl,
             "today_trades": today_trades,
             "today_wins": today_wins,
+            "balance": balance,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
-        # Use PATCH to update existing row
-        url = f"{SUPABASE_URL}/rest/v1/bot_status?bot_name=eq.{bot_name}"
+        # Use POST with upsert (on conflict update by bot_name)
+        upsert_headers = {**HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"}
+        url = f"{SUPABASE_URL}/rest/v1/bot_status?on_conflict=bot_name"
         try:
-            resp = requests.patch(url, headers=HEADERS, json=data, timeout=5)
+            resp = requests.post(url, headers=upsert_headers, json=data, timeout=5)
             if resp.status_code not in [200, 201, 204]:
                 print(f"[SUPABASE] Bot status update failed: {resp.text[:200]}")
         except Exception as e:

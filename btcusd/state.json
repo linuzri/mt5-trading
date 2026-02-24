@@ -1,0 +1,13 @@
+{
+  "daily_trade_count": 0,
+  "weekly_trade_count": 0,
+  "consecutive_losses": 0,
+  "circuit_breaker_triggered": false,
+  "total_wins": 0,
+  "total_losses": 0,
+  "daily_pl": 0.0,
+  "myt_date": "2026-02-24",
+  "myt_week_iso": 9,
+  "myt_year": 2026,
+  "updated_at": "2026-02-23T10:30:00+00:00"
+}

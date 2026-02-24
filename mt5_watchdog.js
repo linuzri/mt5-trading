@@ -25,13 +25,18 @@ function sendTelegram(text) {
 
 function isMT5Running() {
   try {
-    const out = execSync('tasklist /FI "IMAGENAME eq terminal64.exe" /NH', { encoding: 'utf8' });
+    const out = execSync('tasklist /FI "IMAGENAME eq terminal64.exe" /NH', {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
     return out.includes('terminal64.exe');
   } catch { return false; }
 }
 
 function startMT5() {
-  exec(`start "" "${MT5_PATH}"`);
+  // Launch MT5 with the live account login to ensure correct account
+  exec(`"${MT5_PATH}" /login:51439249 /server:mt5-01.pepperstone.com`, { windowsHide: true });
 }
 
 console.log(`[MT5 Watchdog] Started at ${new Date().toISOString()}`);
