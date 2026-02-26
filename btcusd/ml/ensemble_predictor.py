@@ -44,7 +44,7 @@ class EnsemblePredictor:
         self.models = {}  # {'rf': model, 'xgb': model, 'lgb': model}
         self.scaler = None
         self.feature_names = None
-        self.label_map = {0: 'sell', 1: 'buy'}  # Binary classification
+        self.label_map = {0: 'bad', 1: 'good'}  # Quality filter, not direction
 
     def load_model(self):
         """Load all 3 trained models and shared scaler"""
@@ -131,9 +131,8 @@ class EnsemblePredictor:
         confidence = avg_probs[predicted_class]
 
         prob_dict = {
-            'sell': avg_probs[0],
-            'buy': avg_probs[1],
-            'hold': 0.0  # Binary model — no HOLD class
+            'bad': avg_probs[0],
+            'good': avg_probs[1],
         }
 
         if return_probabilities:
@@ -141,20 +140,66 @@ class EnsemblePredictor:
         else:
             return prediction, confidence
 
-    def _get_model_signal(self, probs):
-        """Get signal from a single model's probabilities (binary: SELL=0, BUY=1)"""
-        sell_prob = probs[0]
-        buy_prob = probs[1]
+    def get_quality_signal(self, features_dict):
+        """
+        Quality filter: should we take this trend trade or skip it?
 
-        # In binary mode, HOLD = neither direction is confident enough
-        max_prob = max(buy_prob, sell_prob)
+        Returns:
+            ('take', confidence, reason) or ('skip', confidence, reason)
+        """
+        if not self.models:
+            self.load_model()
+
+        features_scaled = self.prepare_features(features_dict)
+
+        # Get each model's prediction
+        model_votes = {}
+        model_good_probs = {}
+        name_map = {'rf': 'RF', 'xgb': 'XGB', 'lgb': 'LGB'}
+
+        for name, model in self.models.items():
+            probs = model.predict_proba(features_scaled)[0]
+            good_prob = probs[1]  # P(GOOD)
+            model_good_probs[name] = good_prob
+            model_votes[name] = 'GOOD' if good_prob > 0.5 else 'BAD'
+
+        # Build vote description
+        vote_parts = []
+        for name in ['rf', 'xgb', 'lgb']:
+            vote_parts.append(f"{name_map[name]}:{model_votes[name]}:{int(model_good_probs[name]*100)}%")
+        votes_str = " ".join(vote_parts)
+
+        # Count GOOD votes
+        good_count = sum(1 for v in model_votes.values() if v == 'GOOD')
+
+        # Average confidence of GOOD probability across all models
+        avg_good_prob = np.mean(list(model_good_probs.values()))
+
+        # TAKE: 2/3+ models predict GOOD AND averaged confidence > 65%
+        quality_threshold = 0.65
+        if good_count >= 2 and avg_good_prob > quality_threshold:
+            reason = f"Quality: TAKE ({votes_str}) | {good_count}/3 GOOD | conf={avg_good_prob:.0%}"
+            return 'take', avg_good_prob, reason
+        else:
+            if good_count < 2:
+                reason = f"Quality: SKIP ({votes_str}) | only {good_count}/3 GOOD"
+            else:
+                reason = f"Quality: SKIP ({votes_str}) | conf={avg_good_prob:.0%} < {quality_threshold:.0%}"
+            return 'skip', avg_good_prob, reason
+
+    def _get_model_signal(self, probs):
+        """Get signal from a single model's probabilities (binary: BAD=0, GOOD=1)"""
+        bad_prob = probs[0]
+        good_prob = probs[1]
+
+        max_prob = max(good_prob, bad_prob)
         if max_prob < self.confidence_threshold:
             return 'hold', max_prob
 
-        if buy_prob > sell_prob:
-            return 'buy', buy_prob
+        if good_prob > bad_prob:
+            return 'good', good_prob
         else:
-            return 'sell', sell_prob
+            return 'bad', bad_prob
 
     def get_trade_signal(self, features_dict):
         """

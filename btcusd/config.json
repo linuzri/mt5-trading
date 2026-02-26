@@ -25,7 +25,7 @@
   "atr_period": 14,
   "atr_multiplier": 1.5,
   "enable_trailing_stop": true,
-  "strategy": "ml_xgboost",
+  "strategy": "trend_following",
   "bollinger_period": 20,
   "bollinger_stddev": 2,
   "rsi_period": 14,
@@ -114,10 +114,10 @@
   },
   "dynamic_sltp": {
     "enabled": true,
-    "sl_atr_multiplier": 1,
-    "tp_atr_multiplier": 1.5,
+    "sl_atr_multiplier": 1.5,
+    "tp_atr_multiplier": 2.0,
     "min_tp": 75,
-    "_explanation": "SL = 1.0x ATR(14), TP = 1.5x ATR(14). Min TP floor $75 ensures spread doesn't eat profits in low vol. E.g. ATR=100: SL=$100, TP=$150."
+    "_explanation": "Path B: SL = 1.5x ATR(14), TP = 2.0x ATR(14). R:R = 1.33:1. Matches backtest config."
   },
   "off_hours_max_trades": 5,
   "max_weekly_trades": 15,

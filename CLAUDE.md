@@ -4,52 +4,45 @@ This file provides context for AI agents working on this codebase.
 
 ## Project Overview
 
-Automated MT5 trading bot with ML-based signal prediction. BTCUSD bot with ensemble ML (RF + XGBoost + LightGBM), binary classification, H1 timeframe.
+Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (H4 direction + H1 pullback/breakout entries) with ATR-based risk management. ML ensemble trained but dormant (quality filter, not in trading loop).
 
-### Current Status (Feb 23, 2026)
-- **LIVE:** Account 51439249 — **STOPPED** (pending demo validation of new H1 model)
-- **DEMO:** Account 61459537 — Running from `btcusd/` (PM2 process: `bot-btcusd`)
-- **Demo Week:** Feb 24-28 — clean evaluation, partial profit DISABLED, state persistence ACTIVE
-- **Model:** H1 binary classification, 63.6% walk-forward accuracy, 1.93 profit factor in backtest
+### Current Status (Feb 26, 2026)
+- **LIVE:** Account 51439249 — **STOPPED** (pending demo validation)
+- **DEMO:** Account 61459537 — Running from `btcusd/` (PM2: `bot-btcusd`)
+- **Strategy:** `trend_following` — H4 EMA20/50 alignment + H1 pullback/breakout entries
+- **Demo Week 2:** March 2-7 (bot running over weekend for testing)
+- **ML Model:** Trained (trade quality filter), loaded but NOT in trading loop
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
-- **Auto-retrain:** Weekly Sunday 3AM MYT via `auto_retrain.py` cron
 - **Auto-merge PRs:** Granted — merge directly without review
 
-### Feb 23 Fixes (Critical)
-- **State persistence (`state.json`):** `daily_trade_count`, `weekly_trade_count`, `consecutive_losses`, `circuit_breaker_triggered` now saved after every trade close and loaded on startup. No more counter resets on PM2 restart.
-- **Sticky circuit breaker:** Once triggered (5 consecutive losses), wins do NOT reset `consecutive_losses`. Stays active until midnight MYT.
-- **Partial profit DISABLED:** For clean demo evaluation. Was creating $0 P/L trades (breakeven SL too tight for H1 ATR).
-- **Directory migration:** Demo bot moved from `btcusd-live/` to `btcusd/`. Live codebase untouched for isolation.
-- **Supabase key updated:** New `sb_secret_` format key (old JWT keys deprecated).
+### Feb 26 — Path B Pivot (Major Architecture Change)
 
-### The H1 Breakthrough (Feb 22, 2026)
-Previous M5 model had 37.6% win rate, 93% SHORT bias, -5.18% growth. After systematic experimentation:
+**What happened:** Found critical look-ahead bias in `daily_range_position` feature. The 63.6% walk-forward accuracy was fake — model saw future data. After fixing, honest accuracy was ~52%. Ran 4 experiments trying to make ML predict BUY/SELL — all failed to achieve balanced recall.
 
-| Experiment | Result | Deployed? |
-|-----------|--------|-----------|
-| 3-class, M5, 180d, 28 features | 36.4% accuracy | ❌ |
-| Binary, M5, 15 features | 51.8% walk-forward, 26% SELL recall | ❌ |
-| **Binary, H1, 16 features, balanced downsampling** | **63.6% walk-forward, 65.25% test** | ✅ Demo |
+**The pivot:** Stopped asking ML "should I BUY or SELL?" and switched to simple rule-based trend-following. ML retrained as a quality filter ("is this a good trend trade?") but even that only added marginal value in backtest, so deployed without it.
 
-Key changes that worked:
-- **H1 timeframe** (was M5) — spread is 6% of TP instead of 15%
-- **Binary classification** — drop HOLD rows, BUY vs SELL only (baseline 50%)
-- **Training data downsampling** — equal BUY/SELL counts per model (no class weights)
-- **16 features** — `daily_range_position` is #1 most important feature
-- **365 days training** — covers multiple market regimes
-- **TP=0.5%/SL=0.4%** ($500/$400 at BTC $100K), 12-candle lookahead (12 hours)
+**Journey summary:**
+- Started: ML ensemble scalping on M5, 93% short bias, -5.18% growth, 101 trades/week
+- Now: Simple trend-following on H4/H1, no ML in loop, 3 trades/day max
+- Discovered: SELL 2x class weight → 93% short bias, 30 days training too little, look-ahead bias inflated accuracy 50%→64%, ML couldn't predict direction with balanced recall
 
-Backtest results (0.01 lots, $200 account):
-- 64.1% WR, 1.93 profit factor, 4.76 Sharpe
-- Max DD: 9.8% ($25.76), equity never below $198.49
-- +$363 total P/L (181% return), 312 trades over ~110 days
+**Backtest (90 days OOS, 0.01 lots, during 26% BTC crash):**
+- 99 trades, 48.5% WR, PF 1.16, +$78.50 P/L
+- Survived hostile market conditions (BTC $92K → $68K)
 
-### Go-Live Criteria (after 15-20 demo trades)
-- Win rate > 55%
-- Profit factor > 1.3
-- BUY/SELL split 35-65%
-- No single-day drawdown > 5%
+### Go-Live Criteria (Demo Week 2, review March 7)
+- Win rate > 45%
+- Profit factor > 1.1
+- BUY/SELL direction follows H4 trend
+- No single-day drawdown > 10% of account
 - **Nazri must give explicit approval**
+
+### Key Lessons Learned
+- **NEVER use `groupby` on calendar dates in features** — leaks future data within the same day
+- **ML BUY/SELL prediction is extremely hard** on BTC — 4 experiments, best was 53.76% with terrible recall balance
+- **Simple trend-following beats complex ML** when the ML can't achieve >55% accuracy
+- **Always verify backtest P/L math** — had 100x error in lot size calculation
+- **Backtest with spread costs** — $30 spread on BTCUSD eats into profits significantly
 
 ## Architecture
 

@@ -153,6 +153,9 @@ class MLBacktester:
         print("=" * 60)
 
         # Load data and add features
+        # IMPORTANT: All features must use only backward-looking calculations
+        # (rolling windows, shifted data). Never use groupby on calendar date
+        # as this leaks future information within the same day.
         df = pd.read_csv('models/training_data_btcusd.csv', parse_dates=['timestamp'])
         fe = FeatureEngineering('ml_config.json')
         df = fe.add_all_features(df)

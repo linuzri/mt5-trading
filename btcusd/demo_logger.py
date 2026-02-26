@@ -145,7 +145,7 @@ def track_trade_close(direction, pnl, is_win):
 def flush_daily_summary(account_balance):
     """Write daily summary and reset. Call at midnight UTC or end of day."""
     s = _daily_state
-    if s["date"] and s["signals"] > 0:
+    if s["date"] and (s["signals"] > 0 or s["trades"] > 0):
         log_daily_summary(
             s["date"], s["trades"], s["buys"], s["sells"],
             s["wins"], s["losses"], s["pnl"],

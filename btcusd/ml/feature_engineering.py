@@ -329,16 +329,24 @@ class FeatureEngineering:
         # H1-specific features
         df['hourly_return'] = df['close'].pct_change().fillna(0)
 
-        # Daily range position: where current price sits in today's high-low range
+        # Daily range position: where price sits in the ROLLING 24-candle range (H1 = 24 hours)
+        # Uses ONLY past data — no look-ahead bias
+        rolling_window = 24  # 24 H1 candles = 1 day
+        rolling_high = df['high'].rolling(window=rolling_window, min_periods=6).max()
+        rolling_low = df['low'].rolling(window=rolling_window, min_periods=6).min()
+        rolling_range = rolling_high - rolling_low
+        df['daily_range_position'] = ((df['close'] - rolling_low) / rolling_range.replace(0, 1)).fillna(0.5)
+
+        # Session encoding (H1 candle hour in UTC)
         if 'timestamp' in df.columns:
-            df['_date'] = df['timestamp'].dt.date
-            daily_high = df.groupby('_date')['high'].transform('max')
-            daily_low = df.groupby('_date')['low'].transform('min')
-            daily_range = daily_high - daily_low
-            df['daily_range_position'] = ((df['close'] - daily_low) / daily_range.replace(0, 1)).fillna(0.5)
-            df.drop('_date', axis=1, inplace=True)
-        else:
-            df['daily_range_position'] = 0.5
+            hour = df['timestamp'].dt.hour
+            # Cyclical encoding (so hour 23 is close to hour 0)
+            df['hour_sin'] = np.sin(2 * np.pi * hour / 24)
+            df['hour_cos'] = np.cos(2 * np.pi * hour / 24)
+            # Day of week (crypto trades weekends but behavior differs)
+            dow = df['timestamp'].dt.dayofweek
+            df['dow_sin'] = np.sin(2 * np.pi * dow / 7)
+            df['dow_cos'] = np.cos(2 * np.pi * dow / 7)
 
         print(f"[OK] Added {len(self.feature_names)} features")
 
@@ -459,6 +467,53 @@ class FeatureEngineering:
 
         return df
 
+    def create_labels_trade_quality(self, df, forward_candles=12, min_profit_pct=0.003):
+        """
+        Label for trade quality filtering, NOT direction prediction.
+
+        Given the KNOWN trend direction at each candle:
+        - In uptrend: label=1 (GOOD) if price goes up >0.3% in next 12 candles
+        - In uptrend: label=0 (BAD) if price goes down or sideways
+        - In downtrend: label=1 (GOOD) if price goes down >0.3% in next 12 candles
+        - In downtrend: label=0 (BAD) if price goes up or sideways
+
+        This asks "does the trend continue?" not "which direction?"
+        """
+        # Determine local trend using EMA20 > EMA50
+        ema20 = df['close'].ewm(span=20, adjust=False).mean()
+        ema50 = df['close'].ewm(span=50, adjust=False).mean()
+        is_uptrend = ema20 > ema50
+
+        # Forward return
+        future_return = (df['close'].shift(-forward_candles) - df['close']) / df['close']
+
+        labels = pd.Series(-1, index=df.index)  # -1 = undefined
+
+        # In uptrend: GOOD if price went up enough
+        uptrend_mask = is_uptrend
+        labels[uptrend_mask & (future_return > min_profit_pct)] = 1   # GOOD trend trade
+        labels[uptrend_mask & (future_return <= min_profit_pct)] = 0  # BAD - trend didn't continue
+
+        # In downtrend: GOOD if price went down enough
+        downtrend_mask = ~is_uptrend
+        labels[downtrend_mask & (future_return < -min_profit_pct)] = 1   # GOOD trend trade
+        labels[downtrend_mask & (future_return >= -min_profit_pct)] = 0  # BAD - trend didn't continue
+
+        df['label'] = labels
+
+        # Drop undefined rows
+        tradeable = df[df['label'] >= 0].copy()
+        tradeable['label'] = tradeable['label'].astype(int)
+
+        good = (tradeable['label'] == 1).sum()
+        bad = (tradeable['label'] == 0).sum()
+
+        print(f"[LABELS] Trade quality method: {forward_candles} candles, {min_profit_pct:.1%} threshold")
+        print(f"   GOOD (trend continues): {good} ({good/len(tradeable)*100:.1f}%)")
+        print(f"   BAD (trend fails): {bad} ({bad/len(tradeable)*100:.1f}%)")
+
+        return tradeable
+
     def create_labels(self, df):
         """
         Create trading labels based on configured method
@@ -469,7 +524,11 @@ class FeatureEngineering:
         Returns:
             DataFrame with 'label' column
         """
-        if self.labeling_method == 'sltp_aware':
+        if self.labeling_method == 'trade_quality':
+            forward_candles = self.config['labeling'].get('forward_candles', 12)
+            min_profit_pct = self.config['labeling'].get('min_profit_pct', 0.003)
+            return self.create_labels_trade_quality(df, forward_candles, min_profit_pct)
+        elif self.labeling_method == 'sltp_aware':
             return self.create_labels_sltp_aware(df)
         else:
             # Original future_return method (deprecated for live trading)

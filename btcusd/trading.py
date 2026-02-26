@@ -72,6 +72,7 @@ try:
     else:
         from ml.model_predictor import ModelPredictor
     from ml.feature_engineering import FeatureEngineering
+    from trend_strategy import TrendStrategy
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
@@ -1520,8 +1521,98 @@ try:
                 log_only(f"[TREND] EMA{ema_fast_period}: {ema_fast_val:.2f} | EMA{ema_slow_period}: {ema_slow_val:.2f} | Trend: {ema_trend}")
         
         last_filter_message = None  # Reset if all filters pass
-        # --- Strategy logic as before, but only take trade if M5 and H1 agree ---
-        if strategy == "ma_crossover":
+        # --- Strategy logic ---
+        if strategy == "trend_following":
+            # Path B: Pure trend-following with H4 direction + H1 pullback entry
+            try:
+                # Initialize trend strategy (lazy — stored in config dict as singleton)
+                if '_trend_strategy' not in config:
+                    from trend_strategy import TrendStrategy
+                    config['_trend_strategy'] = TrendStrategy(symbol)
+                _ts = config['_trend_strategy']
+
+                # Helper to log signals to CSV
+                def _log_trend_signal(h4_trend, h1_setup, signal, atr_val, status, blocked_by):
+                    try:
+                        signals_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "signals.csv")
+                        os.makedirs(os.path.dirname(signals_file), exist_ok=True)
+                        write_header = not os.path.exists(signals_file) or os.path.getsize(signals_file) == 0
+                        with open(signals_file, 'a', newline='') as sf:
+                            writer = csv.writer(sf)
+                            if write_header:
+                                writer.writerow(['timestamp', 'h4_trend', 'h1_setup', 'signal', 'atr', 'status', 'blocked_by'])
+                            writer.writerow([datetime.now(UTC).isoformat(), h4_trend, h1_setup, signal, atr_val, status, blocked_by])
+                    except Exception:
+                        pass
+
+                # 1. Get H4 trend direction
+                trend = _ts.get_trend_direction()
+                if trend == 'neutral':
+                    msg = "[TREND] H4 neutral -- no trade (EMAs tangled)"
+                    if last_filter_message != msg:
+                        log_only(msg)
+                        last_filter_message = msg
+                    trade_signal = None
+                    time.sleep(60)
+                    continue
+
+                # 2. Check for H1 pullback/breakout entry
+                entry_signal, entry_reason = _ts.get_h1_entry_signal(trend)
+
+                # Get H1 EMA20 and ATR for logging
+                h1_rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_H1, datetime.now(UTC), 30)
+                h1_ema20 = "N/A"
+                h1_price = "N/A"
+                h1_atr = 0
+                if h1_rates is not None and len(h1_rates) >= 20:
+                    h1_df = pd.DataFrame(h1_rates)
+                    h1_ema20 = f"{h1_df['close'].ewm(span=20, adjust=False).mean().iloc[-1]:.0f}"
+                    h1_price = f"{h1_df['close'].iloc[-1]:.0f}"
+                    high_low = h1_df['high'] - h1_df['low']
+                    high_close = abs(h1_df['high'] - h1_df['close'].shift(1))
+                    low_close = abs(h1_df['low'] - h1_df['close'].shift(1))
+                    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                    h1_atr = true_range.rolling(window=14).mean().iloc[-1]
+                    if pd.isna(h1_atr):
+                        h1_atr = 0
+
+                if entry_signal is None:
+                    msg = f"[TREND] H4: {trend} | H1 EMA20: {h1_ema20} | Price: {h1_price} | Signal: waiting for pullback"
+                    if last_filter_message != msg:
+                        log_only(msg)
+                        last_filter_message = msg
+                    trade_signal = None
+                    time.sleep(60)
+                    continue
+
+                # 3. ATR floor check
+                min_atr_threshold = config.get("min_atr", 50)
+                if h1_atr < min_atr_threshold:
+                    entry_type = 'pullback' if 'pullback' in entry_reason else 'breakout'
+                    _log_trend_signal(trend, entry_type, entry_signal, f"{h1_atr:.0f}", 'blocked', 'low_atr')
+                    demo_logger.track_signal(executed=False)
+                    msg = f"[TREND] ATR {h1_atr:.0f} below threshold {min_atr_threshold}. Skipping."
+                    if last_filter_message != msg:
+                        log_only(msg)
+                        last_filter_message = msg
+                    trade_signal = None
+                    time.sleep(60)
+                    continue
+
+                # All checks passed — trade!
+                trade_signal = entry_signal
+                entry_type = 'pullback' if 'pullback' in entry_reason else 'breakout'
+                log_only(f"[TREND] H4: {trend} | H1 {entry_type} detected | {entry_signal.upper()} entry")
+                log_only(f"[TRADE] {entry_signal.upper()} {symbol} | {entry_reason} | ATR: {h1_atr:.0f}")
+                last_filter_message = None
+                demo_logger.track_signal(executed=True)
+                _log_trend_signal(trend, entry_type, entry_signal, f"{h1_atr:.0f}", 'executed', '')
+
+            except Exception as e:
+                log_only(f"[TREND ERROR] {e}")
+                trade_signal = None
+
+        elif strategy == "ma_crossover":
             short_ma = np.mean(closes[-short_ma_period:])
             long_ma = np.mean(closes[-long_ma_period:])
             if short_ma > long_ma and higher_tf_trend == "up":
@@ -1554,20 +1645,45 @@ try:
                 elif last_close < last_lower:
                     trade_signal = "sell"
         elif strategy == "ml_xgboost":
-            # Machine Learning strategy using trained Random Forest model
+            # Path B: Trend-following with ML quality filter
+            # 1. Trend detection (H4 EMA alignment) → direction
+            # 2. H1 pullback/breakout entry → timing
+            # 3. ML quality filter → take or skip
             if ml_predictor is not None and ml_feature_eng is not None:
                 try:
-                    # Calculate all features from current market data
+                    # Initialize trend strategy (lazy — only once)
+                    if not hasattr(ml_predictor, '_trend_strategy'):
+                        ml_predictor._trend_strategy = TrendStrategy(symbol)
+                    _ts = ml_predictor._trend_strategy
+
+                    # 1. Get H4 trend direction
+                    trend = _ts.get_trend_direction()
+                    if trend == 'neutral':
+                        msg = "[TREND] H4 neutral -- no trade"
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
+                        trade_signal = None
+                        time.sleep(60)
+                        continue
+
+                    # 2. Check for H1 entry setup (pullback or breakout)
+                    entry_signal, entry_reason = _ts.get_h1_entry_signal(trend)
+                    if entry_signal is None:
+                        msg = f"[TREND] H4 {trend} but no H1 entry setup"
+                        if last_filter_message != msg:
+                            log_only(msg)
+                            last_filter_message = msg
+                        trade_signal = None
+                        time.sleep(60)
+                        continue
+
+                    # 3. Calculate features for ML quality filter
                     df_temp = pd.DataFrame(rates)
                     df_temp['timestamp'] = pd.to_datetime(df_temp['time'], unit='s')
-                    df_temp.rename(columns={
-                        'tick_volume': 'volume'
-                    }, inplace=True)
-
-                    # Add features
+                    df_temp.rename(columns={'tick_volume': 'volume'}, inplace=True)
                     df_with_features = ml_feature_eng.add_all_features(df_temp)
 
-                    # Get latest features (last row)
                     latest_features = {}
                     feature_cols = ml_feature_eng.get_feature_columns()
                     for feat in feature_cols:
@@ -1577,9 +1693,8 @@ try:
                     # VOLATILITY FILTER: Check ATR threshold
                     current_atr = latest_features.get('atr_14', 0)
                     min_atr_threshold = ml_predictor.config.get('risk_management', {}).get('min_atr_threshold', 50)
-
                     if current_atr < min_atr_threshold:
-                        msg = f"[ML FILTER] ATR {current_atr:.1f} below threshold {min_atr_threshold}. Skipping trade."
+                        msg = f"[ML FILTER] ATR {current_atr:.1f} below threshold {min_atr_threshold}. Skipping."
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg
@@ -1587,47 +1702,36 @@ try:
                         time.sleep(60)
                         continue
 
-                    # Apply session-based confidence adjustment
-                    original_threshold = ml_predictor.confidence_threshold
-                    if session_trading_enabled and session_conf_adj > 0:
-                        ml_predictor.confidence_threshold = original_threshold + session_conf_adj
-                        log_only(f"[SESSION] {current_session} session: confidence threshold raised to {ml_predictor.confidence_threshold:.0%}")
-                    
-                    # Get ML prediction
-                    signal, confidence, reason = ml_predictor.get_trade_signal(latest_features)
-                    
-                    # Restore original threshold
-                    ml_predictor.confidence_threshold = original_threshold
+                    # 4. ML quality filter
+                    quality, confidence, ml_reason = ml_predictor.get_quality_signal(latest_features)
 
-                    # Capture ML details for blocked signal logging
+                    # Capture ML details for logging
                     import re as _re
                     _cycle_ml["atr"] = f"{current_atr:.1f}"
                     _cycle_ml["confidence"] = f"{confidence:.1%}" if confidence else ""
-                    _cycle_ml["reason"] = reason or ""
-                    # Parse individual model votes from reason string (e.g. "RF:SELL:68% XGB:SELL:76% LGB:SELL:63%")
-                    _rf_m = _re.search(r'RF:(\w+):\d+%', reason or "")
-                    _xgb_m = _re.search(r'XGB:(\w+):\d+%', reason or "")
-                    _lgb_m = _re.search(r'LGB:(\w+):\d+%', reason or "")
+                    _cycle_ml["reason"] = ml_reason or ""
+                    _rf_m = _re.search(r'RF:(\w+):\d+%', ml_reason or "")
+                    _xgb_m = _re.search(r'XGB:(\w+):\d+%', ml_reason or "")
+                    _lgb_m = _re.search(r'LGB:(\w+):\d+%', ml_reason or "")
                     _cycle_ml["rf"] = _rf_m.group(1) if _rf_m else ""
                     _cycle_ml["xgb"] = _xgb_m.group(1) if _xgb_m else ""
                     _cycle_ml["lgb"] = _lgb_m.group(1) if _lgb_m else ""
 
-                    if signal is not None:
-                        trade_signal = signal
-                        _cycle_ml["signal"] = signal.upper()
-                        last_trade_confidence = confidence  # Store for position tracking
-                        log_only(f"[ML] {reason} | ATR: {current_atr:.1f}")
-                        last_filter_message = None  # Reset filter message
+                    if quality == 'take':
+                        trade_signal = entry_signal
+                        _cycle_ml["signal"] = entry_signal.upper()
+                        last_trade_confidence = confidence
+                        log_only(f"[TRADE] {entry_signal.upper()}: {entry_reason} | {ml_reason} | ATR: {current_atr:.1f}")
+                        last_filter_message = None
                     else:
                         trade_signal = None
                         _cycle_ml["signal"] = ""
-                        # Log as blocked by confidence gate
                         log_blocked_signal(
-                            _cycle_ml["rf"] or "HOLD", "confidence_gate",
+                            entry_signal.upper(), "quality_filter",
                             _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
                             _cycle_ml["confidence"], _cycle_ml["atr"],
-                            ema_trend or "", "")
-                        msg = f"[ML] {reason}"
+                            ema_trend or "", entry_reason)
+                        msg = f"[ML FILTER] Skipping {entry_signal}: {ml_reason}"
                         if last_filter_message != msg:
                             log_only(msg)
                             last_filter_message = msg

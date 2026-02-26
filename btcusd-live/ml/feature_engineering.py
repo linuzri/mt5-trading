@@ -329,16 +329,13 @@ class FeatureEngineering:
         # H1-specific features
         df['hourly_return'] = df['close'].pct_change().fillna(0)
 
-        # Daily range position: where current price sits in today's high-low range
-        if 'timestamp' in df.columns:
-            df['_date'] = df['timestamp'].dt.date
-            daily_high = df.groupby('_date')['high'].transform('max')
-            daily_low = df.groupby('_date')['low'].transform('min')
-            daily_range = daily_high - daily_low
-            df['daily_range_position'] = ((df['close'] - daily_low) / daily_range.replace(0, 1)).fillna(0.5)
-            df.drop('_date', axis=1, inplace=True)
-        else:
-            df['daily_range_position'] = 0.5
+        # Daily range position: where price sits in the ROLLING 24-candle range (H1 = 24 hours)
+        # Uses ONLY past data — no look-ahead bias
+        rolling_window = 24  # 24 H1 candles = 1 day
+        rolling_high = df['high'].rolling(window=rolling_window, min_periods=6).max()
+        rolling_low = df['low'].rolling(window=rolling_window, min_periods=6).min()
+        rolling_range = rolling_high - rolling_low
+        df['daily_range_position'] = ((df['close'] - rolling_low) / rolling_range.replace(0, 1)).fillna(0.5)
 
         print(f"[OK] Added {len(self.feature_names)} features")
 

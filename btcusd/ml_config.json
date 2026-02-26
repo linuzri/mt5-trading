@@ -25,17 +25,22 @@
     "rsi_14",
     "price_vs_ema20",
     "hourly_return",
-    "daily_range_position"
+    "daily_range_position",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos"
   ],
 
   "labeling": {
-    "method": "sltp_aware",
+    "method": "trade_quality",
+    "forward_candles": 12,
+    "min_profit_pct": 0.003,
     "lookahead_candles": 12,
     "profit_threshold": 0.005,
     "stop_loss_threshold": 0.004,
     "label_classes": ["buy", "sell", "hold"],
-    "_comment_lookahead": "12 candles on H1 = 12 hours. Plenty of time for a real move.",
-    "_comment_thresholds": "TP=0.5% ($500 at BTC $100K), SL=0.4% ($400). After $30 spread, effective TP=$470. R:R=1.25:1."
+    "_comment": "Path B: trade quality filter. GOOD=trend continues 0.3% in 12 H1 candles. Old sltp_aware kept for reference."
   },
 
   "model_params": {
@@ -69,7 +74,7 @@
   "risk_management": {
     "min_atr_threshold": 50,
     "max_trades_per_day": 3,
-    "_max_trades_comment": "999 = effectively unlimited trades per day (demo mode - learning)",
+    "_max_trades_comment": "Path B demo: 3 trades per day max",
     "min_win_rate": 0.50
   },
 

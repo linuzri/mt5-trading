@@ -1,43 +1,41 @@
-# 🤖 MT5 Trading Bot — BTCUSD H1 ML Scalper
+# 🤖 MT5 Trading Bot — BTCUSD H4/H1 Trend Following
 
-Automated Bitcoin trading bot for MetaTrader 5 with **ensemble ML (RF + XGBoost + LightGBM)**, binary classification, and H1 timeframe. Backtested at **64.1% win rate, 1.93 profit factor, 4.76 Sharpe ratio**.
+Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detection** (H4 EMA alignment + H1 pullback/breakout entries) with ATR-based risk management. ML ensemble (RF + XGBoost + LightGBM) trained as quality filter but currently dormant.
 
 **Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## 🔴 Status (Feb 23, 2026)
+## 🔴 Status (Feb 26, 2026)
 
 | Item | Status |
 |------|--------|
 | **Live Bot** | ⏸️ STOPPED — pending demo validation |
-| **Demo Bot** | ✅ Running from `btcusd/` (H1 binary model, account 61459537) |
-| **Model** | 63.6% walk-forward accuracy, 65.25% test |
+| **Demo Bot** | ✅ Running from `btcusd/` (trend_following strategy, account 61459537) |
+| **Strategy** | H4 trend + H1 pullback/breakout entries (no ML in loop) |
+| **ML Model** | Trained as quality filter, loaded but dormant |
 | **MQL5 Signal** | ✅ LIVE & APPROVED ($30/month) |
-| **Auto-Retrain** | Weekly Sunday 3AM MYT |
-| **Demo Week** | Feb 24-28 — clean evaluation (partial profit disabled, state persistence active) |
+| **Demo Week 2** | March 2-7 — go-live review March 7 |
 
-### Backtest Results (0.01 lots, $200 account)
+### Backtest Results (90 days out-of-sample, 0.01 lots, during 26% BTC crash)
 | Metric | Value |
 |--------|-------|
-| Win Rate | **64.1%** |
-| Profit Factor | **1.93** |
-| Sharpe Ratio | **4.76** |
-| Max Drawdown | **9.8%** ($25.76) |
-| Total P/L | **+$363** (181% return) |
-| BUY / SELL WR | 61.7% / 66.9% (balanced ✅) |
-| Trades | 312 over ~110 days |
+| Win Rate | **48.5%** |
+| Profit Factor | **1.16** |
+| Total P/L | **+$78.50** |
+| Max Drawdown | **-$118.38** |
+| BUY / SELL | 37 (37.8% WR) / 62 (54.8% WR) |
+| Trades | 99 over 90 days |
 
 ## How It Works
 
 ```
 Every 60 seconds:
-1. Fetch 100 H1 candles from MT5
-2. Engineer 16 features (Bollinger, EMA, ATR, RSI, MACD, volume, trend, range position)
-3. Run 3 ML models (RF, XGBoost, LightGBM) — binary BUY/SELL prediction
-4. 2/3 majority vote required + 60% confidence minimum
-5. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily/weekly limits
-6. Execute with dynamic SL/TP (1.0× / 1.5× ATR)
-7. Monitor: trailing stop, partial profit at 1R, 15-min hold floor
+1. Check H4 EMA20/EMA50 alignment → bullish / bearish / neutral
+2. If neutral → skip (no trade in tangled markets)
+3. Check H1 for pullback to EMA20 or breakout above/below previous candle
+4. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily/weekly limits
+5. Execute with dynamic SL/TP (1.5× / 2.0× ATR, R:R = 1.33:1)
+6. Monitor: trailing stop, 15-min hold floor, max 2hr hold
 ```
 
 ## ML Pipeline
