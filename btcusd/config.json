@@ -1,125 +1,125 @@
 {
-  "symbol": "BTCUSD",
-  "symbols": [
-    "BTCUSD"
-  ],
-  "symbol_configs": {
-    "BTCUSD": {
-      "lot": 0.01,
-      "sl_pips": 200,
-      "tp_pips": 300
-    }
-  },
-  "_position_sizing_comment": "Dynamic position sizing - CONSERVATIVE settings",
-  "dynamic_position_sizing": {
-    "enabled": true,
-    "risk_percent": 0.5,
-    "_risk_comment": "Reduced from 1.0% to 0.5% for more conservative trading",
-    "min_lot": 0.01,
-    "max_lot": 0.01,
-    "_lot_limits_comment": "LIVE: Fixed at 0.01 lot for $200 account safety"
-  },
-  "sl_pips": 200,
-  "tp_pips": 300,
-  "_sltp_comment": "Wider stops ($200 SL, $300 TP) for volatile BTC market. Overridden by dynamic_sltp when enabled.",
-  "atr_period": 14,
-  "atr_multiplier": 1.5,
-  "enable_trailing_stop": true,
-  "strategy": "trend_following",
-  "bollinger_period": 20,
-  "bollinger_stddev": 2,
-  "rsi_period": 14,
-  "macd_fast": 12,
-  "macd_slow": 26,
-  "macd_signal": 9,
-  "timeframe": "H1",
-  "higher_timeframe": "H1",
-  "backtest_period_days": 30,
-  "forward_test_period_days": 28,
-  "max_daily_loss": 99999,
-  "max_daily_profit": 99999,
-  "_min_atr_comment": "Minimum ATR(14) on M5 to allow trading. Filters out low-volatility chop zones.",
-  "min_atr": 50,
-  "_min_atr_explanation": "BTCUSD M5 ATR typically 80-200 during active sessions, 30-60 during chop. 50 filters dead zones while keeping most real moves.",
-  "trade_cooldown_seconds": 3600,
-  "_trade_cooldown_comment": "LIVE: Minimum 3 minutes between ANY trades (win or loss). Prevents overtrading. Was 0 (disabled).",
-  "news_block_minutes": 0,
-  "_news_block_comment": "DISABLED Feb 20 - news filter bug (abs() treated past events as upcoming, API returns stale data). Set to 0 to disable.",
-  "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
-  "_ema_trend_filter_comment": "EMA Trend Filter ENABLED - BUY only in uptrend (EMA50>EMA200), SELL only in downtrend",
-  "enable_ema_trend_filter": false,
-  "ema_fast_period": 50,
-  "ema_slow_period": 200,
-  "_ema_explanation": "UPTREND = EMA50 > EMA200 (allow BUY). DOWNTREND = EMA50 < EMA200 (block BUY).",
-  "max_spread_percent": 0.05,
-  "_max_spread_comment": "Maximum spread as % of price. For BTCUSD at $100k, 0.05% = $50 max spread. Set to 0 to disable.",
-  "loss_cooldown_minutes": 15,
-  "_loss_cooldown_comment": "LIVE: 15min cooldown after individual losses. Circuit breaker (3 consecutive) stops trading for rest of MYT day.",
-  "max_consecutive_losses": 5,
-  "_max_consecutive_comment": "LIVE: 3 consecutive losses = DAILY SHUTDOWN (no more trades until next MYT calendar day). Changed Feb 20 from 1hr cooldown.",
-  "_session_trading_comment": "Session-aware trading: Trade only during optimal market hours",
-  "session_trading": {
-    "enabled": true,
-    "sessions": {
-      "asian": {
-        "start_utc": 0,
-        "end_utc": 8,
+    "symbol": "BTCUSD",
+    "symbols": [
+        "BTCUSD"
+    ],
+    "symbol_configs": {
+        "BTCUSD": {
+            "lot": 0.01,
+            "sl_pips": 200,
+            "tp_pips": 300
+        }
+    },
+    "_position_sizing_comment": "Dynamic position sizing - CONSERVATIVE settings",
+    "dynamic_position_sizing": {
         "enabled": true,
-        "confidence_adjustment": 0.05,
-        "_comment": "Tokyo session - lower volume, add 5% to confidence threshold"
-      },
-      "european": {
-        "start_utc": 7,
-        "end_utc": 16,
+        "risk_percent": 0.5,
+        "_risk_comment": "Reduced from 1.0% to 0.5% for more conservative trading",
+        "min_lot": 0.01,
+        "max_lot": 0.01,
+        "_lot_limits_comment": "LIVE: Fixed at 0.01 lot for $200 account safety"
+    },
+    "sl_pips": 200,
+    "tp_pips": 300,
+    "_sltp_comment": "Wider stops ($200 SL, $300 TP) for volatile BTC market. Overridden by dynamic_sltp when enabled.",
+    "atr_period": 14,
+    "atr_multiplier": 1.5,
+    "enable_trailing_stop": false,
+    "strategy": "trend_following",
+    "bollinger_period": 20,
+    "bollinger_stddev": 2,
+    "rsi_period": 14,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9,
+    "timeframe": "H1",
+    "higher_timeframe": "H1",
+    "backtest_period_days": 30,
+    "forward_test_period_days": 28,
+    "max_daily_loss": 99999,
+    "max_daily_profit": 99999,
+    "_min_atr_comment": "Minimum ATR(14) on M5 to allow trading. Filters out low-volatility chop zones.",
+    "min_atr": 50,
+    "_min_atr_explanation": "BTCUSD M5 ATR typically 80-200 during active sessions, 30-60 during chop. 50 filters dead zones while keeping most real moves.",
+    "trade_cooldown_seconds": 3600,
+    "_trade_cooldown_comment": "LIVE: Minimum 3 minutes between ANY trades (win or loss). Prevents overtrading. Was 0 (disabled).",
+    "news_block_minutes": 0,
+    "_news_block_comment": "DISABLED Feb 20 - news filter bug (abs() treated past events as upcoming, API returns stale data). Set to 0 to disable.",
+    "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
+    "_ema_trend_filter_comment": "EMA Trend Filter ENABLED - BUY only in uptrend (EMA50>EMA200), SELL only in downtrend",
+    "enable_ema_trend_filter": false,
+    "ema_fast_period": 50,
+    "ema_slow_period": 200,
+    "_ema_explanation": "UPTREND = EMA50 > EMA200 (allow BUY). DOWNTREND = EMA50 < EMA200 (block BUY).",
+    "max_spread_percent": 0.05,
+    "_max_spread_comment": "Maximum spread as % of price. For BTCUSD at $100k, 0.05% = $50 max spread. Set to 0 to disable.",
+    "loss_cooldown_minutes": 15,
+    "_loss_cooldown_comment": "LIVE: 15min cooldown after individual losses. Circuit breaker (3 consecutive) stops trading for rest of MYT day.",
+    "max_consecutive_losses": 5,
+    "_max_consecutive_comment": "LIVE: 3 consecutive losses = DAILY SHUTDOWN (no more trades until next MYT calendar day). Changed Feb 20 from 1hr cooldown.",
+    "_session_trading_comment": "Session-aware trading: Trade only during optimal market hours",
+    "session_trading": {
         "enabled": true,
-        "confidence_adjustment": 0,
-        "_comment": "London session - high volume, normal trading"
-      },
-      "american": {
-        "start_utc": 13,
-        "end_utc": 21,
+        "sessions": {
+            "asian": {
+                "start_utc": 0,
+                "end_utc": 8,
+                "enabled": true,
+                "confidence_adjustment": 0.05,
+                "_comment": "Tokyo session - lower volume, add 5% to confidence threshold"
+            },
+            "european": {
+                "start_utc": 7,
+                "end_utc": 16,
+                "enabled": true,
+                "confidence_adjustment": 0,
+                "_comment": "London session - high volume, normal trading"
+            },
+            "american": {
+                "start_utc": 13,
+                "end_utc": 21,
+                "enabled": true,
+                "confidence_adjustment": 0,
+                "_comment": "New York session - high volatility, good for breakouts"
+            },
+            "off_hours": {
+                "enabled": true,
+                "confidence_adjustment": 0.1,
+                "_comment": "Off-hours: +10% threshold = effective 65% confidence needed. Was 20% which blocked nearly all off-hours trades."
+            }
+        }
+    },
+    "_partial_profit_comment": "Partial Profit Taking: Close portion of position at 1R, move SL to breakeven",
+    "partial_profit_taking": {
+        "enabled": false,
+        "close_percent": 50,
+        "trigger_at_rr": 1,
+        "move_sl_to_breakeven": true,
+        "_explanation": "When price moves 1x your risk (SL distance), close 50% and move SL to entry."
+    },
+    "_smart_exit_comment": "Smart Exit Logic: Time-based exit and stagnation detection",
+    "smart_exit": {
+        "enabled": false,
+        "max_hold_minutes": 120,
+        "min_hold_minutes": 15,
+        "close_if_stagnant": false,
+        "stagnant_threshold_percent": 0.05,
+        "_explanation": "Max hold 2hr still active. Min hold 15min: trailing stop and stagnant exit cannot trigger before 15min. Stagnant exit DISABLED (Feb 20)."
+    },
+    "momentum_filter": {
+        "enabled": false,
+        "lookback_candles": 3,
+        "min_alignment_pct": 0.1,
+        "_explanation": "Check last 3 M5 candles momentum. BUY blocked if price falling >0.1%, SELL blocked if price rising >0.1%. Signal must align with recent price direction."
+    },
+    "dynamic_sltp": {
         "enabled": true,
-        "confidence_adjustment": 0,
-        "_comment": "New York session - high volatility, good for breakouts"
-      },
-      "off_hours": {
-        "enabled": true,
-        "confidence_adjustment": 0.1,
-        "_comment": "Off-hours: +10% threshold = effective 65% confidence needed. Was 20% which blocked nearly all off-hours trades."
-      }
-    }
-  },
-  "_partial_profit_comment": "Partial Profit Taking: Close portion of position at 1R, move SL to breakeven",
-  "partial_profit_taking": {
-    "enabled": false,
-    "close_percent": 50,
-    "trigger_at_rr": 1,
-    "move_sl_to_breakeven": true,
-    "_explanation": "When price moves 1x your risk (SL distance), close 50% and move SL to entry."
-  },
-  "_smart_exit_comment": "Smart Exit Logic: Time-based exit and stagnation detection",
-  "smart_exit": {
-    "enabled": true,
-    "max_hold_minutes": 120,
-    "min_hold_minutes": 15,
-    "close_if_stagnant": false,
-    "stagnant_threshold_percent": 0.05,
-    "_explanation": "Max hold 2hr still active. Min hold 15min: trailing stop and stagnant exit cannot trigger before 15min. Stagnant exit DISABLED (Feb 20)."
-  },
-  "momentum_filter": {
-    "enabled": false,
-    "lookback_candles": 3,
-    "min_alignment_pct": 0.1,
-    "_explanation": "Check last 3 M5 candles momentum. BUY blocked if price falling >0.1%, SELL blocked if price rising >0.1%. Signal must align with recent price direction."
-  },
-  "dynamic_sltp": {
-    "enabled": true,
-    "sl_atr_multiplier": 1.5,
-    "tp_atr_multiplier": 2.0,
-    "min_tp": 75,
-    "_explanation": "Path B: SL = 1.5x ATR(14), TP = 2.0x ATR(14). R:R = 1.33:1. Matches backtest config."
-  },
-  "off_hours_max_trades": 5,
-  "max_weekly_trades": 15,
-  "_max_weekly_trades_comment": "Maximum 15 trades per MYT calendar week (Mon-Sun). Counter persisted via trade_log.csv, survives restarts."
+        "sl_atr_multiplier": 1.5,
+        "tp_atr_multiplier": 2.0,
+        "min_tp": 75,
+        "_explanation": "Path B: SL = 1.5x ATR(14), TP = 2.0x ATR(14). R:R = 1.33:1. Matches backtest config."
+    },
+    "off_hours_max_trades": 5,
+    "max_weekly_trades": 15,
+    "_max_weekly_trades_comment": "Maximum 15 trades per MYT calendar week (Mon-Sun). Counter persisted via trade_log.csv, survives restarts."
 }

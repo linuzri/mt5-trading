@@ -5,7 +5,7 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 **Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## 🔴 Status (Feb 26, 2026)
+## 🔴 Status (Feb 27, 2026)
 
 | Item | Status |
 |------|--------|
@@ -15,6 +15,9 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 | **ML Model** | Trained as quality filter, loaded but dormant |
 | **MQL5 Signal** | ✅ LIVE & APPROVED ($30/month) |
 | **Demo Week 2** | March 2-7 — go-live review March 7 |
+| **Trailing Stop** | ❌ DISABLED (M1 ATR incompatible with H1 trend holds) |
+| **Smart Exit** | ❌ DISABLED (120min max hold kills multi-hour trends) |
+| **Position Exit** | SL (1.5× ATR) or TP (2.0× ATR) only |
 
 ### Backtest Results (90 days out-of-sample, 0.01 lots, during 26% BTC crash)
 | Metric | Value |
@@ -29,13 +32,13 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 ## How It Works
 
 ```
-Every 60 seconds:
+On each new H1 candle close:
 1. Check H4 EMA20/EMA50 alignment → bullish / bearish / neutral
 2. If neutral → skip (no trade in tangled markets)
 3. Check H1 for pullback to EMA20 or breakout above/below previous candle
 4. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily/weekly limits
 5. Execute with dynamic SL/TP (1.5× / 2.0× ATR, R:R = 1.33:1)
-6. Monitor: trailing stop, 15-min hold floor, max 2hr hold
+6. Position exits ONLY via SL or TP (no trailing stop, no smart exit, no partial profit)
 ```
 
 ## ML Pipeline
@@ -157,8 +160,10 @@ pm2 save
 | **Spread Filter** | Max 0.05% of price |
 | **1-Hour Cooldown** | Min 3600s between trades |
 | **Partial Profit** | DISABLED for demo week (was: close 50% at 1R, breakeven SL) |
+| **Trailing Stop** | DISABLED (Feb 27) — M1 ATR trailing killed H1 trend trades in minutes |
+| **Smart Exit** | DISABLED (Feb 27) — 120min max hold incompatible with 9hr avg holds |
 | **State Persistence** | `state.json` — counters survive PM2 restarts |
-| **Min Hold** | 15 min before trailing stop can trigger |
+| **H1 Candle Dedup** | Only evaluates signals on fresh H1 candle close (no redundant polls) |
 | **$0.50 Win Floor** | Micro-wins don't reset circuit breaker counter |
 
 ## The Journey (Feb 22 Experiments)

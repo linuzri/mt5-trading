@@ -6,7 +6,7 @@ This file provides context for AI agents working on this codebase.
 
 Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (H4 direction + H1 pullback/breakout entries) with ATR-based risk management. ML ensemble trained but dormant (quality filter, not in trading loop).
 
-### Current Status (Feb 26, 2026)
+### Current Status (Feb 27, 2026)
 - **LIVE:** Account 51439249 — **STOPPED** (pending demo validation)
 - **DEMO:** Account 61459537 — Running from `btcusd/` (PM2: `bot-btcusd`)
 - **Strategy:** `trend_following` — H4 EMA20/50 alignment + H1 pullback/breakout entries
@@ -14,6 +14,17 @@ Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (
 - **ML Model:** Trained (trade quality filter), loaded but NOT in trading loop
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
 - **Auto-merge PRs:** Granted — merge directly without review
+
+### Feb 27 — Premature Exit Bug Fix (Critical)
+
+**What happened:** First demo trade exited in 25 minutes with -$0.18 P/L (spread cost only). Backtest average hold was 9.2 hours. Root cause: M1 ATR trailing stop was ratcheting SL to near-entry after 15min min_hold_minutes, and smart_exit max_hold=120min would kill any trade after 2 hours.
+
+**Fixes applied (both `btcusd/` and `btcusd-live/`):**
+1. **Trailing stop DISABLED** — `enable_trailing_stop: false` in config.json. M1 ATR trailing is incompatible with H1 trend holds.
+2. **Smart exit DISABLED** — `smart_exit.enabled: false`. Max hold 120min kills trades that should hold 9+ hours.
+3. **H1 candle dedup** — Added to `btcusd/trading.py`. Only evaluates signals on fresh H1 candle close. Eliminates log spam and prevents edge-case duplicate entries within same candle.
+
+**Position management now:** Trades exit ONLY via their original SL (1.5× ATR) or TP (2.0× ATR). No trailing, no smart exit, no partial profit.
 
 ### Feb 26 — Path B Pivot (Major Architecture Change)
 
@@ -129,9 +140,12 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 - **Session Trading:** Asian, EU, US sessions. Off-hours = +10% confidence threshold.
 - **Circuit Breaker:** 5 consecutive losses → daily shutdown. STICKY: wins don't reset once triggered. $0.50 min win to reset counter (only if breaker hasn't fired).
 - **State Persistence:** `save_state()` writes `state.json` after every trade close. `load_state()` on startup restores counters. Cross-checked with CSV restore (takes max). Resets at MYT midnight (daily) and Monday 00:00 MYT (weekly).
-- **Dynamic SL/TP:** SL = 1.0× ATR, TP = 1.5× ATR.
+- **Dynamic SL/TP:** SL = 1.5× ATR, TP = 2.0× ATR (R:R = 1.33:1).
 - **Demo Logger:** `demo_logger.py` hooks into `log_blocked_signal()` and `log_trade_result()`.
 - **Walk-Forward:** `walk_forward_validate()` in ensemble_trainer — 5 splits, rolling train/test.
+- **H1 Candle Dedup:** `_last_evaluated_h1_candle` tracks last H1 candle open timestamp. Skips signal evaluation if candle hasn't changed. Prevents log spam and duplicate entries.
+- **Trailing Stop:** DISABLED (Feb 27). M1 ATR trailing was killing H1 trend trades in minutes.
+- **Smart Exit:** DISABLED (Feb 27). Max hold 120min incompatible with multi-hour trend holds.
 
 ## Config Quick Reference
 

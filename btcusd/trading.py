@@ -1354,6 +1354,8 @@ try:
             del tracked_positions[ticket]
             recently_closed_tickets.add(ticket)
 
+    _last_evaluated_h1_candle = None  # H1 candle dedup for trend_following
+
     while True:
         last_trade_confidence = None  # Reset each iteration
         # Reset per-cycle ML tracking for blocked signal logging
@@ -1524,6 +1526,17 @@ try:
         # --- Strategy logic ---
         if strategy == "trend_following":
             # Path B: Pure trend-following with H4 direction + H1 pullback entry
+
+            # H1 candle dedup: only evaluate signals on fresh H1 candle
+            _h1_dedup_rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_H1, datetime.now(UTC), 1)
+            if _h1_dedup_rates is not None and len(_h1_dedup_rates) > 0:
+                _current_h1_open = int(_h1_dedup_rates[-1][0])  # candle open timestamp
+                if _current_h1_open == _last_evaluated_h1_candle:
+                    # Same candle — skip signal evaluation, just manage positions
+                    time.sleep(60)
+                    continue
+                _last_evaluated_h1_candle = _current_h1_open
+
             try:
                 # Initialize trend strategy (lazy — stored in config dict as singleton)
                 if '_trend_strategy' not in config:
