@@ -917,7 +917,10 @@ try:
         log_notify(f"[BTCUSD STARTUP] Dynamic SL/TP: ENABLED (SL={sl_atr_multiplier}x ATR, TP={tp_atr_multiplier}x ATR)")
     if max_weekly_trades > 0:
         log_notify(f"[BTCUSD STARTUP] Weekly Trade Limit: {max_weekly_trades} trades per MYT week")
-    log_notify(f"[BTCUSD STARTUP] Min Hold Floor: {min_hold_minutes}min (trailing stop + stagnant exit delayed)")
+    if enable_trailing_stop or enable_smart_exit:
+        log_notify(f"[BTCUSD STARTUP] Min Hold Floor: {min_hold_minutes}min (trailing stop + stagnant exit delayed)")
+    else:
+        log_notify(f"[BTCUSD STARTUP] Trailing Stop: DISABLED | Smart Exit: DISABLED | SL/TP fixed at entry")
     log_notify(f"[BTCUSD STARTUP] Circuit Breaker: {max_consecutive_losses} consecutive losses = DAILY SHUTDOWN (MYT)")
     if strategy == "ml_xgboost":
         log_notify(f"[BTCUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
