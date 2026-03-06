@@ -5,19 +5,21 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 **Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## 🔴 Status (Feb 27, 2026)
+## 🔴 Status (Mar 6, 2026)
 
 | Item | Status |
 |------|--------|
 | **Live Bot** | ⏸️ STOPPED — pending demo validation |
 | **Demo Bot** | ✅ Running from `btcusd/` (trend_following strategy, account 61459537) |
-| **Strategy** | H4 trend + H1 pullback/breakout entries (no ML in loop) |
+| **Strategy** | H4 trend + H1 pullback/breakout + **H1 momentum filter** (no ML in loop) |
 | **ML Model** | Trained as quality filter, loaded but dormant |
 | **MQL5 Signal** | ✅ LIVE & APPROVED ($30/month) |
-| **Demo Week 2** | March 2-7 — go-live review March 7 |
+| **Demo Week 3** | March 6-13 — go-live review March 13 |
+| **H1 Momentum** | ✅ SELL: lower close+high+below EMA20. BUY: mirror. (Mar 6) |
 | **Trailing Stop** | ❌ DISABLED (M1 ATR incompatible with H1 trend holds) |
 | **Smart Exit** | ❌ DISABLED (120min max hold kills multi-hour trends) |
 | **Position Exit** | SL (1.5× ATR) or TP (2.0× ATR) only |
+| **Trade Limits** | Daily 5, Weekly 25 (Mar 6) |
 
 ### Backtest Results (90 days out-of-sample, 0.01 lots, during 26% BTC crash)
 | Metric | Value |
@@ -36,9 +38,10 @@ On each new H1 candle close:
 1. Check H4 EMA20/EMA50 alignment → bullish / bearish / neutral
 2. If neutral → skip (no trade in tangled markets)
 3. Check H1 for pullback to EMA20 or breakout above/below previous candle
-4. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily/weekly limits
-5. Execute with dynamic SL/TP (1.5× / 2.0× ATR, R:R = 1.33:1)
-6. Position exits ONLY via SL or TP (no trailing stop, no smart exit, no partial profit)
+4. H1 momentum confirmation: SELL needs lower close+high+below EMA20; BUY needs higher close+low+above EMA20
+5. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily(5)/weekly(25) limits
+6. Execute with dynamic SL/TP (1.5× / 2.0× ATR, R:R = 1.33:1)
+7. Position exits ONLY via SL or TP (no trailing stop, no smart exit, no partial profit)
 ```
 
 ## ML Pipeline
@@ -83,7 +86,8 @@ mt5-trading/
 │   ├── trading.py         # Main bot loop (~2200 lines)
 │   ├── config.json        # H1, 0.01 lots, 3600s cooldown, 5 max consec losses
 │   ├── ml_config.json     # 365d, binary, 16 features, 60% confidence
-│   ├── state.json         # Persisted counters (survives PM2 restarts)
+│   ├── state/             # Runtime state
+│   │   └── state.json     # Persisted counters (survives PM2 restarts)
 │   ├── demo_logger.py     # Structured CSV logging for demo validation
 │   ├── ml/                # ML pipeline
 │   │   ├── ensemble_predictor.py  # 2/3 majority voting (binary)
@@ -116,9 +120,10 @@ mt5-trading/
 | Lot Size | 0.01 |
 | Trade Cooldown | 3600s (1 hour) |
 | Circuit Breaker | 5 consecutive losses = daily shutdown |
-| Weekly Limit | 15 trades |
+| Daily Limit | 5 trades |
+| Weekly Limit | 25 trades |
+| H1 Momentum Filter | Enabled (Mar 6 — SELL: lower close+high+below EMA20) |
 | EMA Trend Filter | Disabled (ML handles trend via features) |
-| Momentum Filter | Disabled (ML handles momentum via features) |
 
 ### ML (`ml_config.json`)
 | Setting | Value |

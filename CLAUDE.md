@@ -6,14 +6,32 @@ This file provides context for AI agents working on this codebase.
 
 Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (H4 direction + H1 pullback/breakout entries) with ATR-based risk management. ML ensemble trained but dormant (quality filter, not in trading loop).
 
-### Current Status (Feb 27, 2026)
+### Current Status (Mar 6, 2026)
 - **LIVE:** Account 51439249 — **STOPPED** (pending demo validation)
 - **DEMO:** Account 61459537 — Running from `btcusd/` (PM2: `bot-btcusd`)
-- **Strategy:** `trend_following` — H4 EMA20/50 alignment + H1 pullback/breakout entries
-- **Demo Week 2:** March 2-7 (bot running over weekend for testing)
+- **Strategy:** `trend_following` — H4 EMA20/50 alignment + H1 pullback/breakout entries + **H1 momentum confirmation** (Mar 6)
+- **Demo Week 3:** March 6-13 (6 fixes deployed, review March 13)
 - **ML Model:** Trained (trade quality filter), loaded but NOT in trading loop
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
 - **Auto-merge PRs:** Granted — merge directly without review
+
+### Demo Week 2 Results (March 2-6) — FAILED
+| Metric | Result | Target | Status |
+|--------|--------|--------|--------|
+| Win Rate | 26.7% | >45% | ❌ |
+| Profit Factor | 0.34 | >1.1 | ❌ |
+| Net PnL | -$51.48 | Positive | ❌ |
+| SELL Net PnL | -$47.95 | Positive | ❌ Critical |
+
+Root causes: signal spam (127/day), no H1 momentum filter (SELL into rising H1), state tracking blind (total_wins/losses always 0).
+
+### Mar 6 — Demo Week 3 Fixes (PR #42)
+1. **Log consolidation** — All CSVs → `btcusd/logs/`, state → `btcusd/state/`
+2. **State tracking** — `total_wins`/`total_losses` cumulative (was resetting daily = circuit breaker blind)
+3. **H1 dedup persistence** — `_last_evaluated_h1_candle` survives PM2 restarts via state.json
+4. **H1 momentum filter** — SELL requires lower close + lower high + below EMA20. BUY mirror.
+5. **Trade limits** — Daily 5, weekly 25 (was 15)
+6. **Review script** — No cb_keys list found (no change needed)
 
 ### Feb 27 — Premature Exit Bug Fix (Critical)
 
@@ -41,11 +59,15 @@ Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (
 - 99 trades, 48.5% WR, PF 1.16, +$78.50 P/L
 - Survived hostile market conditions (BTC $92K → $68K)
 
-### Go-Live Criteria (Demo Week 2, review March 7)
-- Win rate > 45%
-- Profit factor > 1.1
-- BUY/SELL direction follows H4 trend
-- No single-day drawdown > 10% of account
+### Go-Live Criteria (Demo Week 3, review March 13)
+- Win rate ≥ 45%
+- Profit factor ≥ 1.1
+- SELL win rate ≥ 35%
+- Signals per day ≤ 8 (after dedup)
+- Net PnL positive
+- `state.json` total_wins matches actual winners (data integrity)
+- Trades per day ≤ 5 (daily limit)
+- **Before live: change max_consecutive_losses from 5 → 3**
 - **Nazri must give explicit approval**
 
 ### Key Lessons Learned
@@ -127,6 +149,13 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 - `btcusd-live/logs/` — trades.csv, signals.csv, daily_summary.csv
 - `btcusd-live/mt5_auth_live.json.bak` — LIVE credentials backup (DO NOT DELETE)
 
+### Demo Bot (btcusd/ — active)
+- `btcusd/trading.py` — Demo bot (~2500 lines). Has H1 momentum filter (Mar 6).
+- `btcusd/config.json` — Daily limit 5, weekly limit 25, 5 max consec losses
+- `btcusd/logs/` — trade_log.csv (review script source), signals.csv, daily_summary.csv, trades.csv (demo_logger detailed)
+- `btcusd/state/` — state.json (persisted counters including H1 dedup timestamp)
+- `btcusd/demo_logger.py` — Structured CSV logging
+
 ### Infrastructure
 - `ecosystem.config.js` — PM2 config
 - `auto_retrain.py` — Weekly model retraining
@@ -143,13 +172,26 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 - **Dynamic SL/TP:** SL = 1.5× ATR, TP = 2.0× ATR (R:R = 1.33:1).
 - **Demo Logger:** `demo_logger.py` hooks into `log_blocked_signal()` and `log_trade_result()`.
 - **Walk-Forward:** `walk_forward_validate()` in ensemble_trainer — 5 splits, rolling train/test.
-- **H1 Candle Dedup:** `_last_evaluated_h1_candle` tracks last H1 candle open timestamp. Skips signal evaluation if candle hasn't changed. Prevents log spam and duplicate entries.
+- **H1 Candle Dedup:** `_last_evaluated_h1_candle` tracks last H1 candle open timestamp. Skips signal evaluation if candle hasn't changed. Prevents log spam and duplicate entries. **Persisted to state.json** (Mar 6) — survives PM2 restarts.
+- **H1 Momentum Filter (Mar 6):** SELL requires lower close + lower high + close < EMA20. BUY requires higher close + higher low + close > EMA20. Blocked signals logged to signals.csv with reason `h1_momentum`.
 - **Trailing Stop:** DISABLED (Feb 27). M1 ATR trailing was killing H1 trend trades in minutes.
 - **Smart Exit:** DISABLED (Feb 27). Max hold 120min incompatible with multi-hour trend holds.
+- **State Tracking (Mar 6):** `total_wins`/`total_losses` are cumulative — no daily reset. Daily counters (`daily_trade_count`, `daily_pl`, `consecutive_losses`, `circuit_breaker_triggered`) reset at MYT midnight.
 
 ## Config Quick Reference
 
-### `btcusd-live/config.json`
+### `btcusd/config.json` (Demo — active)
+| Setting | Value |
+|---------|-------|
+| Timeframe | H1 |
+| Lot Size | 0.01 |
+| Trade Cooldown | 3600s (1 hour) |
+| Circuit Breaker | 5 consecutive losses (⚠️ change to 3 for live) |
+| Daily Limit | 5 trades |
+| Weekly Limit | 25 trades |
+| H1 Momentum Filter | Enabled (Mar 6) |
+
+### `btcusd-live/config.json` (Live — stopped)
 | Setting | Value |
 |---------|-------|
 | Timeframe | H1 |
