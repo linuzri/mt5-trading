@@ -120,6 +120,8 @@
         "_explanation": "Path B: SL = 1.5x ATR(14), TP = 2.0x ATR(14). R:R = 1.33:1. Matches backtest config."
     },
     "off_hours_max_trades": 5,
-    "max_weekly_trades": 15,
-    "_max_weekly_trades_comment": "Maximum 15 trades per MYT calendar week (Mon-Sun). Counter persisted via trade_log.csv, survives restarts."
+    "max_daily_trades": 5,
+    "_max_daily_trades_comment": "Maximum 5 trades per MYT calendar day.",
+    "max_weekly_trades": 25,
+    "_max_weekly_trades_comment": "Maximum 25 trades per MYT calendar week (Mon-Sun). Counter persisted via trade_log.csv, survives restarts."
 }

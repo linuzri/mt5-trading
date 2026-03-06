@@ -14,11 +14,21 @@ import threading
 import os
 from collections import defaultdict
 
-# --- Persistent State (survives PM2 restarts) ---
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
+# --- Path Constants ---
+_BOT_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGS_DIR = os.path.join(_BOT_DIR, "logs")
+STATE_DIR = os.path.join(_BOT_DIR, "state")
+TRADE_LOG_PATH = os.path.join(LOGS_DIR, "trade_log.csv")
+STATE_PATH = os.path.join(STATE_DIR, "state.json")
+os.makedirs(LOGS_DIR, exist_ok=True)
+os.makedirs(STATE_DIR, exist_ok=True)
 
-def save_state(daily_trade_count, weekly_trade_count, consecutive_losses, circuit_breaker_triggered, 
-               total_wins=0, total_losses=0, daily_pl=0.0, myt_date=None, myt_week_iso=None):
+# --- Persistent State (survives PM2 restarts) ---
+STATE_FILE = STATE_PATH
+
+def save_state(daily_trade_count, weekly_trade_count, consecutive_losses, circuit_breaker_triggered,
+               total_wins=0, total_losses=0, daily_pl=0.0, myt_date=None, myt_week_iso=None,
+               last_evaluated_h1_candle=None):
     """Save critical counters to state.json so they survive PM2 restarts."""
     _myt_now = datetime.now(UTC) + timedelta(hours=8)
     state = {
@@ -33,6 +43,7 @@ def save_state(daily_trade_count, weekly_trade_count, consecutive_losses, circui
         "myt_week_iso": myt_week_iso or _myt_now.isocalendar()[1],
         "myt_year": _myt_now.year,
         "updated_at": datetime.now(UTC).isoformat(),
+        "last_evaluated_h1_candle": last_evaluated_h1_candle,
     }
     try:
         with open(STATE_FILE, 'w') as f:
@@ -973,7 +984,7 @@ try:
 
     # Trade logging setup
     trade_log = []  # In-memory log for current day/week
-    trade_log_file = "trade_log.csv"
+    trade_log_file = TRADE_LOG_PATH
     daily_pl = 0
     last_pl_date = None
     recently_closed_tickets = set()  # Prevent sync_existing_positions from re-adding closed positions
@@ -985,6 +996,7 @@ try:
     daily_trade_count = 0
     consecutive_losses = 0
     circuit_breaker_triggered = False  # Sticky flag: once True, stays True until new MYT day
+    _last_evaluated_h1_candle = None  # H1 candle dedup for trend_following (persisted to state)
     off_hours_trade_count = 0  # Nightly off-hours trade counter (resets when session changes)
     off_hours_max_trades = config.get("off_hours_max_trades", 5)  # Hard cap during off-hours
     last_off_hours_date = ""  # Track which MYT date the off-hours counter belongs to
@@ -1066,6 +1078,7 @@ try:
             circuit_breaker_triggered = persisted.get("circuit_breaker_triggered", False) or circuit_breaker_triggered
             total_wins = max(total_wins, persisted.get("total_wins", 0))
             total_losses = max(total_losses, persisted.get("total_losses", 0))
+            _last_evaluated_h1_candle = persisted.get("last_evaluated_h1_candle", None)
             log_only(f"[STATE] Restored from state.json: trades={daily_trade_count}, consec_losses={consecutive_losses}, breaker={circuit_breaker_triggered}")
         else:
             log_only(f"[STATE] state.json is from {state_date}, today is {_myt_startup_date} -- starting fresh")
@@ -1082,9 +1095,9 @@ try:
     crash_mode_until = None  # datetime when crash mode expires
 
     # Daily trade limit tracking (daily_trade_count already restored from CSV above)
-    max_trades_per_day = 10  # Default, will be updated from ml_config if available
+    max_trades_per_day = config.get("max_daily_trades", 5)
     if strategy == "ml_xgboost" and ml_predictor is not None:
-        max_trades_per_day = ml_predictor.config.get('risk_management', {}).get('max_trades_per_day', 10)
+        max_trades_per_day = ml_predictor.config.get('risk_management', {}).get('max_trades_per_day', max_trades_per_day)
         print(f"[ML] Max trades per day: {max_trades_per_day}")
 
     # Track open positions to detect SL/TP closures
@@ -1158,9 +1171,12 @@ try:
                 bars_held=0,
                 atr_at_entry=float(_cycle_ml.get("atr", 0)) if _cycle_ml.get("atr") else 0
             )
+        except Exception as _dle:
+            log_only(f"[DEMO LOG] log_trade error: {_dle}")
+        try:
             demo_logger.track_trade_close(direction, profit, profit > 0)
         except Exception as _dle:
-            log_only(f"[DEMO LOG] Error: {_dle}")
+            log_only(f"[DEMO LOG] track_trade_close error: {_dle}")
 
         # Push trade to Supabase for cloud dashboard
         if SUPABASE_ENABLED:
@@ -1214,6 +1230,7 @@ try:
             daily_pl=daily_pl,
             myt_date=_myt_now.strftime('%Y-%m-%d'),
             myt_week_iso=_myt_now.isocalendar()[1],
+            last_evaluated_h1_candle=_last_evaluated_h1_candle,
         )
 
     def sync_existing_positions():
@@ -1357,8 +1374,6 @@ try:
             del tracked_positions[ticket]
             recently_closed_tickets.add(ticket)
 
-    _last_evaluated_h1_candle = None  # H1 candle dedup for trend_following
-
     while True:
         last_trade_confidence = None  # Reset each iteration
         # Reset per-cycle ML tracking for blocked signal logging
@@ -1384,16 +1399,16 @@ try:
             daily_trade_count = 0
             consecutive_losses = 0
             circuit_breaker_triggered = False
-            total_wins = 0
-            total_losses = 0
+            # total_wins and total_losses are cumulative — never reset at day boundary
             last_pl_date = today_date
             _myt_now = datetime.now(UTC) + timedelta(hours=8)
             save_state(
                 daily_trade_count=0, weekly_trade_count=weekly_trade_count,
                 consecutive_losses=0, circuit_breaker_triggered=False,
-                total_wins=0, total_losses=0, daily_pl=0.0,
+                total_wins=total_wins, total_losses=total_losses, daily_pl=0.0,
                 myt_date=_myt_now.strftime('%Y-%m-%d'),
                 myt_week_iso=_myt_now.isocalendar()[1],
+                last_evaluated_h1_candle=_last_evaluated_h1_candle,
             )
             log_only(f"[RESET] New trading day ({today_date}) - daily trade count, P/L, circuit breaker reset")
             # Flush demo daily summary for previous day
@@ -1611,6 +1626,40 @@ try:
                     if last_filter_message != msg:
                         log_only(msg)
                         last_filter_message = msg
+                    trade_signal = None
+                    time.sleep(60)
+                    continue
+
+                # 4. H1 momentum confirmation: direction must align with candle structure
+                _h1_close_cur = h1_df['close'].iloc[-1]
+                _h1_close_prv = h1_df['close'].iloc[-2]
+                _h1_high_cur = h1_df['high'].iloc[-1]
+                _h1_high_prv = h1_df['high'].iloc[-2]
+                _h1_low_cur = h1_df['low'].iloc[-1]
+                _h1_low_prv = h1_df['low'].iloc[-2]
+                _h1_ema20_val = h1_df['close'].ewm(span=20, adjust=False).mean().iloc[-1]
+
+                if entry_signal == 'sell':
+                    _momentum_ok = (
+                        _h1_close_cur < _h1_close_prv and
+                        _h1_high_cur < _h1_high_prv and
+                        _h1_close_cur < _h1_ema20_val
+                    )
+                else:  # buy
+                    _momentum_ok = (
+                        _h1_close_cur > _h1_close_prv and
+                        _h1_low_cur > _h1_low_prv and
+                        _h1_close_cur > _h1_ema20_val
+                    )
+
+                if not _momentum_ok:
+                    entry_type = 'pullback' if 'pullback' in entry_reason else 'breakout'
+                    _ref_val = _h1_high_cur if entry_signal == 'sell' else _h1_low_cur
+                    _ref_prv = _h1_high_prv if entry_signal == 'sell' else _h1_low_prv
+                    _ref_name = 'high' if entry_signal == 'sell' else 'low'
+                    log_only(f"[WARN] H1 momentum mismatch {entry_signal.upper()}: close={_h1_close_cur:.0f}/{_h1_close_prv:.0f}, {_ref_name}={_ref_val:.0f}/{_ref_prv:.0f}, ema20={_h1_ema20_val:.0f}")
+                    _log_trend_signal(trend, entry_type, entry_signal, f"{h1_atr:.0f}", 'blocked', 'h1_momentum')
+                    demo_logger.track_signal(executed=False)
                     trade_signal = None
                     time.sleep(60)
                     continue

@@ -11,11 +11,12 @@ Usage:
 """
 
 import csv
+import os
 import argparse
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-def load_trades(filepath="trade_log.csv"):
+def load_trades(filepath=os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "trade_log.csv")):
     """Load trades from CSV file."""
     trades = []
     try:
@@ -320,7 +321,7 @@ def main():
     parser.add_argument("--today", action="store_true", help="Analyze today's trades only")
     parser.add_argument("--days", type=int, help="Analyze last N days")
     parser.add_argument("--export", action="store_true", help="Export detailed report to CSV")
-    parser.add_argument("--file", type=str, default="trade_log.csv", help="Path to trade log CSV")
+    parser.add_argument("--file", type=str, default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "trade_log.csv"), help="Path to trade log CSV")
     args = parser.parse_args()
 
     # Load trades
