@@ -6,11 +6,11 @@ This file provides context for AI agents working on this codebase.
 
 Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (H4 direction + H1 pullback/breakout entries) with ATR-based risk management. ML ensemble trained but dormant (quality filter, not in trading loop).
 
-### Current Status (Mar 6, 2026)
+### Current Status (Mar 7, 2026)
 - **LIVE:** Account 51439249 — **STOPPED** (pending demo validation)
 - **DEMO:** Account 61459537 — Running from `btcusd/` (PM2: `bot-btcusd`)
 - **Strategy:** `trend_following` — H4 EMA20/50 alignment + H1 pullback/breakout entries + **H1 momentum confirmation** (Mar 6)
-- **Demo Week 3:** March 6-13 (6 fixes deployed, review March 13)
+- **Demo Week 3:** March 6-13 (11 fixes deployed, review March 13)
 - **ML Model:** Trained (trade quality filter), loaded but NOT in trading loop
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
 - **Auto-merge PRs:** Granted — merge directly without review
@@ -32,6 +32,13 @@ Root causes: signal spam (127/day), no H1 momentum filter (SELL into rising H1),
 4. **H1 momentum filter** — SELL requires lower close + lower high + below EMA20. BUY mirror.
 5. **Trade limits** — Daily 5, weekly 25 (was 15)
 6. **Review script** — No cb_keys list found (no change needed)
+
+### Mar 7 — Demo Week 3 Tuning (PR #43)
+1. **`min_atr` recalibrated** — 50 → 300. Old value was M5-era; H1 ATR(14) ranges 400–1500. Now actively filters chop.
+2. **H1 dedup state save on every poll** — `save_state()` called immediately after `_last_evaluated_h1_candle` update (was only on trade close). Prevents same-candle re-evaluation after mid-candle PM2 restart.
+3. **`_trend_strategy` singleton cleared on hot-reload** — `config.pop('_trend_strategy', None)` in `reload_config_and_strategy()`. Ensures fresh `TrendStrategy` instance after config reload.
+4. **Dead EMA filter keys removed** — `enable_ema_trend_filter`, `ema_fast_period`, `ema_slow_period` and comments removed from `config.json`. `trend_following` never reads them.
+5. **Weekly trade limit** — 25 → 30. Provides buffer when daily limit hits early in the week.
 
 ### Feb 27 — Premature Exit Bug Fix (Critical)
 
@@ -188,7 +195,8 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 | Trade Cooldown | 3600s (1 hour) |
 | Circuit Breaker | 5 consecutive losses (⚠️ change to 3 for live) |
 | Daily Limit | 5 trades |
-| Weekly Limit | 25 trades |
+| Weekly Limit | 30 trades (Mar 7) |
+| ATR Floor | 300 on H1 (Mar 7, recalibrated from 50) |
 | H1 Momentum Filter | Enabled (Mar 6) |
 
 ### `btcusd-live/config.json` (Live — stopped)

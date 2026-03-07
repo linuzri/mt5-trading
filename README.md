@@ -5,7 +5,7 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 **Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## 🔴 Status (Mar 6, 2026)
+## 🔴 Status (Mar 7, 2026)
 
 | Item | Status |
 |------|--------|
@@ -19,7 +19,8 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 | **Trailing Stop** | ❌ DISABLED (M1 ATR incompatible with H1 trend holds) |
 | **Smart Exit** | ❌ DISABLED (120min max hold kills multi-hour trends) |
 | **Position Exit** | SL (1.5× ATR) or TP (2.0× ATR) only |
-| **Trade Limits** | Daily 5, Weekly 25 (Mar 6) |
+| **Trade Limits** | Daily 5, Weekly 30 (Mar 7) |
+| **ATR Floor** | 300 on H1 (recalibrated from M5 value of 50, Mar 7) |
 
 ### Backtest Results (90 days out-of-sample, 0.01 lots, during 26% BTC crash)
 | Metric | Value |
@@ -39,7 +40,7 @@ On each new H1 candle close:
 2. If neutral → skip (no trade in tangled markets)
 3. Check H1 for pullback to EMA20 or breakout above/below previous candle
 4. H1 momentum confirmation: SELL needs lower close+high+below EMA20; BUY needs higher close+low+above EMA20
-5. Filter chain: ATR floor → spread → cooldown → circuit breaker → daily(5)/weekly(25) limits
+5. Filter chain: ATR floor (≥300) → spread → cooldown → circuit breaker → daily(5)/weekly(30) limits
 6. Execute with dynamic SL/TP (1.5× / 2.0× ATR, R:R = 1.33:1)
 7. Position exits ONLY via SL or TP (no trailing stop, no smart exit, no partial profit)
 ```
@@ -121,9 +122,10 @@ mt5-trading/
 | Trade Cooldown | 3600s (1 hour) |
 | Circuit Breaker | 5 consecutive losses = daily shutdown |
 | Daily Limit | 5 trades |
-| Weekly Limit | 25 trades |
+| Weekly Limit | 30 trades (Mar 7, up from 25 for buffer) |
+| ATR Floor | 300 on H1 (Mar 7, recalibrated from M5 value of 50) |
 | H1 Momentum Filter | Enabled (Mar 6 — SELL: lower close+high+below EMA20) |
-| EMA Trend Filter | Disabled (ML handles trend via features) |
+| EMA Trend Filter | Removed (deprecated — trend_following uses TrendStrategy H4 EMA20/EMA50) |
 
 ### ML (`ml_config.json`)
 | Setting | Value |
@@ -160,8 +162,8 @@ pm2 save
 |-------|--------|
 | **Circuit Breaker** | 5 consecutive losses → shutdown for rest of MYT day |
 | **Daily Limit** | Max 3 trades per day |
-| **Weekly Limit** | Max 15 trades per MYT week |
-| **ATR Floor** | ATR(14) must be ≥ 50 (skip chop) |
+| **Weekly Limit** | Max 30 trades per MYT week |
+| **ATR Floor** | ATR(14) must be ≥ 300 on H1 (skip chop — recalibrated Mar 7 from M5 value of 50) |
 | **Spread Filter** | Max 0.05% of price |
 | **1-Hour Cooldown** | Min 3600s between trades |
 | **Partial Profit** | DISABLED for demo week (was: close 50% at 1R, breakeven SL) |

@@ -831,6 +831,8 @@ def reload_config_and_strategy():
     # Reload config.json to get the new best strategy
     with open("config.json", "r") as f:
         config = json.load(f)
+    # Clear cached strategy singleton so it gets re-initialized with new config
+    config.pop('_trend_strategy', None)
     new_strategy = config.get("strategy", "ma_crossover")
 
     # Reload strategy_params.json
@@ -1554,6 +1556,17 @@ try:
                     time.sleep(60)
                     continue
                 _last_evaluated_h1_candle = _current_h1_open
+                # Persist dedup state immediately so PM2 restarts don't re-evaluate same candle
+                save_state(
+                    daily_trade_count=daily_trade_count,
+                    weekly_trade_count=weekly_trade_count,
+                    consecutive_losses=consecutive_losses,
+                    circuit_breaker_triggered=circuit_breaker_triggered,
+                    total_wins=total_wins,
+                    total_losses=total_losses,
+                    daily_pl=daily_pl,
+                    last_evaluated_h1_candle=_last_evaluated_h1_candle,
+                )
 
             try:
                 # Initialize trend strategy (lazy — stored in config dict as singleton)
