@@ -71,8 +71,8 @@ module.exports = {
       watch: false,
       env: {
         PYTHONUNBUFFERED: "1",
-        TELEGRAM_BOT_TOKEN_AUTORESEARCH: "8603433804:AAFlKOclWaiuj8FtB07tv3G13wIYaIbsWz4",
-        TELEGRAM_CHAT_ID_AUTORESEARCH: "3588682",
+        TELEGRAM_BOT_TOKEN_AUTORESEARCH: process.env.TELEGRAM_BOT_TOKEN_AUTORESEARCH || "",
+        TELEGRAM_CHAT_ID_AUTORESEARCH: process.env.TELEGRAM_CHAT_ID_AUTORESEARCH || "",
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || ""
       }
     }
