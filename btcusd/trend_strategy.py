@@ -31,17 +31,17 @@ class TrendStrategy:
             return 'neutral'
 
         df = pd.DataFrame(rates)
-        df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
+        df['ema15'] = df['close'].ewm(span=15, adjust=False).mean()
         df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
 
         latest = df.iloc[-1]
         price = latest['close']
-        ema20 = latest['ema20']
+        ema15 = latest['ema15']
         ema50 = latest['ema50']
 
-        if price > ema20 > ema50:
+        if price > ema15 > ema50:
             return 'bullish'
-        elif price < ema20 < ema50:
+        elif price < ema15 < ema50:
             return 'bearish'
         else:
             return 'neutral'
@@ -59,14 +59,14 @@ class TrendStrategy:
             return None, "insufficient data"
 
         df = pd.DataFrame(rates)
-        df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
+        df['ema25'] = df['close'].ewm(span=25, adjust=False).mean()
         df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
         df['atr'] = self._calc_atr(df, 14)
 
         latest = df.iloc[-1]
         prev = df.iloc[-2]
         price = latest['close']
-        ema20 = latest['ema20']
+        ema25 = latest['ema25']
         low = latest['low']
         high = latest['high']
         atr = latest['atr']
@@ -75,22 +75,22 @@ class TrendStrategy:
         reason = ""
 
         if trend_direction == 'bullish':
-            # Pullback buy: low touched EMA20 but closed above it
-            if low <= ema20 * 1.001 and price > ema20:
+            # Pullback buy: low touched ema25 but closed above it
+            if low <= ema25 * 1.001 and price > ema25:
                 signal = 'buy'
-                reason = f"H4 bullish + H1 pullback to EMA20 (price={price:.0f}, ema20={ema20:.0f})"
-            # Breakout buy: closed above previous candle high, above EMA20
-            elif price > prev['high'] and price > ema20:
+                reason = f"H4 bullish + H1 pullback to ema25 (price={price:.0f}, ema25={ema25:.0f})"
+            # Breakout buy: closed above previous candle high, above ema25
+            elif price > prev['high'] and price > ema25:
                 signal = 'buy'
                 reason = f"H4 bullish + H1 breakout (price={price:.0f} > prev high={prev['high']:.0f})"
 
         elif trend_direction == 'bearish':
-            # Pullback sell: high touched EMA20 but closed below it
-            if high >= ema20 * 0.999 and price < ema20:
+            # Pullback sell: high touched ema25 but closed below it
+            if high >= ema25 * 0.999 and price < ema25:
                 signal = 'sell'
-                reason = f"H4 bearish + H1 pullback to EMA20 (price={price:.0f}, ema20={ema20:.0f})"
-            # Breakdown sell: closed below previous candle low, below EMA20
-            elif price < prev['low'] and price < ema20:
+                reason = f"H4 bearish + H1 pullback to ema25 (price={price:.0f}, ema25={ema25:.0f})"
+            # Breakdown sell: closed below previous candle low, below ema25
+            elif price < prev['low'] and price < ema25:
                 signal = 'sell'
                 reason = f"H4 bearish + H1 breakdown (price={price:.0f} < prev low={prev['low']:.0f})"
 
