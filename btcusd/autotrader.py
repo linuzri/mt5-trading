@@ -373,13 +373,47 @@ def run_one_experiment(hours: int = BACKTEST_HOURS, dry_run: bool = False) -> di
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def _generate_summary() -> str:
+    """Generate a text summary from calibration.jsonl for Telegram."""
+    if not CALIB_LOG.exists():
+        return "No experiments logged."
+    lines = [l for l in CALIB_LOG.read_text().splitlines() if l.strip()]
+    if not lines:
+        return "No experiments logged."
+
+    exps = [json.loads(l) for l in lines]
+    kept = [e for e in exps if e["decision"] == "keep"]
+    total = len(exps)
+    keep_rate = len(kept) / total * 100 if total > 0 else 0
+
+    summary = f"*AutoResearch Summary*\n"
+    summary += f"Total: {total} | Kept: {len(kept)} ({keep_rate:.0f}%)\n\n"
+
+    if kept:
+        best = max(kept, key=lambda x: x["pnl"])
+        summary += f"*Best:* `{best['param']}` {best['old_value']}→{best['new_value']}\n"
+        summary += f"WR: `{best['win_rate']}%` PnL: `${best['pnl']}` DD: `{best['drawdown']}%`\n\n"
+        summary += "*All keeps:*\n"
+        for e in kept:
+            summary += f"  `{e['param']}` {e['old_value']}→{e['new_value']} WR={e['win_rate']}% PnL=${e['pnl']}\n"
+    else:
+        summary += "_No improvements found — current params are optimal for this window._"
+
+    return summary
+
+
 def main():
     parser = argparse.ArgumentParser(description="AutoTrader Research Loop")
     parser.add_argument("--once",    action="store_true", help="Single experiment then exit")
     parser.add_argument("--dry-run", action="store_true", help="Simulate without MT5")
     parser.add_argument("--hours",   type=int, default=BACKTEST_HOURS, help="Backtest window (hours)")
     parser.add_argument("--delay",   type=int, default=LOOP_DELAY_SECONDS, help="Seconds between experiments")
+    parser.add_argument("--max-hours", type=float, default=0, help="Stop after N hours (0 = no limit)")
+    parser.add_argument("--auto-stop", type=int, default=50, help="Stop if 0 keeps in last N experiments (0 = disable)")
     args = parser.parse_args()
+
+    max_hours_str = f"{args.max_hours}h" if args.max_hours > 0 else "unlimited"
+    auto_stop_str = f"after {args.auto_stop} consecutive discards" if args.auto_stop > 0 else "disabled"
 
     print("=" * 58)
     print("  AutoTrader Research Loop — BTCUSD Trend Strategy")
@@ -387,6 +421,8 @@ def main():
     print(f"  Memory : {MEMORY_FILE}")
     print(f"  Log    : {CALIB_LOG}")
     print(f"  Window : {args.hours}h backtest")
+    print(f"  Runtime: {max_hours_str}")
+    print(f"  Auto-stop: {auto_stop_str}")
     print(f"  Mode   : {'DRY-RUN (simulated)' if args.dry_run else 'LIVE (MT5)'}")
     print("=" * 58)
 
@@ -398,33 +434,76 @@ def main():
         run_one_experiment(hours=args.hours, dry_run=args.dry_run)
         return
 
+    # Send start notification
+    telegram_notify(
+        f"🔬 *AutoResearch started*\n"
+        f"Window: `{args.hours}h` | Delay: `{args.delay}s`\n"
+        f"Runtime: `{max_hours_str}` | Auto-stop: `{auto_stop_str}`"
+    )
+
+    start_time = time.time()
+    deadline = start_time + (args.max_hours * 3600) if args.max_hours > 0 else None
     count = kept = 0
+    consecutive_discards = 0
+
     try:
         while True:
+            # Time limit check
+            if deadline and time.time() >= deadline:
+                elapsed_h = (time.time() - start_time) / 3600
+                print(f"\n  ⏱  Max runtime ({args.max_hours}h) reached. Stopping.")
+                summary = _generate_summary()
+                telegram_notify(
+                    f"⏱ *AutoResearch finished* (time limit: {args.max_hours}h)\n"
+                    f"{count} experiments, {kept} kept ({kept/max(count,1)*100:.0f}%)\n\n"
+                    f"{summary}"
+                )
+                break
+
             exp    = run_one_experiment(hours=args.hours, dry_run=args.dry_run)
             count += 1
             if exp["decision"] == "keep":
                 kept += 1
+                consecutive_discards = 0
+            else:
+                consecutive_discards += 1
 
             # Handle /stop command sent via Telegram
             if exp.get("stop_requested"):
                 print(f"\n  🛑  Stop requested via Telegram. Shutting down.")
+                summary = _generate_summary()
                 telegram_notify(
                     f"🛑 *AutoResearch stopped* via /stop\n"
-                    f"{count} experiments, {kept} kept ({kept/max(count,1)*100:.0f}%)"
+                    f"{count} experiments, {kept} kept ({kept/max(count,1)*100:.0f}%)\n\n"
+                    f"{summary}"
+                )
+                break
+
+            # Auto-stop on convergence
+            if args.auto_stop > 0 and consecutive_discards >= args.auto_stop:
+                print(f"\n  🎯  Convergence detected ({consecutive_discards} consecutive discards). Stopping.")
+                summary = _generate_summary()
+                telegram_notify(
+                    f"🎯 *AutoResearch converged*\n"
+                    f"{consecutive_discards} consecutive discards — params are optimal.\n"
+                    f"{count} experiments, {kept} kept ({kept/max(count,1)*100:.0f}%)\n\n"
+                    f"{summary}"
                 )
                 break
 
             keep_rate = kept / count * 100
-            print(f"\n  📈  Session: {count} experiments | {kept} kept ({keep_rate:.0f}%)")
+            print(f"\n  📈  Session: {count} experiments | {kept} kept ({keep_rate:.0f}%) | "
+                  f"streak: {consecutive_discards} discards")
             print(f"  💤  Next experiment in {args.delay}s...")
             time.sleep(args.delay)
 
     except KeyboardInterrupt:
         print(f"\n\n  🛑  Stopped. {count} experiments | {kept} kept.")
+        summary = _generate_summary()
         telegram_notify(
             f"🛑 *AutoResearch stopped*\n"
-            f"{count} experiments, {kept} kept ({kept/max(count,1)*100:.0f}%)"
+            f"{count} experiments, {kept} kept ({kept/max(count,1)*100:.0f}%)\n\n"
+            f"{summary}"
         )
 
 
