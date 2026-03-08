@@ -166,8 +166,14 @@ def replay_signals(
     h1["atr"]    = calc_atr(h1, atr_period)
 
     signals = []
+    MIN_SIGNAL_GAP = 4  # 4 H1 bars (4 hours) cooldown between signals
+    last_signal_bar = -999
 
     for i in range(2, len(h1)):
+        # Dedup guard: skip if too close to last signal
+        if i - last_signal_bar < MIN_SIGNAL_GAP:
+            continue
+
         row  = h1.iloc[i]
         prev = h1.iloc[i - 1]
 
@@ -207,6 +213,7 @@ def replay_signals(
                 reason = "H1 breakdown"
 
         if signal:
+            last_signal_bar = i
             signals.append({
                 "time":        h1_time,
                 "bar_index":   i,
@@ -246,6 +253,7 @@ def simulate_trades(
             "win_rate":         0.0,
             "pnl":              0.0,
             "drawdown":         0.0,
+            "drawdown_streak":  0.0,
             "drawdown_usd":     0.0,
             "total_trades":     0,
             "wins":             0,
@@ -259,6 +267,11 @@ def simulate_trades(
     # Track worst drawdown as largest cumulative loss streak (USD)
     running_loss_usd = 0.0
     max_loss_streak  = 0.0
+
+    # Track equity-peak drawdown (catches non-consecutive losses too)
+    equity       = 0.0
+    equity_peak  = 0.0
+    max_peak_dd  = 0.0
 
     for _, sig in signals_df.iterrows():
         bar_idx   = sig["bar_index"]
@@ -316,6 +329,12 @@ def simulate_trades(
         else:
             running_loss_usd = 0.0  # reset on any win
 
+        # Track equity-peak drawdown
+        equity      += exit_pnl
+        equity_peak  = max(equity_peak, equity)
+        peak_dd      = (equity_peak - equity) / account_balance * 100
+        max_peak_dd  = max(max_peak_dd, peak_dd)
+
     df_res    = pd.DataFrame(results)
     wins      = int((df_res["outcome"] == "win").sum())
     losses    = int((df_res["outcome"] != "win").sum())
@@ -325,12 +344,14 @@ def simulate_trades(
     avg_hold  = round(float(sum(hold_list) / len(hold_list)) if hold_list else 0.0, 1)
 
     # Drawdown % = worst loss streak as % of account balance
-    dd_pct = round(max_loss_streak / account_balance * 100, 2)
+    dd_streak_pct = round(max_loss_streak / account_balance * 100, 2)
+    dd_peak_pct   = round(max_peak_dd, 2)
 
     return {
         "win_rate":          win_rate,
         "pnl":               total_pnl,
-        "drawdown":          dd_pct,
+        "drawdown":          dd_peak_pct,         # equity-peak DD (primary)
+        "drawdown_streak":   dd_streak_pct,       # consecutive loss streak DD
         "drawdown_usd":      round(max_loss_streak, 2),
         "total_trades":      total,
         "wins":              wins,

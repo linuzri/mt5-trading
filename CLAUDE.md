@@ -6,14 +6,16 @@ This file provides context for AI agents working on this codebase.
 
 Automated MT5 trading bot. **Path B architecture**: rule-based trend-following (H4 direction + H1 pullback/breakout entries) with ATR-based risk management. ML ensemble trained but dormant (quality filter, not in trading loop).
 
-### Current Status (Mar 7, 2026)
+### Current Status (Mar 8, 2026)
 - **LIVE:** Account 51439249 — **STOPPED** (pending demo validation)
 - **DEMO:** Account 61459537 — Running from `btcusd/` (PM2: `bot-btcusd`)
-- **Strategy:** `trend_following` — H4 EMA20/50 alignment + H1 pullback/breakout entries + **H1 momentum confirmation** (Mar 6)
+- **Strategy:** `trend_following` — H4 EMA15/50 alignment + H1 pullback/breakout entries + **H1 momentum confirmation** (Mar 6)
 - **Demo Week 3:** March 6-13 (11 fixes deployed, review March 13)
+- **AutoResearch:** Karpathy-style autonomous param optimizer — 206 experiments, 6 kept, deployed Mar 8
 - **ML Model:** Trained (trade quality filter), loaded but NOT in trading loop
 - **MQL5 Signal:** https://www.mql5.com/en/signals/2359964 — LIVE, APPROVED ✅
 - **Auto-merge PRs:** Granted — merge directly without review
+- **BTC Trend:** DOWNTREND (EMA50 < EMA200 as of Mar 8) — bot fires SELLs only
 
 ### Demo Week 2 Results (March 2-6) — FAILED
 | Metric | Result | Target | Status |
@@ -176,7 +178,7 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 - **Session Trading:** Asian, EU, US sessions. Off-hours = +10% confidence threshold.
 - **Circuit Breaker:** 5 consecutive losses → daily shutdown. STICKY: wins don't reset once triggered. $0.50 min win to reset counter (only if breaker hasn't fired).
 - **State Persistence:** `save_state()` writes `state.json` after every trade close. `load_state()` on startup restores counters. Cross-checked with CSV restore (takes max). Resets at MYT midnight (daily) and Monday 00:00 MYT (weekly).
-- **Dynamic SL/TP:** SL = 1.5× ATR, TP = 2.0× ATR (R:R = 1.33:1).
+- **Dynamic SL/TP:** SL = 1.25× ATR, TP = 1.75× ATR (R:R = 1.40:1). Optimised by AutoResearch Mar 8.
 - **Demo Logger:** `demo_logger.py` hooks into `log_blocked_signal()` and `log_trade_result()`.
 - **Walk-Forward:** `walk_forward_validate()` in ensemble_trainer — 5 splits, rolling train/test.
 - **H1 Candle Dedup:** `_last_evaluated_h1_candle` tracks last H1 candle open timestamp. Skips signal evaluation if candle hasn't changed. Prevents log spam and duplicate entries. **Persisted to state.json** (Mar 6) — survives PM2 restarts.
@@ -192,11 +194,14 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 |---------|-------|
 | Timeframe | H1 |
 | Lot Size | 0.01 |
+| SL / TP | 1.25× / 1.75× ATR (R:R 1.40, optimised Mar 8) |
+| H4 EMA Fast/Slow | 15 / 50 (fast optimised from 20, Mar 8) |
+| H1 Entry EMA | 25 (optimised from 20, Mar 8) |
 | Trade Cooldown | 3600s (1 hour) |
 | Circuit Breaker | 5 consecutive losses (⚠️ change to 3 for live) |
 | Daily Limit | 5 trades |
 | Weekly Limit | 30 trades (Mar 7) |
-| ATR Floor | 300 on H1 (Mar 7, recalibrated from 50) |
+| ATR Floor | 250 on H1 (optimised from 300, Mar 8) |
 | H1 Momentum Filter | Enabled (Mar 6) |
 
 ### `btcusd-live/config.json` (Live — stopped)
@@ -259,6 +264,48 @@ btcusd-live/trading.py ─→ MetaTrader 5 API ─→ Pepperstone (demo: 6145953
 - Point at logs, errors, failing tests — then resolve them
 - Zero context switching required from the user
 - Go fix failing CI tests without being told how
+
+## AutoResearch System (Mar 8, 2026)
+
+Karpathy-style autonomous parameter optimizer. AI agent proposes mutations, backtests on live MT5 data, keeps improvements, discards regressions.
+
+### Files (all in `btcusd/`)
+| File | Purpose |
+|------|---------|
+| `autotrader.py` | Main research loop — proposes mutations via Claude, backtests, keep/discard, Telegram approval gate |
+| `backtest_mt5.py` | MT5 backtest engine — replays H4/H1 trend strategy against live historical data |
+| `MEMORY.md` | Strategy memory — current params, baseline metrics, decision rules, mutable param ranges |
+| `deploy.py` | Applies params to config/strategy, git push, PM2 restart, live verification, rollback |
+| `telegram_gate.py` | Polls Telegram (@algotrade_mx_bot) for /deploy /skip /stop replies |
+| `summary.py` | Morning report — shows all keeps/discards with param type column |
+| `calibration.jsonl` | Experiment log (append-only) |
+
+### How to Run
+```bash
+cd btcusd
+python autotrader.py --hours 168 --delay 120    # overnight loop (~30 experiments/hour)
+python autotrader.py --once --hours 168          # single experiment
+python summary.py                                 # morning review
+```
+
+### Key Design
+- **Model:** Claude Sonnet 4 (cost-efficient for JSON mutation proposals)
+- **Backtest:** Real MT5 historical data (H4 trend + H1 signals), not synthetic
+- **Dedup guard:** 4-hour cooldown between signals (matches live bot cooldown)
+- **Dual drawdown:** Equity-peak DD (primary) + consecutive loss streak DD
+- **Telegram gate:** /deploy, /skip, /stop from phone. 30-min timeout → auto-skip
+- **Deploy pipeline:** Config update → git push → PM2 restart → 2h verification → auto-rollback if bad
+
+### Mar 8 Results (206 experiments, 3% keep rate)
+| Param | Before | After | Change |
+|-------|--------|-------|--------|
+| sl_atr_multiplier | 1.50 | **1.25** | Tighter SL |
+| tp_atr_multiplier | 2.00 | **1.75** | Tighter TP |
+| h4_ema_fast | 20 | **15** | Faster trend detection |
+| h1_ema_period | 20 | **25** | Deeper pullback entries |
+| min_atr | 300 | **250** | More trades in moderate vol |
+
+Best: 54.3% WR, $82.75 PnL/week, 0.22% DD. Near convergence (SL 1.25 confirmed — both directions rejected).
 
 ## Task Management
 

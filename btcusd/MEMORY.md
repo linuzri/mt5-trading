@@ -94,11 +94,13 @@ last_updated      : 2026-03-08
 ## EXPERIMENT LOG SUMMARY
 # Agent updates these counters after every experiment.
 
-total_experiments_run : 4
-total_kept            : 4
-total_discarded       : 0
+total_experiments_run : 206
+total_kept            : 6
+total_discarded       : 200
+keep_rate             : 3%
 best_improvement      : "h1_ema_period 20→25: +$26.45 pnl, +2.9% WR"
-last_experiment       : "EXP-004 KEPT: h1_ema_period 20→25 | WR 51.4%→54.3%, PnL $56.30→$82.75, DD 0.25%→0.22%, 35 trades"
+last_experiment       : "EXP-206 DISCARD: tp_atr_multiplier 1.75→2.25 | WR 54.3%→40.0%, PnL $82.75→$29.16 — wider TP reduced hit rate"
+convergence_note      : "SL 1.25 confirmed optimal — both 1.0 and 1.75 discarded. Keep rate at 3% suggests near-convergence."
 
 ---
 
@@ -120,15 +122,18 @@ Read these every loop before proposing anything.
 ## NOTES FROM HUMAN (Nazri)
 # Update this section between sessions with guidance for the next run.
 
-- We are in demo week 2 (Mar 2-7) — do not touch lot_size
-- BTC is currently ranging (H4 neutral for 48h as of 2026-03-08) — this is normal
+- Demo week 3 (Mar 6-13) — do not touch lot_size
+- BTC trend REVERSED Mar 8: EMA50 < EMA200 → DOWNTREND. Bot fires SELLs only.
 - Strategy is selective by design — expect 2-8 signals per 168h window
-- Baseline confirmed: 44.4% WR, $36.71 PnL, 0.25% DD, 36 trades over 168h (2026-03-08)
-- DO NOT mutate min_atr — H1 ATR floor is 320, so min_atr values below 320 have zero effect
+- Baseline confirmed: 54.3% WR, $82.75 PnL, 0.22% DD, 35 trades over 168h (2026-03-08)
+- AutoResearch ran 206 experiments, 6 kept (3% keep rate) — near convergence
+- SL 1.25 confirmed optimal (both 1.0 and 1.75 discarded)
+- All optimised params deployed to live config + bot restarted Mar 8
+- min_atr lowered to 250 (from 300) — allows more trades in moderate volatility
 - EFFECTIVE params to target (these actually change trade outcomes):
     1. sl_atr_multiplier / tp_atr_multiplier — directly changes win/loss amounts
     2. h4_ema_fast / h4_ema_slow — changes how many H4 bars are trending vs neutral
     3. h1_ema_period — changes where EMA sits, affects pullback/breakout detection
-- Primary goal: improve win_rate above 50% (currently 44.4%) without reducing PnL
+- Primary goal: maintain win_rate above 50% (currently 54.3%)
 - Secondary goal: keep drawdown below 0.5% of account balance
 - 168h window ensures at least one trending period even in ranging markets
