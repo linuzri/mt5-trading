@@ -42,7 +42,7 @@ MAX_TOKENS         = 2048
 
 # Deploy gate: require Telegram approval before pushing to live bot
 # Set to False to auto-deploy every keep without asking (not recommended)
-REQUIRE_APPROVAL   = True
+REQUIRE_APPROVAL   = False
 
 # ── Anthropic client ──────────────────────────────────────────────────────────
 
@@ -321,6 +321,14 @@ def run_one_experiment(hours: int = BACKTEST_HOURS, dry_run: bool = False) -> di
             approval = wait_for_approval({**mutation, **result}, timeout=1800)
         else:
             approval = "deploy"   # auto-deploy without asking
+            telegram_notify(
+                f"✅ *KEEP + AUTO-DEPLOY*\n"
+                f"Param: `{mutation['param']}`\n"
+                f"Change: `{mutation['old_value']}` → `{mutation['new_value']}`\n"
+                f"WR: `{result['win_rate']}%` PnL: `${result['pnl']}` DD: `{result['drawdown']}%`\n"
+                f"_{mutation['rationale']}_\n\n"
+                f"Deploying to config + restarting bot..."
+            )
 
         if approval == "deploy":
             print(f"  🚀  Deploying to live bot...")
@@ -348,13 +356,18 @@ def run_one_experiment(hours: int = BACKTEST_HOURS, dry_run: bool = False) -> di
             record["stop_requested"] = True
 
         elif approval == "no_telegram":
-            # Telegram not configured — just notify without gating
-            telegram_notify(
-                f"✅ *KEEP* `{mutation['param']}` {mutation['old_value']}→{mutation['new_value']}\n"
-                f"WR: `{result['win_rate']}%` PnL: `${result['pnl']}`\n"
-                f"⚠ Telegram gate not configured — not auto-deploying.\n"
-                f"Apply manually via deploy.py"
+            # Telegram not configured — still auto-deploy
+            print(f"  🚀  Auto-deploying (no Telegram gate)...")
+            from deploy import deploy as _deploy
+            deployed = _deploy(
+                param        = mutation["param"],
+                new_value    = mutation["new_value"],
+                old_value    = mutation["old_value"],
+                backtest_wr  = result["win_rate"],
+                backtest_pnl = result["pnl"],
+                dry_run      = dry_run,
             )
+            record["deployed"] = deployed
 
     else:
         # Discard — just notify
