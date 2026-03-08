@@ -35,7 +35,7 @@ import anthropic
 
 MEMORY_FILE        = Path("MEMORY.md")
 CALIB_LOG          = Path("calibration.jsonl")
-CLAUDE_MODEL       = "claude-opus-4-6"
+CLAUDE_MODEL       = "claude-sonnet-4-20250514"
 BACKTEST_HOURS     = 168
 LOOP_DELAY_SECONDS = 60     # gap between experiments (seconds)
 MAX_TOKENS         = 2048
