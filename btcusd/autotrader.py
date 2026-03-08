@@ -29,6 +29,10 @@ import argparse
 import datetime
 from pathlib import Path
 
+# Load .env from repo root (parent of btcusd/)
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 import anthropic
 
 # ── Config ────────────────────────────────────────────────────────────────────
