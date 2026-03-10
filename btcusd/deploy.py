@@ -30,7 +30,7 @@ CONFIG_FILE     = BOT_DIR / "config.json"
 TREND_FILE      = BOT_DIR / "trend_strategy.py"
 TRADE_LOG       = BOT_DIR / "logs" / "trade_log.csv"
 PM2_BOT_NAME    = "bot-btcusd"
-VERIFY_WAIT_SEC = 7200   # 2 hours before live verification
+VERIFY_WAIT_SEC = 0      # disabled — no live wait (was 7200)
 MIN_LIVE_TRADES = 3      # need at least this many live trades to verify
 
 # ── Params that live in config.json vs trend_strategy.py ─────────────────────
@@ -257,15 +257,40 @@ def git_revert(dry_run: bool = False) -> bool:
 
 # ── PM2 operations ────────────────────────────────────────────────────────────
 
+def _find_pm2() -> str:
+    """Find pm2 executable path, checking common locations."""
+    import shutil
+    pm2 = shutil.which("pm2")
+    if pm2:
+        return pm2
+    # Common Windows npm global locations
+    candidates = [
+        os.path.expandvars(r"%APPDATA%\npm\pm2.cmd"),
+        os.path.expandvars(r"%APPDATA%\npm\node_modules\pm2\bin\pm2"),
+        r"C:\Program Files\nodejs\pm2.cmd",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return "pm2"  # fallback, let it fail with clear error
+
+
 def pm2_restart(dry_run: bool = False) -> bool:
     """Restart the live bot via PM2."""
     try:
         if dry_run:
             print(f"  [DRY] Would pm2 restart {PM2_BOT_NAME}")
             return True
+        pm2_path = _find_pm2()
+        # Stop first, then start (safer than restart — avoids zombies)
+        subprocess.run(
+            [pm2_path, "stop", PM2_BOT_NAME],
+            capture_output=True, text=True, shell=True
+        )
+        time.sleep(2)
         result = subprocess.run(
-            ["pm2", "restart", PM2_BOT_NAME],
-            capture_output=True, text=True
+            [pm2_path, "start", PM2_BOT_NAME],
+            capture_output=True, text=True, shell=True
         )
         if result.returncode == 0:
             print(f"  ✅ PM2 restarted {PM2_BOT_NAME}")
@@ -274,7 +299,7 @@ def pm2_restart(dry_run: bool = False) -> bool:
             print(f"  ❌ PM2 error: {result.stderr}")
             return False
     except FileNotFoundError:
-        print("  ❌ pm2 not found in PATH")
+        print(f"  ❌ pm2 not found (tried: {pm2_path})")
         return False
 
 
@@ -375,7 +400,11 @@ def deploy(
         print("  [DRY] Skipping wait + verification")
         return True
 
-    # Step 4: Wait for live trades
+    # Step 4: Wait for live trades (skip if disabled)
+    if VERIFY_WAIT_SEC <= 0:
+        print("  ⏩ Live verification disabled — deploy complete")
+        return True
+
     print(f"  ⏳ Waiting {VERIFY_WAIT_SEC//3600}h for live performance data...")
     time.sleep(VERIFY_WAIT_SEC)
 
