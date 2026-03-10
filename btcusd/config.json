@@ -46,7 +46,7 @@
     "news_block_minutes": 0,
     "_news_block_comment": "DISABLED Feb 20 - news filter bug (abs() treated past events as upcoming, API returns stale data). Set to 0 to disable.",
     "_defensive_trading_comment": "Defensive trading settings to protect against consecutive losses and bad market conditions",
-    "_ema_trend_filter_note": "DEPRECATED — was used by ml_xgboost strategy. trend_following uses TrendStrategy (H4 EMA20/EMA50) instead.",
+    "_ema_trend_filter_note": "DEPRECATED \u00e2\u20ac\u201d was used by ml_xgboost strategy. trend_following uses TrendStrategy (H4 EMA20/EMA50) instead.",
     "max_spread_percent": 0.05,
     "_max_spread_comment": "Maximum spread as % of price. For BTCUSD at $100k, 0.05% = $50 max spread. Set to 0 to disable.",
     "loss_cooldown_minutes": 15,
@@ -110,10 +110,11 @@
     },
     "dynamic_sltp": {
         "enabled": true,
-        "sl_atr_multiplier": 1.25,
+        "sl_atr_multiplier": 1.5,
         "tp_atr_multiplier": 1.75,
         "min_tp": 75,
-        "_explanation": "Optimised by AutoResearch 2026-03-08. SL=1.25x ATR, TP=1.75x ATR. R:R=1.4. Best: 54.3% WR, $82.75 PnL/week."
+        "_explanation": "Optimised by AutoResearch 2026-03-08. SL=1.25x ATR, TP=1.75x ATR. R:R=1.4. Best: 54.3% WR, $82.75 PnL/week.",
+        "_autotrader_note": "Updated by AutoResearch 2026-03-10 \u2014 sl_atr_multiplier: 1.25 \u2192 1.5"
     },
     "off_hours_max_trades": 5,
     "max_daily_trades": 5,
