@@ -5,19 +5,19 @@ Automated Bitcoin trading bot for MetaTrader 5 using **rule-based trend detectio
 **Live Dashboard:** https://trade-bot-hq.vercel.app  
 **MQL5 Signal:** https://www.mql5.com/en/signals/2359964
 
-## 🔴 Status (Mar 8, 2026)
+## 🔴 Status (Mar 10, 2026)
 
 | Item | Status |
 |------|--------|
 | **Live Bot** | ⏸️ STOPPED — pending demo validation |
 | **Demo Bot** | ✅ Running from `btcusd/` (trend_following strategy, account 61459537) |
-| **Strategy** | H4 trend (EMA15/50) + H1 pullback/breakout (EMA25) + **H1 momentum filter** |
-| **AutoResearch** | ✅ 206 experiments, 6 kept, params deployed Mar 8 |
+| **Strategy** | H4 trend (EMA15/80) + H1 pullback/breakout (EMA25) + **H1 momentum filter** |
+| **AutoResearch** | ✅ 260+ experiments, 11 kept, fully autonomous deploy pipeline |
 | **ML Model** | Trained as quality filter, loaded but dormant |
 | **MQL5 Signal** | ✅ LIVE & APPROVED ($30/month) |
 | **Demo Week 3** | March 6-13 — go-live review March 13 |
 | **BTC Trend** | 📉 DOWNTREND (EMA50 < EMA200 as of Mar 8) |
-| **SL / TP** | 1.25× / 1.75× ATR (R:R 1.40, optimised by AutoResearch) |
+| **SL / TP** | 1.5× / 2.75× ATR (R:R 1.83, optimised by AutoResearch Mar 10) |
 | **H1 Momentum** | ✅ SELL: lower close+high+below EMA20. BUY: mirror. (Mar 6) |
 | **Trailing Stop** | ❌ DISABLED (M1 ATR incompatible with H1 trend holds) |
 | **Smart Exit** | ❌ DISABLED (120min max hold kills multi-hour trends) |
@@ -43,7 +43,7 @@ On each new H1 candle close:
 3. Check H1 for pullback to EMA20 or breakout above/below previous candle
 4. H1 momentum confirmation: SELL needs lower close+high+below EMA20; BUY needs higher close+low+above EMA20
 5. Filter chain: ATR floor (≥300) → spread → cooldown → circuit breaker → daily(5)/weekly(30) limits
-6. Execute with dynamic SL/TP (1.25× / 1.75× ATR, R:R = 1.40:1)
+6. Execute with dynamic SL/TP (1.5× / 2.75× ATR, R:R = 1.83:1)
 7. Position exits ONLY via SL or TP (no trailing stop, no smart exit, no partial profit)
 ```
 
@@ -114,20 +114,33 @@ mt5-trading/
 └── sync_to_supabase.py    # Trade sync to cloud
 ```
 
-## 🔬 AutoResearch (Mar 8, 2026)
+## 🔬 AutoResearch (Mar 10, 2026)
 
-Karpathy-style autonomous parameter optimizer. AI agent proposes one mutation at a time, backtests on live MT5 historical data, keeps improvements, discards regressions.
+Karpathy-style autonomous parameter optimizer. AI agent proposes one mutation at a time, backtests on live MT5 historical data, keeps improvements, discards regressions. **Fully autonomous deploy pipeline** — auto-updates config, commits to GitHub, restarts PM2 bot.
 
 ```bash
 cd btcusd
 python autotrader.py --hours 168 --delay 120    # overnight (~30 experiments/hour)
 python autotrader.py --once                      # single experiment
 python summary.py                                # morning review
+# Also runs weekly via PM2 cron: Sunday 11PM MYT (autotrader-weekly)
 ```
 
-**Results (206 experiments):** SL 1.5→1.25, TP 2.0→1.75, H4 EMA fast 20→15, H1 EMA 20→25, min_atr 300→250. Best: 54.3% WR, $82.75/week PnL, 0.22% DD.
+**Results (260+ experiments, 11 kept, ~4% keep rate):**
 
-**Telegram bot:** @algotrade_mx_bot — `/deploy`, `/skip`, `/stop` for human-in-the-loop approval.
+| Param | Mar 8 | Mar 10 | Direction |
+|-------|-------|--------|-----------|
+| sl_atr_multiplier | 1.25 | **1.5** | Wider SL (let trades breathe) |
+| tp_atr_multiplier | 1.75 | **2.75** | Much wider TP (let winners run) |
+| h4_ema_fast | 15 | 15 | Unchanged |
+| h4_ema_slow | 50 | **80** | More selective trend detection |
+| h1_ema_period | 25 | 25 | Unchanged |
+
+**Best: 69.2% WR, $140.28/week PnL, 0.06% DD, R:R 1.83.** Near convergence.
+
+**Deploy pipeline:** Config update → git commit+push → PM2 stop+start → bot loads new params on startup. Fully automatic, no human intervention needed.
+
+**Telegram bot:** @algotrade_mx_bot — notifications on KEEP/DISCARD + `/deploy`, `/skip`, `/stop` for optional human-in-the-loop.
 
 ## Configuration
 
@@ -140,8 +153,8 @@ python summary.py                                # morning review
 | Circuit Breaker | 5 consecutive losses = daily shutdown |
 | Daily Limit | 5 trades |
 | Weekly Limit | 30 trades (Mar 7, up from 25 for buffer) |
-| SL / TP | 1.25× / 1.75× ATR (R:R 1.40, optimised Mar 8) |
-| H4 EMA Fast/Slow | 15 / 50 (fast optimised from 20, Mar 8) |
+| SL / TP | 1.5× / 2.75× ATR (R:R 1.83, optimised Mar 10) |
+| H4 EMA Fast/Slow | 15 / 80 (optimised by AutoResearch Mar 8-10) |
 | H1 Entry EMA | 25 (optimised from 20, Mar 8) |
 | ATR Floor | 250 on H1 (optimised from 300, Mar 8) |
 | H1 Momentum Filter | Enabled (Mar 6 — SELL: lower close+high+below EMA20) |
