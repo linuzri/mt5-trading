@@ -282,15 +282,18 @@ def pm2_restart(dry_run: bool = False) -> bool:
             print(f"  [DRY] Would pm2 restart {PM2_BOT_NAME}")
             return True
         pm2_path = _find_pm2()
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         # Stop first, then start (safer than restart — avoids zombies)
         subprocess.run(
             [pm2_path, "stop", PM2_BOT_NAME],
-            capture_output=True, text=True, shell=True
+            capture_output=True, text=True, shell=True,
+            encoding="utf-8", errors="replace", env=env
         )
         time.sleep(2)
         result = subprocess.run(
             [pm2_path, "start", PM2_BOT_NAME],
-            capture_output=True, text=True, shell=True
+            capture_output=True, text=True, shell=True,
+            encoding="utf-8", errors="replace", env=env
         )
         if result.returncode == 0:
             print(f"  ✅ PM2 restarted {PM2_BOT_NAME}")
