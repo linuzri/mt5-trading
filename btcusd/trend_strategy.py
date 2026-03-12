@@ -31,17 +31,17 @@ class TrendStrategy:
             return 'neutral'
 
         df = pd.DataFrame(rates)
-        df['ema10'] = df['close'].ewm(span=10, adjust=False).mean()
+        df['ema15'] = df['close'].ewm(span=15, adjust=False).mean()
         df['ema80'] = df['close'].ewm(span=80, adjust=False).mean()
 
         latest = df.iloc[-1]
         price = latest['close']
-        ema10 = latest['ema10']
+        ema15 = latest['ema15']
         ema80 = latest['ema80']
 
-        if price > ema10 > ema80:
+        if price > ema15 > ema80:
             return 'bullish'
-        elif price < ema10 < ema80:
+        elif price < ema15 < ema80:
             return 'bearish'
         else:
             return 'neutral'
