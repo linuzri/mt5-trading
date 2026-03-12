@@ -110,11 +110,11 @@
     },
     "dynamic_sltp": {
         "enabled": true,
-        "sl_atr_multiplier": 2.0,
+        "sl_atr_multiplier": 2.25,
         "tp_atr_multiplier": 2.5,
         "min_tp": 75,
         "_explanation": "Optimised by AutoResearch 2026-03-08. SL=1.25x ATR, TP=1.75x ATR. R:R=1.4. Best: 54.3% WR, $82.75 PnL/week.",
-        "_autotrader_note": "Updated by AutoResearch 2026-03-13 \u2014 sl_atr_multiplier: 1.75 \u2192 2.0"
+        "_autotrader_note": "Updated by AutoResearch 2026-03-13 \u2014 sl_atr_multiplier: 2.0 \u2192 2.25"
     },
     "off_hours_max_trades": 5,
     "max_daily_trades": 5,
