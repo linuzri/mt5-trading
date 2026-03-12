@@ -120,5 +120,9 @@
     "max_daily_trades": 5,
     "_max_daily_trades_comment": "Maximum 5 trades per MYT calendar day.",
     "max_weekly_trades": 30,
-    "_max_weekly_trades_comment": "Maximum 30 trades per MYT calendar week (Mon-Sun). Allows up to 6 trades/day average, providing buffer when daily limit hits early in the week."
+    "_max_weekly_trades_comment": "Maximum 30 trades per MYT calendar week (Mon-Sun). Allows up to 6 trades/day average, providing buffer when daily limit hits early in the week.",
+    "long_only_mode": true,
+    "_long_only_mode_comment": "If true, all SELL signals are blocked. Use during confirmed UPTREND or for demo fix testing.",
+    "d1_trend_filter_enabled": true,
+    "_d1_trend_filter_comment": "If true, blocks BUY signals when D1 EMA50 < EMA200 (DOWNTREND) and SELL signals when D1 EMA50 > EMA200 (UPTREND). Aligns trades with the daily macro trend."
 }

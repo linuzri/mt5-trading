@@ -204,7 +204,7 @@ def compute_ema(prices, period):
 def get_ema_trend(prices, fast_period=50, slow_period=200):
     """
     Detect market trend using EMA crossover.
-    
+
     Returns:
         'UPTREND' if EMA50 > EMA200 (bullish)
         'DOWNTREND' if EMA50 < EMA200 (bearish)
@@ -212,14 +212,36 @@ def get_ema_trend(prices, fast_period=50, slow_period=200):
     """
     if len(prices) < slow_period:
         return None
-    
+
     ema_fast = compute_ema(prices, fast_period).iloc[-1]
     ema_slow = compute_ema(prices, slow_period).iloc[-1]
-    
+
     if ema_fast > ema_slow:
         return "UPTREND"
     else:
         return "DOWNTREND"
+
+def get_d1_trend(symbol, fast_period=50, slow_period=200):
+    """
+    Detect daily trend using EMA crossover on D1 bars.
+
+    Returns:
+        'UPTREND' if EMA50 > EMA200 on D1 (bullish)
+        'DOWNTREND' if EMA50 < EMA200 on D1 (bearish)
+        None if not enough data or MT5 error
+    """
+    try:
+        rates = mt5.copy_rates_from(symbol, mt5.TIMEFRAME_D1,
+                                     datetime.now(UTC), slow_period + 10)
+        if rates is None or len(rates) < slow_period:
+            return None
+        closes = pd.Series([r['close'] for r in rates])
+        ema_fast = closes.ewm(span=fast_period, adjust=False).mean().iloc[-1]
+        ema_slow = closes.ewm(span=slow_period, adjust=False).mean().iloc[-1]
+        return "UPTREND" if ema_fast > ema_slow else "DOWNTREND"
+    except Exception as e:
+        print(f"[D1 TREND] Error fetching D1 bars: {e}")
+        return None
 
 # --- ML Model Training automation DAILY at 8:00 AM US Eastern ---
 def is_daily_training_time():
@@ -289,6 +311,10 @@ crash_halt_minutes = config.get("crash_halt_minutes", 30)  # How long to halt af
 enable_ema_trend_filter = config.get("enable_ema_trend_filter", True)  # Enable/disable EMA trend filter
 ema_fast_period = config.get("ema_fast_period", 50)  # Fast EMA period
 ema_slow_period = config.get("ema_slow_period", 200)  # Slow EMA period
+
+# --- Long-Only Mode and D1 Trend Filter Configs ---
+long_only_mode = config.get("long_only_mode", False)  # If True, block all SELL signals
+d1_trend_filter_enabled = config.get("d1_trend_filter_enabled", False)  # If True, block trades against D1 trend
 
 # --- Dynamic Position Sizing Configs ---
 position_sizing_config = config.get("dynamic_position_sizing", {})
@@ -935,6 +961,10 @@ try:
     else:
         log_notify(f"[BTCUSD STARTUP] Trailing Stop: DISABLED | Smart Exit: DISABLED | SL/TP fixed at entry")
     log_notify(f"[BTCUSD STARTUP] Circuit Breaker: {max_consecutive_losses} consecutive losses = DAILY SHUTDOWN (MYT)")
+    if long_only_mode:
+        log_notify(f"[BTCUSD STARTUP] Long-Only Mode: ENABLED - all SELL signals will be blocked")
+    if d1_trend_filter_enabled:
+        log_notify(f"[BTCUSD STARTUP] D1 Trend Filter: ENABLED - BUY blocked in D1 DOWNTREND, SELL blocked in D1 UPTREND (EMA50/200)")
     if strategy == "ml_xgboost":
         log_notify(f"[BTCUSD STARTUP] ML Config: confidence={ml_predictor.confidence_threshold:.0%}, max_hold={ml_predictor.max_hold_probability:.0%}, min_diff={ml_predictor.min_prob_diff:.0%}")
 
@@ -1886,6 +1916,16 @@ try:
                             log_only(f"[MOMENTUM] Blocking {losing_direction.upper()} (3 consecutive losses). Switching to {opposite.upper()}")
                             trade_signal = opposite
 
+        # --- LONG-ONLY MODE: Block all SELL signals ---
+        if trade_signal == "sell" and config.get("long_only_mode", long_only_mode):
+            msg = "[LONG-ONLY MODE] SELL signal blocked - bot configured for long-only trading"
+            if last_filter_message != msg:
+                log_only(msg)
+                last_filter_message = msg
+            log_blocked_signal("SELL", "long_only_mode", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                               _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
+            trade_signal = None
+
         # --- EMA TREND FILTER: Block trades against the trend ---
         if trade_signal is not None and enable_ema_trend_filter and ema_trend is not None:
             if trade_signal == "buy" and ema_trend == "DOWNTREND":
@@ -1904,6 +1944,27 @@ try:
                 log_blocked_signal("SELL", "ema_trend", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
                                    _cycle_ml["confidence"], _cycle_ml["atr"], ema_trend or "", _cycle_momentum)
                 trade_signal = None  # Block the SELL trade in uptrend
+
+        # --- D1 TREND FILTER: Block trades against the daily trend ---
+        if trade_signal is not None and config.get("d1_trend_filter_enabled", d1_trend_filter_enabled):
+            d1_trend = get_d1_trend(symbol)
+            if d1_trend is not None:
+                if trade_signal == "buy" and d1_trend == "DOWNTREND":
+                    msg = "[D1 TREND FILTER] BUY signal blocked - D1 in DOWNTREND (EMA50 < EMA200)"
+                    if last_filter_message != msg:
+                        log_only(msg)
+                        last_filter_message = msg
+                    log_blocked_signal("BUY", "d1_trend_filter", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                       _cycle_ml["confidence"], _cycle_ml["atr"], d1_trend, _cycle_momentum)
+                    trade_signal = None
+                elif trade_signal == "sell" and d1_trend == "UPTREND":
+                    msg = "[D1 TREND FILTER] SELL signal blocked - D1 in UPTREND (EMA50 > EMA200)"
+                    if last_filter_message != msg:
+                        log_only(msg)
+                        last_filter_message = msg
+                    log_blocked_signal("SELL", "d1_trend_filter", _cycle_ml["rf"], _cycle_ml["xgb"], _cycle_ml["lgb"],
+                                       _cycle_ml["confidence"], _cycle_ml["atr"], d1_trend, _cycle_momentum)
+                    trade_signal = None
 
         # --- MOMENTUM FILTER: Check price direction aligns with signal ---
         if trade_signal is not None and momentum_filter_enabled:
