@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Bot HQ</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>BTCUSD Trading Bot Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -13,2390 +17,857 @@
             box-sizing: border-box;
         }
 
-        :root {
-            --bg-primary: #0f1117;
-            --bg-secondary: #1a1d26;
-            --bg-card: #21242d;
-            --bg-hover: #2a2e38;
-            --border-color: #2d3139;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --green: #22c55e;
-            --green-bg: rgba(34, 197, 94, 0.1);
-            --red: #ef4444;
-            --red-bg: rgba(239, 68, 68, 0.1);
-            --yellow: #eab308;
-            --yellow-bg: rgba(234, 179, 8, 0.1);
-            --blue: #3b82f6;
-            --cyan: #06b6d4;
-            --btc-orange: #f7931a;
-            --gold: #ffd700;
-            --eu-blue: #0052b4;
-        }
-
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.5;
+            font-family: 'Inter', sans-serif;
+            background: #0D1117;
+            color: #E6EDF3;
+            line-height: 1.6;
+            overflow-x: hidden;
         }
 
-        /* Navbar */
-        .navbar {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .navbar h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .navbar h1::before {
-            content: '📊';
-        }
-
-        .navbar-right {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
-
-        .github-link {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: var(--bg-hover);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .github-link:hover {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border-color: var(--text-muted);
-            transform: translateY(-1px);
-        }
-
-        .github-link svg {
-            width: 18px;
-            height: 18px;
-            fill: currentColor;
-        }
-
-        /* account-balance removed — live stats in hero card */
-
-        .last-updated {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .refresh-indicator {
-            width: 8px;
-            height: 8px;
-            background: var(--green);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Main Container */
         .container {
-            max-width: 1600px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 0 20px;
         }
 
-        /* Section Headers */
-        .section-header {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+            border-bottom: 1px solid #21262D;
+            padding: 20px 0;
+            margin-bottom: 30px;
         }
 
-        /* Cards Grid */
-        .bots-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.25rem;
-            transition: all 0.2s ease;
-        }
-
-        .card:hover {
-            border-color: var(--text-muted);
-            transform: translateY(-2px);
-        }
-
-        /* Bot Cards */
-        .bot-card-header {
+        .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
-        .bot-name {
-            display: flex;
+        .header-left h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #F7931A 0%, #FFA500 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .strategy-badge {
+            display: inline-flex;
             align-items: center;
-            gap: 0.75rem;
-        }
-
-        .bot-name h3 {
-            font-size: 1rem;
-            font-weight: 600;
-        }
-
-        .bot-symbol {
-            background: var(--bg-secondary);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.75rem;
-            text-transform: uppercase;
+            gap: 8px;
+            background: rgba(56, 139, 253, 0.1);
+            border: 1px solid #388BFD;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
             font-weight: 500;
+        }
+
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .bot-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
+            background: #238636;
+            animation: pulse 2s infinite;
         }
 
-        .status-running .status-dot { background: var(--green); animation: pulse 2s ease-in-out infinite; }
-        .status-running { color: var(--green); }
-
-        .status-paused .status-dot { background: var(--yellow); }
-        .status-paused { color: var(--yellow); }
-
-        .status-stopped .status-dot { background: var(--red); }
-        .status-stopped { color: var(--red); }
+        .status-dot.offline {
+            background: #DA3633;
+        }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-            50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
         }
 
-        .bot-stats {
+        .last-updated {
+            font-size: 0.85rem;
+            color: #8B949E;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-value {
-            font-size: 1.25rem;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-
-        .stat-value.profit { color: var(--green); }
-        .stat-value.loss { color: var(--red); }
-
-        .pnl-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .pnl-arrow {
-            font-size: 0.875rem;
-        }
-
-        .pnl-percent {
-            font-size: 0.875rem;
-            padding: 0.125rem 0.375rem;
-            border-radius: 4px;
-        }
-
-        .pnl-percent.profit {
-            background: var(--green-bg);
-            color: var(--green);
-        }
-
-        .pnl-percent.loss {
-            background: var(--red-bg);
-            color: var(--red);
-        }
-
-        /* Sparkline */
-        .sparkline-container {
-            height: 40px;
-            margin-top: 0.5rem;
-        }
-
-        /* Chart Section */
-        .chart-section {
-            margin-bottom: 2rem;
-        }
-
-        .chart-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+        .metric-card {
+            background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+            border: 1px solid #21262D;
             border-radius: 12px;
-            padding: 1.5rem;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .time-toggle {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .time-btn {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-        }
-
-        .time-btn:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
-
-        .time-btn.active {
-            background: var(--blue);
-            border-color: var(--blue);
-            color: white;
-            transform: scale(1.05);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
-        }
-
-        .chart-container {
+            padding: 24px;
             position: relative;
-            height: 300px;
+            overflow: hidden;
         }
 
-        .chart-loading {
+        .metric-card::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: rgba(15, 17, 23, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            z-index: 10;
+            height: 3px;
+            background: linear-gradient(90deg, #F7931A, #FFA500);
         }
 
-        /* Trades Table */
-        .trades-section {
-            margin-bottom: 2rem;
+        .metric-label {
+            font-size: 0.85rem;
+            color: #8B949E;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .table-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #E6EDF3;
+            margin-bottom: 4px;
+        }
+
+        .metric-change {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .positive { color: #238636; }
+        .negative { color: #DA3633; }
+
+        /* Chart Section */
+        .chart-section {
+            background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+            border: 1px solid #21262D;
             border-radius: 12px;
-            overflow: hidden;
+            padding: 24px;
+            margin-bottom: 30px;
         }
 
-        .table-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border-color);
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #E6EDF3;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        /* Trade History */
+        .trade-history {
+            background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+            border: 1px solid #21262D;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 0.9rem;
         }
 
         th {
+            background: #21262D;
+            color: #8B949E;
+            padding: 12px 16px;
             text-align: left;
-            padding: 0.75rem 1rem;
-            font-size: 0.75rem;
             font-weight: 600;
-            color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid var(--border-color);
-            background: var(--bg-secondary);
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #30363D;
         }
 
         td {
-            padding: 0.875rem 1rem;
-            font-size: 0.875rem;
-            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+            border-bottom: 1px solid #21262D;
         }
 
         tr:hover {
-            background: var(--bg-hover);
+            background: rgba(56, 139, 253, 0.05);
         }
 
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        .side-buy {
-            color: var(--green);
+        .direction-buy { 
+            color: #238636; 
             font-weight: 600;
         }
 
-        .side-sell {
-            color: var(--red);
+        .direction-sell { 
+            color: #DA3633; 
             font-weight: 600;
         }
 
-        .trade-profit {
-            color: var(--green);
-            background: var(--green-bg);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-        }
-
-        .trade-loss {
-            color: var(--red);
-            background: var(--red-bg);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-muted);
-        }
-
-        /* Trade Filters */
-        .trade-filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid var(--border-color);
-            align-items: center;
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .filter-group label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .filter-select {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.4rem 0.75rem;
-            font-size: 0.8rem;
-            font-family: inherit;
-            cursor: pointer;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .filter-select:hover,
-        .filter-select:focus {
-            border-color: var(--blue);
-        }
-
-        .filter-pills {
-            display: flex;
-            gap: 0.35rem;
-        }
-
-        .filter-pill {
-            background: var(--bg-hover);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 0.35rem 0.75rem;
-            font-size: 0.75rem;
-            font-family: inherit;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .filter-pill:hover {
-            border-color: var(--blue);
-            color: var(--text-primary);
-        }
-
-        .filter-pill.active {
-            background: var(--blue);
-            border-color: var(--blue);
-            color: #fff;
-        }
-
-        /* Trade Stats Bar */
-        .trade-stats-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            padding: 0.75rem 1.25rem;
-            border-bottom: 1px solid var(--border-color);
-            background: var(--bg-secondary);
-        }
-
-        .trade-stat {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-        }
-
-        .trade-stat-label {
-            font-size: 0.65rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .trade-stat-value {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        /* Responsive trades table */
-        .trades-table-wrap {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .load-more-wrap {
-            text-align: center;
-            padding: 1rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .load-more-btn {
-            background: var(--bg-hover);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.5rem 1.5rem;
-            font-size: 0.8rem;
-            font-family: inherit;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .load-more-btn:hover {
-            border-color: var(--blue);
-            color: var(--text-primary);
-        }
-
-        /* Logs Section */
-        .logs-section {
-            margin-bottom: 2rem;
-        }
-
-        .logs-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 1rem;
-        }
-
-        .log-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+        /* EMA Status Panel */
+        .ema-panel {
+            background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+            border: 1px solid #21262D;
             border-radius: 12px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            max-height: 400px;
+            padding: 24px;
+            margin-bottom: 30px;
         }
 
-        .log-header {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--bg-secondary);
+        .ema-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
 
-        .log-title {
+        .ema-metric {
+            text-align: center;
+            padding: 16px;
+            background: rgba(56, 139, 253, 0.05);
+            border-radius: 8px;
+            border: 1px solid #30363D;
+        }
+
+        .ema-metric .label {
+            font-size: 0.8rem;
+            color: #8B949E;
+            margin-bottom: 8px;
+        }
+
+        .ema-metric .value {
+            font-size: 1.2rem;
             font-weight: 600;
-            font-size: 0.875rem;
+            color: #E6EDF3;
+        }
+
+        /* Session Stats */
+        .session-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .session-card {
+            background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+            border: 1px solid #21262D;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 30px 0;
+            color: #8B949E;
+            font-size: 0.9rem;
+            border-top: 1px solid #21262D;
+            margin-top: 40px;
+        }
+
+        .footer-links {
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
         }
 
-        .log-color-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-right {
+                align-items: center;
+            }
+
+            .header-left h1 {
+                font-size: 1.8rem;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+
+            table {
+                font-size: 0.8rem;
+            }
+
+            th, td {
+                padding: 8px 12px;
+            }
         }
 
-        .clear-btn {
-            background: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.2s ease;
-        }
-
-        .clear-btn:hover {
-            background: var(--red-bg);
-            border-color: var(--red);
-            color: var(--red);
-        }
-
-        .log-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.5rem;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.75rem;
-            line-height: 1.6;
-            background: var(--bg-primary);
-        }
-
-        .log-entry {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            margin-bottom: 2px;
-            word-break: break-all;
-        }
-
-        .log-info { color: var(--text-muted); }
-        .log-warning { color: var(--yellow); background: var(--yellow-bg); }
-        .log-error { color: var(--red); background: var(--red-bg); }
-        .log-trade { color: var(--cyan); }
-        .log-balance { color: var(--green); }
-
-        /* Colored log types */
-        .log-sell { color: #ef4444; }  /* Red - SELL signals */
-        .log-buy { color: #22c55e; }   /* Green - BUY signals */
-        .log-session { color: #eab308; }  /* Yellow - Session info */
-        .log-position { color: #06b6d4; }  /* Cyan - Position sizing */
-        .log-market { color: #f97316; }  /* Orange - Market warnings */
-        .log-filter { color: #a78bfa; }  /* Purple - Filtered/skipped */
-        .log-news { color: #a855f7; }  /* Purple - News */
-        .log-notify { color: #4ade80; font-weight: 600; }  /* Bright green - Trade executed */
-        .log-balance-info { color: #fbbf24; }  /* Gold - Balance info */
-        .log-nosignal { color: #52525b; }  /* Dim gray - No trade signal */
-        .log-failed { color: #ef4444; background: rgba(239, 68, 68, 0.1); }  /* Red bg - Errors */
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-
-        /* Loading State */
+        /* Loading state */
         .loading {
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 2rem;
-            color: var(--text-muted);
-        }
-
-        .spinner {
-            width: 24px;
-            height: 24px;
-            border: 2px solid var(--border-color);
-            border-top-color: var(--blue);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 0.75rem;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .navbar {
-                padding: 1rem;
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .bots-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .logs-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .chart-header {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: flex-start;
-            }
-        }
-
-        /* Performance Metrics */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .metric-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.25rem;
-            transition: all 0.2s ease;
-        }
-
-        .metric-card:hover {
-            border-color: var(--text-muted);
-            transform: translateY(-2px);
-        }
-
-        .metric-card-title {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-
-        .metric-main-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .metric-sub {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        .metric-sub span {
-            display: inline-block;
-            margin-right: 0.75rem;
-        }
-
-        .equity-filters {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .equity-filter-btn {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 0.4rem 0.85rem;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            font-family: inherit;
-            transition: all 0.2s;
-        }
-
-        .equity-filter-btn:hover {
-            border-color: var(--blue);
-            color: var(--text-primary);
-        }
-
-        .equity-filter-btn.active {
-            border-color: var(--cyan);
-            color: var(--cyan);
-            background: rgba(6, 182, 212, 0.1);
-        }
-
-        /* Metric Tooltips */
-        .metric-card-title {
-            position: relative;
-            display: flex;
             align-items: center;
-            gap: 0.4rem;
+            height: 200px;
+            color: #8B949E;
         }
 
-        .metric-info {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            font-size: 0.6rem;
-            font-weight: 700;
-            cursor: help;
-            position: relative;
-            flex-shrink: 0;
-        }
-
-        .metric-info:hover {
-            border-color: var(--cyan);
-            color: var(--cyan);
-        }
-
-        .metric-tooltip {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
+        .error {
+            color: #DA3633;
+            text-align: center;
+            padding: 20px;
+            background: rgba(218, 54, 51, 0.1);
             border-radius: 8px;
-            padding: 0.75rem 1rem;
-            width: 280px;
-            z-index: 100;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-            font-size: 0.75rem;
-            font-weight: 400;
-            line-height: 1.6;
-            color: var(--text-secondary);
-            text-transform: none;
-            letter-spacing: normal;
-        }
-
-        .metric-tooltip::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: var(--border-color);
-        }
-
-        .metric-info:hover .metric-tooltip {
-            display: block;
-        }
-
-        .metric-tooltip strong {
-            color: var(--text-primary);
-            display: block;
-            margin-bottom: 0.35rem;
-            font-size: 0.8rem;
-        }
-
-        .metric-tooltip .scale {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.4rem;
-            font-size: 0.7rem;
-        }
-
-        .metric-tooltip .scale span {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .metric-tooltip .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        /* Animations */
-        .fade-in {
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .value-change {
-            animation: valueFlash 0.5s ease;
-        }
-
-        @keyframes valueFlash {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            border: 1px solid #DA3633;
         }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <h1>Trading Bot Monitor</h1>
-        <div class="navbar-right">
-            <a href="https://github.com/linuzri/mt5-trading" target="_blank" rel="noopener" class="github-link">
-                <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                Source Code
-            </a>
-            <div class="last-updated">
-                <div class="refresh-indicator"></div>
-                <span id="lastUpdated">Loading...</span>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <div style="background: linear-gradient(135deg, var(--bg-secondary) 0%, #1e2233 100%); border-bottom: 1px solid var(--border-color); padding: 2.5rem 2rem 2rem;">
-        <div style="max-width: 1400px; margin: 0 auto;">
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
-                <div style="max-width: 700px;">
-                    <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <span>🤖</span> Trading Bot HQ
-                    </h1>
-                    <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 1.25rem;">
-                        Machines trade. Dashboard watches. Three ML-powered bots on MT5 &mdash; autonomous scalping, live 24/7.
-                    </p>
-                    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                        <span style="background: rgba(247, 147, 26, 0.15); color: #f7931a; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(247, 147, 26, 0.25);">₿ BTCUSD</span>
-                        <span style="background: rgba(255, 215, 0, 0.12); color: #ffd700; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(255, 215, 0, 0.2);">🥇 XAUUSD</span>
-                        <span style="background: rgba(0, 82, 180, 0.15); color: #6fa3ef; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(0, 82, 180, 0.3);">💶 EURUSD</span>
-                        <!-- <span style="background: rgba(138, 43, 226, 0.15); color: #b47ede; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(138, 43, 226, 0.25);">🌤️ Weather Arb</span> -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>BTCUSD Trading Bot</h1>
+                    <div class="strategy-badge">
+                        <span>EMA Cross (10/50) | H1</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
-                    <div style="text-align: center; padding: 0.75rem 1rem;">
-                        <div style="font-size: 1.1rem; margin-bottom: 0.3rem;">⚡</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">ML Prediction</div>
+                <div class="header-right">
+                    <div class="bot-status">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">Loading...</span>
                     </div>
-                    <div style="text-align: center; padding: 0.75rem 1rem;">
-                        <div style="font-size: 1.1rem; margin-bottom: 0.3rem;">📊</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Real-time Sync</div>
-                    </div>
-                    <div style="text-align: center; padding: 0.75rem 1rem;">
-                        <div style="font-size: 1.1rem; margin-bottom: 0.3rem;">🛡️</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Risk Management</div>
-                    </div>
-                    <div style="text-align: center; padding: 0.75rem 1rem;">
-                        <div style="font-size: 1.1rem; margin-bottom: 0.3rem;">📈</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Auto-Retrain</div>
-                    </div>
-                    <div style="text-align: center; padding: 0.75rem 1rem;">
-                        <div style="font-size: 1.1rem; margin-bottom: 0.3rem;">🧠</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">AI Evaluator</div>
-                    </div>
+                    <div class="last-updated" id="lastUpdated">Last updated: Loading...</div>
                 </div>
             </div>
         </div>
-    </div>
+    </header>
 
-    <!-- LIVE Summary Hero Card -->
-    <div style="max-width: 1600px; margin: 0 auto; padding: 1.5rem 1.5rem 0;">
-    </div>
-
-    <!-- Main Content -->
     <div class="container">
-        <!-- Bot Performance Cards -->
-        <section class="bots-section">
-            <h2 class="section-header">🤖 Robot Performance</h2>
-            <div id="liveHeroCard" style="background: linear-gradient(135deg, #1a1d26 0%, #1e1215 100%); border: 1.5px solid rgba(239,68,68,0.3); border-radius: 16px; padding: 1.75rem 2rem; margin-bottom: 1.5rem; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #ef4444, #f97316, #ef4444); border-radius: 16px 16px 0 0;"></div>
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-                    <span style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(239,68,68,0.4); display: flex; align-items: center; gap: 0.4rem;">
-                        <span style="width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 2s infinite;"></span> LIVE
-                    </span>
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">BTCUSD · Live since Feb 18, 2026</span>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;" id="liveHeroStats">
-                    <div>
-                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Account Balance</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveBalance">—</div>
-                    </div>
-                    <div>
-                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Today's P/L</div>
-                        <div style="font-size: 1.5rem; font-weight: 700;" id="liveTodayPL">—</div>
-                    </div>
-                    <div>
-                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Live P/L</div>
-                        <div style="font-size: 1.5rem; font-weight: 700;" id="liveTotalPL">—</div>
-                    </div>
-                    <div>
-                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Win Rate</div>
-                        <div style="font-size: 1.5rem; font-weight: 700;" id="liveWinRate">—</div>
-                    </div>
-                    <div>
-                        <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;">Total Trades</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);" id="liveTradeCount">—</div>
-                    </div>
-                </div>
+        <!-- Key Metrics -->
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="metric-label">Current Balance</div>
+                <div class="metric-value" id="currentBalance">Loading...</div>
+                <div class="metric-change" id="balanceChange">Loading...</div>
             </div>
-            <div class="bots-grid" id="botsGrid">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading bots...
-                </div>
+            <div class="metric-card">
+                <div class="metric-label">Total P&L</div>
+                <div class="metric-value" id="totalPnl">Loading...</div>
             </div>
-        </section>
+            <div class="metric-card">
+                <div class="metric-label">Win Rate</div>
+                <div class="metric-value" id="winRate">Loading...</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Trades</div>
+                <div class="metric-value" id="totalTrades">Loading...</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value" id="maxDrawdown">Loading...</div>
+            </div>
+        </div>
 
-        <!-- Performance Chart -->
-        <section class="chart-section">
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h2 class="section-header" style="margin-bottom:0">📈 Daily P/L Performance</h2>
-                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                        <div class="filter-pills" id="chartSourceFilter">
-                            <button class="filter-pill active" data-chart-source="live" onclick="setChartSource(this,'live')">🔴 Live</button>
-                            <button class="filter-pill" data-chart-source="demo" onclick="setChartSource(this,'demo')">🟡 Demo</button>
-                            <button class="filter-pill" data-chart-source="all" onclick="setChartSource(this,'all')">All</button>
-                        </div>
-                        <div class="time-toggle">
-                            <button class="time-btn" data-days="7">Week</button>
-                            <button class="time-btn active" data-days="14">2 Weeks</button>
-                            <button class="time-btn" data-days="30">Month</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="chart-container" style="position: relative;">
-                    <canvas id="pnlChart"></canvas>
-                    <div id="chartLoading" class="chart-loading" style="display: none;">
-                        <div class="spinner"></div>
-                        <span>Loading chart...</span>
-                    </div>
-                </div>
+        <!-- Equity Curve Chart -->
+        <div class="chart-section">
+            <h2 class="section-title">Equity Curve</h2>
+            <div class="chart-container">
+                <canvas id="equityChart"></canvas>
             </div>
-        </section>
-
-        <!-- Performance Metrics -->
-        <section class="chart-section" id="performanceMetricsSection">
-            <div class="chart-card">
-                <h2 class="section-header" style="margin-bottom:0">📈 Performance Metrics</h2>
-                <div class="filter-pills" id="metricsSourceFilter" style="margin-top:0.5rem;">
-                    <button class="filter-pill active" data-metrics-source="live" onclick="setMetricsSource(this,'live')">🔴 Live</button>
-                    <button class="filter-pill" data-metrics-source="demo" onclick="setMetricsSource(this,'demo')">🟡 Demo</button>
-                    <button class="filter-pill" data-metrics-source="all" onclick="setMetricsSource(this,'all')">All</button>
-                </div>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Hover over the <span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-muted);font-size:0.55rem;font-weight:700;vertical-align:middle;">i</span> icon on each card to learn what it means.</p>
-                <div class="metrics-grid" id="metricsCards">
-                    <div class="loading"><div class="spinner"></div>Loading metrics...</div>
-                </div>
-                <div class="equity-filters" id="equityFilters">
-                    <!-- Dynamically populated by loadPerformanceMetrics -->
-                </div>
-                <div class="chart-container">
-                    <canvas id="equityCurveChart"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- Daily Analysis -->
-        <section class="chart-section" id="dailyAnalysisSection">
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h2 class="section-header" style="margin-bottom:0">📊 Daily Analysis</h2>
-                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                        <div class="filter-pills" id="analysisSourceFilter">
-                            <button class="filter-pill active" data-analysis-source="live" onclick="setAnalysisSource(this,'live')">🔴 Live</button>
-                            <button class="filter-pill" data-analysis-source="demo" onclick="setAnalysisSource(this,'demo')">🟡 Demo</button>
-                            <button class="filter-pill" data-analysis-source="all" onclick="setAnalysisSource(this,'all')">All</button>
-                        </div>
-                        <select id="analysisDateSelect" style="background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.85rem; font-family: inherit; cursor: pointer; outline: none;">
-                            <option>Loading...</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="analysisContent" style="padding: 0.5rem 0;">
-                    <div class="loading"><div class="spinner"></div>Loading analysis...</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Polymarket Section removed - revisit later -->
+        </div>
 
         <!-- Trade History -->
-        <section class="trades-section">
-            <div class="table-card">
-                <div class="table-header">
-                    <h2 class="section-header" style="margin-bottom:0">📋 Trade History</h2>
-                </div>
-                <div class="trade-filters">
-                    <div class="filter-group">
-                        <label>Source</label>
-                        <div class="filter-pills" id="tradeSourceFilter">
-                            <button class="filter-pill active" data-trade-source="live" onclick="setTradeSource(this,'live')">🔴 Live</button>
-                            <button class="filter-pill" data-trade-source="demo" onclick="setTradeSource(this,'demo')">🟡 Demo</button>
-                            <button class="filter-pill" data-trade-source="all" onclick="setTradeSource(this,'all')">All</button>
-                        </div>
-                        <select id="tradeFilterSource" class="filter-select" style="display:none;">
-                            <option value="live" selected>Live</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Bot</label>
-                        <select id="tradeFilterBot" class="filter-select" onchange="applyTradeFilters()">
-                            <option value="all">All Bots</option>
-                            <option value="BTCUSD">BTCUSD</option>
-                            <option value="XAUUSD">XAUUSD</option>
-                            <option value="EURUSD">EURUSD</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Side</label>
-                        <select id="tradeFilterSide" class="filter-select" onchange="applyTradeFilters()">
-                            <option value="all">All</option>
-                            <option value="BUY">BUY</option>
-                            <option value="SELL">SELL</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Period</label>
-                        <div class="filter-pills">
-                            <button class="filter-pill active" data-period="1" onclick="setTradePeriod(this, 1)">Today</button>
-                            <button class="filter-pill" data-period="7" onclick="setTradePeriod(this, 7)">7 Days</button>
-                            <button class="filter-pill" data-period="30" onclick="setTradePeriod(this, 30)">30 Days</button>
-                            <button class="filter-pill" data-period="0" onclick="setTradePeriod(this, 0)">All Time</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="trade-stats-bar" id="tradeStatsBar">
-                    <div class="trade-stat"><span class="trade-stat-label">Total Trades</span><span class="trade-stat-value" id="statTotal">-</span></div>
-                    <div class="trade-stat"><span class="trade-stat-label">Wins / Losses</span><span class="trade-stat-value" id="statWL">-</span></div>
-                    <div class="trade-stat"><span class="trade-stat-label">Win Rate</span><span class="trade-stat-value" id="statWinRate">-</span></div>
-                    <div class="trade-stat"><span class="trade-stat-label">Total P/L</span><span class="trade-stat-value" id="statPL">-</span></div>
-                </div>
-                <div class="trades-table-wrap" id="tradesTable">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Loading trades...
-                    </div>
-                </div>
+        <div class="trade-history">
+            <h2 class="section-title">Trade History</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Direction</th>
+                            <th>Entry Price</th>
+                            <th>Exit Price</th>
+                            <th>Lot Size</th>
+                            <th>P&L ($)</th>
+                            <th>Duration</th>
+                            <th>Exit Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tradeHistoryTable">
+                        <tr><td colspan="8" class="loading">Loading trade history...</td></tr>
+                    </tbody>
+                </table>
             </div>
-        </section>
+        </div>
 
-        <!-- Live Logs -->
-        <section class="logs-section">
-            <h2 class="section-header">📜 Live Logs</h2>
-            <div class="filter-pills" id="logsSourceFilter" style="margin-bottom:1rem;">
-                <button class="filter-pill active" data-logs-source="live" onclick="setLogsSource(this,'live')">🔴 Live</button>
-                <button class="filter-pill" data-logs-source="demo" onclick="setLogsSource(this,'demo')">🟡 Demo</button>
-                <button class="filter-pill" data-logs-source="all" onclick="setLogsSource(this,'all')">All</button>
-            </div>
-            <div class="logs-grid" id="logsGrid">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading logs...
+        <!-- EMA Status Panel -->
+        <div class="ema-panel">
+            <h2 class="section-title">EMA Status</h2>
+            <div id="emaContainer">
+                <div class="ema-grid">
+                    <div class="ema-metric">
+                        <div class="label">Current Price</div>
+                        <div class="value" id="currentPrice">N/A</div>
+                    </div>
+                    <div class="ema-metric">
+                        <div class="label">EMA 10</div>
+                        <div class="value" id="ema10">N/A</div>
+                    </div>
+                    <div class="ema-metric">
+                        <div class="label">EMA 50</div>
+                        <div class="value" id="ema50">N/A</div>
+                    </div>
+                    <div class="ema-metric">
+                        <div class="label">Gap ($)</div>
+                        <div class="value" id="emaGap">N/A</div>
+                    </div>
+                    <div class="ema-metric">
+                        <div class="label">Status</div>
+                        <div class="value" id="emaStatusText">N/A</div>
+                    </div>
+                </div>
+                <div id="emaUnavailable" style="display: none;">
+                    <div class="error">EMA data not available</div>
                 </div>
             </div>
-        </section>
+        </div>
+
+        <!-- Session Stats -->
+        <div class="session-stats">
+            <div class="session-card">
+                <h3 class="section-title">Session Info</h3>
+                <div class="metric-label">Session Start</div>
+                <div class="metric-value" id="sessionStart">Loading...</div>
+                <div class="metric-label" style="margin-top: 16px;">Session P&L</div>
+                <div class="metric-value" id="sessionPnl">Loading...</div>
+            </div>
+            <div class="session-card">
+                <h3 class="section-title">Current Positions</h3>
+                <div class="metric-label">Open Positions</div>
+                <div class="metric-value" id="openPositions">Loading...</div>
+                <div class="metric-label" style="margin-top: 16px;">Unrealized P&L</div>
+                <div class="metric-value" id="unrealizedPnl">Loading...</div>
+            </div>
+        </div>
     </div>
 
+    <footer class="footer">
+        <div class="container">
+            <p>Data refreshes every 12 hours</p>
+            <div class="footer-links">
+                <span>Powered by EMA Cross Strategy v2</span>
+            </div>
+        </div>
+    </footer>
+
     <script>
-        // Supabase Configuration
-        const SUPABASE_URL = 'https://cxpablqwnwvacuvhcjen.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4cGFibHF3bnd2YWN1dmhjamVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTQ2NTUsImV4cCI6MjA4NTk5MDY1NX0.IiA5SRPfoI9Y6ZaXTWcl4UmPwgzVJ7iBBRgXny4iGCE';
-        const REFRESH_INTERVAL = 30000;
-
-        // State
-        let pnlChart = null;
-        let currentDays = 14;
-        let botsData = [];
-        let chartSourceFilter = 'live';
-
-        // Supabase REST fetch helper
-        async function supabaseFetch(table, params = '') {
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`
-                    }
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return await res.json();
-            } catch (e) {
-                console.error(`Supabase fetch ${table} failed:`, e);
-                return null;
-            }
-        }
+        const INITIAL_BALANCE = 50000;
+        let tradesData = [];
+        let equityChart = null;
 
         // Format currency
-        function timeAgo(date) {
-            const sec = Math.floor((new Date() - date) / 1000);
-            if (sec < 60) return `${sec}s ago`;
-            const min = Math.floor(sec / 60);
-            if (min < 60) return `${min}m ago`;
-            const hr = Math.floor(min / 60);
-            if (hr < 24) return `${hr}h ago`;
-            const days = Math.floor(hr / 24);
-            return `${days}d ago`;
-        }
-
-        function formatCurrency(value) {
+        function formatCurrency(amount) {
             return new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'USD',
-                minimumFractionDigits: 2
-            }).format(value);
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
         }
 
-        // Format timestamp
-        function formatTime(timestamp) {
-            if (!timestamp) return '-';
-            try {
-                const date = new Date(timestamp);
-                return date.toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            } catch {
-                return timestamp.substring(0, 19);
+        // Format percentage
+        function formatPercentage(value) {
+            return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
+        }
+
+        // Format duration
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
             }
+            return `${minutes}m`;
         }
 
-        // Update last updated time
-        function updateTimestamp() {
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+
+        // Calculate max drawdown from equity curve
+        function calculateMaxDrawdown(heartbeats) {
+            let maxEquity = INITIAL_BALANCE;
+            let maxDrawdown = 0;
+            
+            for (const beat of heartbeats) {
+                if (beat.equity > maxEquity) {
+                    maxEquity = beat.equity;
+                }
+                const currentDrawdown = ((maxEquity - beat.equity) / maxEquity) * 100;
+                if (currentDrawdown > maxDrawdown) {
+                    maxDrawdown = currentDrawdown;
+                }
+            }
+            
+            return maxDrawdown;
+        }
+
+        // Check if bot is online (last heartbeat < 2 hours)
+        function isBotOnline(lastHeartbeat) {
             const now = new Date();
-            document.getElementById('lastUpdated').textContent =
-                `Last updated: ${now.toLocaleTimeString()}`;
+            const lastUpdate = new Date(lastHeartbeat);
+            const diffHours = (now - lastUpdate) / (1000 * 60 * 60);
+            return diffHours < 2;
         }
 
-        // Compatibility wrapper - translates old API calls to Supabase
-        async function fetchData(endpoint) {
-            // /api/account
-            if (endpoint === '/api/account') {
-                const data = await supabaseFetch('account_snapshots', '?select=*&order=created_at.desc&limit=1');
-                if (data && data.length > 0) {
-                    const a = data[0];
-                    const initial = parseFloat(a.initial_fund) || 50000;
-                    const balance = parseFloat(a.balance);
-                    const pnl = balance - initial;
-                    return {
-                        initial: initial,
-                        balance: balance,
-                        pnl: pnl,
-                        pnl_pct: ((pnl / initial) * 100).toFixed(2)
-                    };
+        // Load and process trade data
+        async function loadData() {
+            try {
+                const response = await fetch('./data/trades.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load trade data');
                 }
-                return null;
+                
+                tradesData = await response.json();
+                processData();
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showError('Failed to load dashboard data');
             }
-
-            // Helper: get date string in MYT (GMT+8) timezone
-            function getMYTDateStr(d) {
-                const myt = new Date(d.getTime() + 8 * 60 * 60 * 1000);
-                return myt.toISOString().split('T')[0];
-            }
-
-            // /api/bots
-            if (endpoint === '/api/bots') {
-                const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
-                const order = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-
-                // Get today's date in MYT (GMT+8)
-                const today = getMYTDateStr(new Date());
-
-                // Fetch bot status, today's trades, and sparkline data in parallel
-                // Midnight MYT = previous day 16:00 UTC
-                const todayUTCStart = `${today}T16:00:00`;
-                const prevDay = new Date(new Date(`${today}T00:00:00Z`).getTime() - 8 * 60 * 60 * 1000);
-                const utcStart = prevDay.toISOString().replace('.000Z','');
-                const [statusData, todayTrades, sparkData] = await Promise.all([
-                    supabaseFetch('bot_status', '?select=*'),
-                    supabaseFetch('trades', `?select=bot_name,profit&created_at=gte.${utcStart}`),
-                    supabaseFetch('daily_pnl', '?select=date,pnl&order=date.desc&limit=21')
-                ]);
-                if (!statusData) return null;
-
-                // Calculate today's stats from actual trades
-                const todayStats = {};
-                order.forEach(b => { todayStats[b] = { pnl: 0, trades: 0, wins: 0 }; });
-                if (todayTrades) {
-                    todayTrades.forEach(t => {
-                        // Normalize bot_name: BTCUSD-LIVE → BTCUSD
-                        const bot = (t.bot_name || '').replace(/-LIVE$/, '');
-                        if (todayStats[bot]) {
-                            const profit = parseFloat(t.profit) || 0;
-                            todayStats[bot].pnl += profit;
-                            todayStats[bot].trades++;
-                            if (profit > 0) todayStats[bot].wins++;
-                        }
-                    });
-                }
-
-                // Build per-bot sparklines from daily_pnl
-                const sparklines = {};
-                if (sparkData) {
-                    const last7 = sparkData.slice(0, 7).reverse();
-                    order.forEach(b => { sparklines[b] = last7.map(d => parseFloat(d.pnl) || 0); });
-                }
-
-                // Normalize bot_name in status data (BTCUSD-LIVE → BTCUSD)
-                statusData.forEach(b => { b._displayName = (b.bot_name || '').replace(/-LIVE$/, ''); });
-                const sorted = statusData.sort((a, b) => order.indexOf(a._displayName) - order.indexOf(b._displayName));
-                // Deduplicate: prefer -LIVE version over plain (more recent)
-                const seen = {};
-                const deduped = sorted.filter(b => {
-                    if (seen[b._displayName]) return false;
-                    seen[b._displayName] = true;
-                    return true;
-                });
-                const now = new Date();
-                return deduped.map(b => {
-                    const stats = todayStats[b._displayName] || { pnl: 0, trades: 0, wins: 0 };
-                    // Determine live status from updated_at (stale > 5 min = offline)
-                    const updatedAt = b.updated_at ? new Date(b.updated_at) : null;
-                    const staleSec = updatedAt ? (now - updatedAt) / 1000 : Infinity;
-                    const isLive = staleSec < 300; // 5 minutes
-                    const liveStatus = isLive ? 'running' : 'stopped';
-                    return {
-                        key: b._displayName,
-                        name: b._displayName + ' Bot',
-                        symbol: b._displayName,
-                        status: liveStatus,
-                        updated_at: b.updated_at,
-                        last_seen: updatedAt ? timeAgo(updatedAt) : 'Never',
-                        today_pnl: Math.round(stats.pnl * 100) / 100,
-                        trades: stats.trades,
-                        wins: stats.wins,
-                        losses: stats.trades - stats.wins,
-                        win_rate: stats.trades > 0 ? Math.round((stats.wins / stats.trades) * 1000) / 10 : 0,
-                        sparkline: sparklines[b._displayName] || [],
-                        color: botColors[b._displayName] || '#3b82f6'
-                    };
-                });
-            }
-
-            // /api/daily-pnl/{days}
-            if (endpoint.startsWith('/api/daily-pnl/')) {
-                const days = parseInt(endpoint.split('/').pop()) || 14;
-                const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-
-                // Build date range
-                const today = new Date();
-                const startDate = new Date(today);
-                startDate.setDate(startDate.getDate() - days + 1);
-                const startStr = getMYTDateStr(startDate);
-
-                // Fetch all closed trades in the date range (has bot_name + profit + created_at)
-                const startUTC = new Date(new Date(`${startStr}T00:00:00Z`).getTime() - 8 * 60 * 60 * 1000).toISOString().replace('.000Z','');
-                const sourceParam = chartSourceFilter && chartSourceFilter !== 'all' ? `&source=eq.${chartSourceFilter}` : '';
-                const trades = await supabaseFetch('trades', `?select=bot_name,profit,created_at&created_at=gte.${startUTC}${sourceParam}&order=created_at.asc`);
-
-                // Group trades by bot and date
-                const botDayPnl = {}; // { BTCUSD: { '2025-02-06': 100, ... }, ... }
-                bots.forEach(b => { botDayPnl[b] = {}; });
-
-                if (trades) {
-                    trades.forEach(t => {
-                        const bot = (t.bot_name || '').replace(/-LIVE$/, '');
-                        if (!botDayPnl[bot]) return;
-                        const date = getMYTDateStr(new Date(t.created_at));
-                        if (!date) return;
-                        botDayPnl[bot][date] = (botDayPnl[bot][date] || 0) + (parseFloat(t.profit) || 0);
-                    });
-                }
-
-                // Build result arrays per bot with filled dates
-                const result = {};
-                bots.forEach(bot => {
-                    const entries = [];
-                    let cumulative = 0;
-                    for (let i = 0; i < days; i++) {
-                        const d = new Date(today);
-                        d.setDate(d.getDate() - days + 1 + i);
-                        const dateStr = getMYTDateStr(d);
-                        const pnl = Math.round((botDayPnl[bot][dateStr] || 0) * 100) / 100;
-                        cumulative += pnl;
-                        entries.push({ date: dateStr, pnl, cumulative: Math.round(cumulative * 100) / 100 });
-                    }
-                    result[bot] = entries;
-                });
-
-                // Build _total
-                const totalEntries = [];
-                let totalCum = 0;
-                for (let i = 0; i < days; i++) {
-                    const date = result.BTCUSD[i].date;
-                    const dayTotal = bots.reduce((sum, b) => sum + result[b][i].pnl, 0);
-                    totalCum += dayTotal;
-                    totalEntries.push({ date, pnl: Math.round(dayTotal * 100) / 100, cumulative: Math.round(totalCum * 100) / 100 });
-                }
-                result._total = totalEntries;
-
-                return result;
-            }
-
-            // /api/trades/{bot}
-            if (endpoint.startsWith('/api/trades/')) {
-                const bot = endpoint.split('/').pop();
-                const data = await supabaseFetch('trades', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=200`);
-                if (!data) return [];
-                return data.map(t => ({
-                    timestamp: t.created_at || t.timestamp || '',
-                    side: t.side || t.direction || 'BUY',
-                    entry_price: parseFloat(t.entry_price) || 0,
-                    exit_price: parseFloat(t.exit_price) || 0,
-                    pnl: parseFloat(t.profit) || 0,
-                    confidence: parseFloat(t.confidence) || 0,
-                    bot: bot,
-                    symbol: bot,
-                    source: t.source || 'demo'
-                }));
-            }
-
-            // /api/logs - fetch all bots in parallel for speed
-            if (endpoint === '/api/logs') {
-                const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-                const promises = bots.map(bot =>
-                    supabaseFetch('logs', `?bot_name=eq.${bot}&select=*&order=created_at.desc&limit=30`)
-                );
-                const results = await Promise.all(promises);
-                const result = {};
-                bots.forEach((bot, i) => {
-                    result[bot] = (results[i] || []).map(l => {
-                        const msg = l.message || '';
-                        let level = 'info';
-                        if (msg.includes('[ERROR]') || msg.includes('[SHUTDOWN]')) level = 'error';
-                        else if (msg.includes('[WARN]')) level = 'warning';
-                        else if (msg.includes('[TRADE') || msg.includes('[NOTIFY]') || msg.includes('[CLOSE]')) level = 'trade';
-                        else if (msg.includes('[BALANCE]')) level = 'balance';
-                        else if (msg.includes('[ML]')) level = 'info';
-                        else if (msg.includes('[SESSION]')) level = 'info';
-                        else if (msg.includes('[MARKET]')) level = 'warning';
-                        else if (msg.includes('[STARTUP]')) level = 'info';
-                        else if (msg.includes('[POSITION')) level = 'info';
-                        return { message: msg, level: level, bot: bot };
-                    });
-                });
-                return result;
-            }
-
-            return null;
         }
 
-        // Account balance removed — live stats shown in hero card
+        // Process trade data and update dashboard
+        function processData() {
+            const heartbeats = tradesData.filter(d => d.event === 'heartbeat').sort((a, b) => new Date(a.ts) - new Date(b.ts));
+            const tradeOpens = tradesData.filter(d => d.event === 'trade_open');
+            const tradeCloses = tradesData.filter(d => d.event === 'trade_close');
+            const botStarts = tradesData.filter(d => d.event === 'bot_start');
 
-        // Render bot cards
-        async function renderBots() {
-            const data = await fetchData('/api/bots');
-            if (!data) return;
+            // Get latest data
+            const latestHeartbeat = heartbeats[heartbeats.length - 1];
+            const latestBotStart = botStarts[botStarts.length - 1];
 
-            botsData = data;
-            const grid = document.getElementById('botsGrid');
+            // Update header status
+            updateBotStatus(latestHeartbeat);
 
-            grid.innerHTML = data.map(bot => {
-                const isProfitable = bot.today_pnl >= 0;
-                const pnlClass = isProfitable ? 'profit' : 'loss';
-                const arrow = isProfitable ? '▲' : '▼';
-                const statusClass = `status-${bot.status}`;
-                const isStoppedDemo = bot.status === 'stopped';
-                const greyStyle = isStoppedDemo ? 'opacity: 0.4; filter: grayscale(0.7);' : '';
-                const demoLabel = isStoppedDemo ? ' <span style="background:rgba(234,179,8,0.12);color:#eab308;padding:0.15rem 0.5rem;border-radius:12px;font-size:0.65rem;font-weight:600;border:1px solid rgba(234,179,8,0.2);">DEMO · STOPPED</span>' : '';
+            // Calculate metrics
+            updateMetrics(heartbeats, tradeCloses, latestHeartbeat);
 
-                return `
-                    <div class="card bot-card fade-in" data-bot="${bot.key}" style="${greyStyle}">
-                        <div class="bot-card-header">
-                            <div class="bot-name">
-                                <h3>${bot.name}${demoLabel}</h3>
-                                <span class="bot-symbol">${bot.symbol}</span>
-                            </div>
-                            <div class="status-indicator ${statusClass}" title="Last seen: ${bot.last_seen}">
-                                <span class="status-dot"></span>
-                                ${bot.status.toUpperCase()}
-                                <span style="font-size:0.65rem;color:var(--text-muted);margin-left:0.25rem">${bot.last_seen}</span>
-                            </div>
-                        </div>
-                        <div class="bot-stats">
-                            <div class="stat-item">
-                                <span class="stat-label">Today's P/L</span>
-                                <div class="pnl-row">
-                                    <span class="stat-value ${pnlClass}">
-                                        <span class="pnl-arrow">${arrow}</span>
-                                        ${formatCurrency(Math.abs(bot.today_pnl))}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Trades</span>
-                                <span class="stat-value">${bot.trades} <span style="font-size:0.75rem;color:var(--text-muted)">(${bot.wins}W / ${bot.losses}L)</span></span>
-                            </div>
-                            <div class="stat-item" style="grid-column: span 2">
-                                <span class="stat-label">Win Rate</span>
-                                <div class="pnl-row">
-                                    <span class="stat-value" style="color: ${bot.win_rate >= 50 ? 'var(--green)' : 'var(--red)'}">
-                                        ${bot.win_rate.toFixed(1)}%
-                                    </span>
-                                    <div style="flex:1;height:6px;background:var(--bg-secondary);border-radius:3px;margin-left:1rem;">
-                                        <div style="width:${bot.win_rate}%;height:100%;background:${bot.win_rate >= 50 ? 'var(--green)' : 'var(--red)'};border-radius:3px;"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="sparkline-container">
-                            <canvas id="sparkline-${bot.key}" height="40"></canvas>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            // Create equity chart
+            createEquityChart(heartbeats, tradeOpens);
 
-            // Render sparklines
-            data.forEach(bot => {
-                renderSparkline(bot.key, bot.sparkline, bot.color);
-            });
+            // Update trade history
+            updateTradeHistory(tradeOpens, tradeCloses);
+
+            // Update session stats
+            updateSessionStats(latestBotStart, latestHeartbeat);
+
+            // Load EMA data
+            loadEMAData();
         }
 
-        // Render sparkline
-        function renderSparkline(botKey, data, color) {
-            const canvas = document.getElementById(`sparkline-${botKey}`);
-            if (!canvas) return;
+        // Update bot status
+        function updateBotStatus(latestHeartbeat) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const lastUpdated = document.getElementById('lastUpdated');
 
-            const ctx = canvas.getContext('2d');
-            const width = canvas.parentElement.clientWidth;
-            const height = 40;
-
-            canvas.width = width;
-            canvas.height = height;
-
-            if (!data || data.length === 0) return;
-
-            const max = Math.max(...data.map(Math.abs), 1);
-            const mid = height / 2;
-            const step = width / (data.length - 1 || 1);
-
-            ctx.beginPath();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-
-            data.forEach((val, i) => {
-                const x = i * step;
-                const y = mid - (val / max) * (mid - 5);
-
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-
-            ctx.stroke();
-
-            // Zero line
-            ctx.beginPath();
-            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-            ctx.setLineDash([5, 5]);
-            ctx.moveTo(0, mid);
-            ctx.lineTo(width, mid);
-            ctx.stroke();
+            if (latestHeartbeat) {
+                const isOnline = isBotOnline(latestHeartbeat.ts);
+                
+                statusDot.className = isOnline ? 'status-dot' : 'status-dot offline';
+                statusText.textContent = isOnline ? 'Online' : 'Offline';
+                lastUpdated.textContent = `Last updated: ${formatDate(latestHeartbeat.ts)}`;
+            }
         }
 
-        // Render P/L chart - Single bar per day, per-bot breakdown in tooltip
-        async function renderPnLChart(days = 14) {
-            const data = await fetchData(`/api/daily-pnl/${days}`);
-            if (!data) return;
+        // Helper: calculate actual profit for a trade close event
+        function getTradeProfit(close, heartbeats) {
+            if (close.profit !== 0) return close.profit;
+            // Logging bug: profit=0 but balance_after is correct
+            // Find the LAST heartbeat BEFORE this close to get pre-close balance
+            if (close.balance_after) {
+                const closeTime = new Date(close.ts).getTime();
+                let prevBalance = INITIAL_BALANCE;
+                for (const h of heartbeats) {
+                    if (new Date(h.ts).getTime() >= closeTime) break;
+                    prevBalance = h.balance;
+                }
+                return close.balance_after - prevBalance;
+            }
+            return 0;
+        }
 
-            if (pnlChart) {
-                pnlChart.destroy();
-                pnlChart = null;
+        // Update key metrics
+        function updateMetrics(heartbeats, tradeCloses, latestHeartbeat) {
+            const currentBalance = latestHeartbeat ? latestHeartbeat.balance : INITIAL_BALANCE;
+            const balanceChange = ((currentBalance - INITIAL_BALANCE) / INITIAL_BALANCE) * 100;
+            
+            // Total P&L = simple balance change (most accurate)
+            let totalPnl = currentBalance - INITIAL_BALANCE;
+            let winCount = 0;
+            let totalTradeCount = 0;
+            
+            for (const close of tradeCloses) {
+                const profit = getTradeProfit(close, heartbeats);
+                if (profit > 0) winCount++;
+                totalTradeCount++;
             }
 
-            const ctx = document.getElementById('pnlChart').getContext('2d');
-            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-            const dates = data.BTCUSD?.map(d => d.date) || [];
+            const winRate = totalTradeCount > 0 ? (winCount / totalTradeCount) * 100 : 0;
+            const maxDrawdown = calculateMaxDrawdown(heartbeats);
 
-            // Calculate total P/L per day
-            const totals = dates.map((_, i) => {
-                return bots.reduce((sum, bot) => sum + (data[bot]?.[i]?.pnl || 0), 0);
-            });
+            // Update DOM
+            document.getElementById('currentBalance').textContent = formatCurrency(currentBalance);
+            document.getElementById('balanceChange').innerHTML = 
+                `<span class="${balanceChange >= 0 ? 'positive' : 'negative'}">${formatPercentage(balanceChange)}</span>`;
+            
+            document.getElementById('totalPnl').innerHTML = 
+                `<span class="${totalPnl >= 0 ? 'positive' : 'negative'}">${formatCurrency(totalPnl)}</span>`;
+            
+            document.getElementById('winRate').textContent = `${winRate.toFixed(1)}%`;
+            document.getElementById('totalTrades').textContent = totalTradeCount;
+            document.getElementById('maxDrawdown').innerHTML = 
+                `<span class="negative">${maxDrawdown.toFixed(2)}%</span>`;
+        }
 
-            pnlChart = new Chart(ctx, {
-                type: 'bar',
+        // Create equity curve chart
+        function createEquityChart(heartbeats, tradeOpens) {
+            const ctx = document.getElementById('equityChart').getContext('2d');
+            
+            if (equityChart) {
+                equityChart.destroy();
+            }
+
+            const labels = heartbeats.map(h => new Date(h.ts));
+            const equityData = heartbeats.map(h => h.equity);
+            const balanceData = heartbeats.map(h => h.balance);
+
+            // Create trade markers
+            const tradeMarkers = tradeOpens.map(trade => ({
+                x: new Date(trade.ts),
+                y: trade.equity || trade.balance,
+                direction: trade.direction
+            }));
+
+            equityChart = new Chart(ctx, {
+                type: 'line',
                 data: {
-                    labels: dates.map(d => {
-                        const date = new Date(d);
-                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    }),
+                    labels: labels,
                     datasets: [{
-                        label: 'Daily P/L',
-                        data: totals,
-                        backgroundColor: totals.map(v => v >= 0 ? 'rgba(34, 197, 94, 0.85)' : 'rgba(239, 68, 68, 0.85)'),
-                        borderColor: totals.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
-                        borderWidth: 1,
-                        borderRadius: 4
+                        label: 'Equity',
+                        data: equityData,
+                        borderColor: '#F7931A',
+                        backgroundColor: 'rgba(247, 147, 26, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Balance',
+                        data: balanceData,
+                        borderColor: '#388BFD',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        borderDash: [5, 5]
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
                     plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#21242d',
-                            titleColor: '#e4e4e7',
-                            bodyColor: '#a1a1aa',
-                            borderColor: '#2d3139',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    const idx = context.dataIndex;
-                                    const total = totals[idx];
-                                    const sign = total >= 0 ? '+' : '';
-                                    const lines = [`Total: ${sign}$${total.toFixed(2)}`];
-                                    bots.forEach((bot, bi) => {
-                                        const val = data[bot]?.[idx]?.pnl || 0;
-                                        if (val === 0) return;
-                                        const s = val >= 0 ? '+' : '';
-                                        const prefix = bi === bots.length - 1 ? '└' : '├';
-                                        lines.push(`${prefix} ${bot}: ${s}$${val.toFixed(2)}`);
-                                    });
-                                    return lines;
-                                }
+                        legend: {
+                            labels: {
+                                color: '#E6EDF3',
+                                usePointStyle: true
                             }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(13, 17, 23, 0.9)',
+                            titleColor: '#E6EDF3',
+                            bodyColor: '#E6EDF3',
+                            borderColor: '#21262D',
+                            borderWidth: 1
                         }
                     },
                     scales: {
                         x: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#71717a' }
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    hour: 'MMM dd HH:mm'
+                                }
+                            },
+                            grid: {
+                                color: '#21262D'
+                            },
+                            ticks: {
+                                color: '#8B949E'
+                            }
                         },
                         y: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            grid: {
+                                color: '#21262D'
+                            },
                             ticks: {
-                                color: '#71717a',
-                                callback: function(value) { return '$' + value; }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Trade History State
-        let allTradesCache = [];
-        let tradeDisplayCount = 50;
-        let tradePeriodDays = 1;
-
-        async function renderTrades() {
-            allTradesCache = [];
-            // Fetch all trades directly (includes all bot_names and source field)
-            const allData = await supabaseFetch('trades', '?select=*&order=created_at.desc&limit=500');
-            if (allData) {
-                allTradesCache = allData.map(t => ({
-                    timestamp: t.created_at || t.timestamp || '',
-                    side: t.side || t.direction || 'BUY',
-                    entry_price: parseFloat(t.entry_price) || 0,
-                    exit_price: parseFloat(t.exit_price) || 0,
-                    pnl: parseFloat(t.profit) || 0,
-                    confidence: parseFloat(t.confidence) || 0,
-                    bot: t.symbol || t.bot_name || '',
-                    symbol: t.symbol || t.bot_name || '',
-                    source: t.source || 'demo'
-                }));
-            }
-            tradeDisplayCount = 50;
-            applyTradeFilters();
-        }
-
-        function setTradePeriod(el, days) {
-            el.closest('.filter-pills').querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-            el.classList.add('active');
-            tradePeriodDays = days;
-            tradeDisplayCount = 50;
-            applyTradeFilters();
-        }
-
-        function applyTradeFilters() {
-            const botFilter = document.getElementById('tradeFilterBot').value;
-            const sideFilter = document.getElementById('tradeFilterSide').value;
-            const sourceFilter = document.getElementById('tradeFilterSource').value;
-            const container = document.getElementById('tradesTable');
-
-            let filtered = allTradesCache;
-
-            if (sourceFilter !== 'all') {
-                filtered = filtered.filter(t => t.source === sourceFilter);
-            }
-            if (botFilter !== 'all') {
-                filtered = filtered.filter(t => t.bot === botFilter);
-            }
-            if (sideFilter !== 'all') {
-                filtered = filtered.filter(t => t.side === sideFilter);
-            }
-            if (tradePeriodDays > 0) {
-                const cutoff = new Date();
-                cutoff.setDate(cutoff.getDate() - tradePeriodDays);
-                cutoff.setHours(0, 0, 0, 0);
-                filtered = filtered.filter(t => new Date(t.timestamp) >= cutoff);
-            }
-
-            // Update stats
-            const wins = filtered.filter(t => t.pnl > 0).length;
-            const losses = filtered.filter(t => t.pnl <= 0).length;
-            const totalPL = filtered.reduce((s, t) => s + t.pnl, 0);
-            const winRate = filtered.length > 0 ? ((wins / filtered.length) * 100).toFixed(1) : '0.0';
-
-            document.getElementById('statTotal').textContent = filtered.length;
-            document.getElementById('statWL').innerHTML = `<span style="color:var(--green)">${wins}W</span> / <span style="color:var(--red)">${losses}L</span>`;
-            document.getElementById('statWinRate').textContent = winRate + '%';
-            const plEl = document.getElementById('statPL');
-            plEl.textContent = (totalPL >= 0 ? '+' : '') + '$' + totalPL.toFixed(2);
-            plEl.style.color = totalPL >= 0 ? 'var(--green)' : 'var(--red)';
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="no-data">No trades match the current filters</div>';
-                return;
-            }
-
-            const shown = filtered.slice(0, tradeDisplayCount);
-            const hasMore = filtered.length > tradeDisplayCount;
-
-            const botColors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4' };
-
-            container.innerHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Bot</th>
-                            <th>Source</th>
-                            <th>Side</th>
-                            <th>Entry</th>
-                            <th>Exit</th>
-                            <th>P/L</th>
-                            <th>Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${shown.map(trade => {
-                            const isProfitable = trade.pnl >= 0;
-                            const sideClass = trade.side === 'BUY' ? 'side-buy' : 'side-sell';
-                            const pnlClass = isProfitable ? 'trade-profit' : 'trade-loss';
-                            const botColor = botColors[trade.bot] || 'var(--text-primary)';
-                            const isLive = trade.source === 'live';
-                            const sourceBadge = isLive 
-                                ? '<span style="background:rgba(239,68,68,0.15);color:#ef4444;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.7rem;font-weight:600;border:1px solid rgba(239,68,68,0.3)">🔴 LIVE</span>'
-                                : '<span style="background:rgba(234,179,8,0.12);color:#eab308;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.7rem;font-weight:600;border:1px solid rgba(234,179,8,0.2)">🟡 DEMO</span>';
-                            return `
-                                <tr class="fade-in">
-                                    <td><span style="color:${botColor};font-weight:600">${trade.bot}</span></td>
-                                    <td>${sourceBadge}</td>
-                                    <td class="${sideClass}">${trade.side}</td>
-                                    <td>${trade.entry_price.toFixed(2)}</td>
-                                    <td>${trade.exit_price.toFixed(2)}</td>
-                                    <td><span class="${pnlClass}">${isProfitable ? '+' : ''}$${trade.pnl.toFixed(2)}</span></td>
-                                    <td>${formatTime(trade.timestamp)}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-                ${hasMore ? `<div class="load-more-wrap"><button class="load-more-btn" onclick="loadMoreTrades()">Load More (${filtered.length - tradeDisplayCount} remaining)</button></div>` : ''}
-            `;
-        }
-
-        function loadMoreTrades() {
-            tradeDisplayCount += 50;
-            applyTradeFilters();
-        }
-
-        // Render logs
-        // Determine log class based on message content
-        function getLogClass(message) {
-            const msg = message.toLowerCase();
-
-            // Order matters - more specific matches first
-            if (msg.includes('[notify]')) return 'log-notify';
-            if (msg.includes('order failed') || msg.includes('failed')) return 'log-failed';
-            if (msg.includes('[ml] model: sell') || msg.includes('sell with')) return 'log-sell';
-            if (msg.includes('[ml] model: buy') || msg.includes('buy with')) return 'log-buy';
-            if (msg.includes('[balance]')) return 'log-balance-info';
-            if (msg.includes('[session]')) return 'log-session';
-            if (msg.includes('[position size]')) return 'log-position';
-            if (msg.includes('[market]')) return 'log-market';
-            if (msg.includes('[ml filter]') || msg.includes('[ml] confidence')) return 'log-filter';
-            if (msg.includes('[news]')) return 'log-news';
-            if (msg.includes('no trade signal')) return 'log-nosignal';
-            if (msg.includes('[startup]') || msg.includes('[heartbeat]')) return 'log-session';
-            if (msg.includes('[ml filter]')) return 'log-filter';
-
-            return 'log-info';  // Default
-        }
-
-        async function renderLogs() {
-            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-            // Fetch logs with bot_name to know if LIVE or not
-            const promises = bots.map(bot =>
-                supabaseFetch('logs', `?bot_name=like.*${bot}*&select=*&order=created_at.desc&limit=30`)
-            );
-            const results = await Promise.all(promises);
-            allLogsCache = {};
-            bots.forEach((bot, i) => {
-                allLogsCache[bot] = (results[i] || []).map(l => {
-                    const msg = l.message || '';
-                    let level = 'info';
-                    if (msg.includes('[ERROR]') || msg.includes('[SHUTDOWN]')) level = 'error';
-                    else if (msg.includes('[WARN]')) level = 'warning';
-                    else if (msg.includes('[TRADE') || msg.includes('[NOTIFY]') || msg.includes('[CLOSE]')) level = 'trade';
-                    else if (msg.includes('[BALANCE]')) level = 'balance';
-                    return { message: msg, level: level, bot: bot, _botName: l.bot_name || '' };
-                });
-            });
-            renderLogsFiltered();
-        }
-
-        // Clear logs for a bot
-        function clearLogs(botKey) {
-            const container = document.getElementById(`logs-${botKey}`);
-            if (container) {
-                container.innerHTML = '<div class="log-entry log-info">Logs cleared</div>';
-            }
-        }
-
-        // Time toggle buttons - with loading state
-        document.addEventListener('click', async function(e) {
-            if (e.target.classList.contains('time-btn')) {
-                // Update button states
-                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-
-                // Get new days value IMMEDIATELY
-                const days = parseInt(e.target.dataset.days);
-                currentDays = days;
-
-                // Show loading overlay (keeps old chart visible underneath)
-                document.getElementById('chartLoading').style.display = 'flex';
-
-                // Render new chart with explicit days value
-                await renderPnLChart(days);
-
-                // Hide loading overlay
-                document.getElementById('chartLoading').style.display = 'none';
-            }
-        });
-
-        // Initial render - parallel for speed
-        async function init() {
-            await Promise.allSettled([
-                renderLiveHero(),
-                renderBots(),
-                renderPnLChart(currentDays),
-                loadPerformanceMetrics(),
-                renderTrades(),
-                renderLogs()
-                // renderPolymarket()  // HIDDEN - revisit later
-            ]);
-            updateTimestamp();
-        }
-
-        // Refresh data - parallel for speed
-        async function refresh() {
-            await Promise.allSettled([
-                renderLiveHero(),
-                renderBots(),
-                renderTrades(),
-                renderLogs(),
-                // renderPolymarket(),  // HIDDEN - revisit later
-                // loadSniperStats()   // HIDDEN - revisit later
-            ]);
-            updateTimestamp();
-        }
-
-        // --- Daily Analysis ---
-        let analysisData = [];
-
-        function renderMarkdown(text) {
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n- /g, '\n• ')
-                .replace(/\n/g, '<br>');
-        }
-
-        function renderAnalysis(entry) {
-            const pnlColor = entry.total_pnl >= 0 ? 'var(--green)' : 'var(--red)';
-            const pnlSign = entry.total_pnl >= 0 ? '+' : '';
-            const html = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total P/L</div>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: ${pnlColor};">${pnlSign}$${entry.total_pnl.toFixed(2)}</div>
-                    </div>
-                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Trades</div>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">${entry.total_trades}</div>
-                    </div>
-                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">BTC</div>
-                        <div style="font-size: 1rem; font-weight: 600; color: ${entry.btcusd_pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${entry.btcusd_pnl >= 0 ? '+' : ''}$${entry.btcusd_pnl.toFixed(2)}</div>
-                    </div>
-                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">XAU</div>
-                        <div style="font-size: 1rem; font-weight: 600; color: ${entry.xauusd_pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${entry.xauusd_pnl >= 0 ? '+' : ''}$${entry.xauusd_pnl.toFixed(2)}</div>
-                    </div>
-                    <div style="background: var(--bg-hover); border-radius: 10px; padding: 1rem; text-align: center;">
-                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">EUR</div>
-                        <div style="font-size: 1rem; font-weight: 600; color: ${entry.eurusd_pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${entry.eurusd_pnl >= 0 ? '+' : ''}$${entry.eurusd_pnl.toFixed(2)}</div>
-                    </div>
-                </div>
-                <div style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7;">
-                    ${renderMarkdown(entry.summary)}
-                </div>
-            `;
-            document.getElementById('analysisContent').innerHTML = html;
-        }
-
-        async function loadDailyAnalysis() {
-            try {
-                const resp = await fetch('data/daily_analysis.json?' + Date.now());
-                analysisData = await resp.json();
-                analysisData.sort((a, b) => b.date.localeCompare(a.date));
-                const select = document.getElementById('analysisDateSelect');
-                select.innerHTML = analysisData.map(e => `<option value="${e.date}">${e.date}</option>`).join('');
-                select.addEventListener('change', () => {
-                    const entry = analysisData.find(e => e.date === select.value);
-                    if (entry) renderAnalysis(entry);
-                });
-                if (analysisData.length > 0) renderAnalysis(analysisData[0]);
-            } catch (err) {
-                document.getElementById('analysisContent').innerHTML = '<div style="color: var(--text-muted); padding: 1rem;">No analysis data available yet.</div>';
-            }
-        }
-
-        // --- Performance Metrics ---
-        let equityCurveChart = null;
-        let metricsSourceFilter = 'live';
-
-        function setMetricsSource(btn, source) {
-            document.querySelectorAll('#metricsSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            metricsSourceFilter = source;
-            loadPerformanceMetrics();
-        }
-
-        function calculateSharpe(dailyReturns) {
-            if (!dailyReturns || dailyReturns.length < 2) return null;
-            const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
-            const variance = dailyReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (dailyReturns.length - 1);
-            const std = Math.sqrt(variance);
-            if (std === 0) return mean >= 0 ? Infinity : -Infinity;
-            return (mean / std) * Math.sqrt(252);
-        }
-
-        function calculateDrawdown(dailyPnls) {
-            if (!dailyPnls || dailyPnls.length === 0) return { maxDd: 0, maxDdPct: 0 };
-            let cumulative = 0, peak = 0, maxDd = 0;
-            for (const pnl of dailyPnls) {
-                cumulative += pnl;
-                if (cumulative > peak) peak = cumulative;
-                const dd = peak - cumulative;
-                if (dd > maxDd) maxDd = dd;
-            }
-            const maxDdPct = peak > 0 ? (maxDd / peak) * 100 : 0;
-            return { maxDd, maxDdPct };
-        }
-
-        function calculateWinStreak(trades) {
-            if (!trades || trades.length === 0) return { current: 0, best: 0 };
-            let current = 0, best = 0;
-            // trades should be sorted oldest first
-            for (const t of trades) {
-                if (t.pnl > 0) {
-                    current++;
-                    if (current > best) best = current;
-                } else {
-                    current = 0;
-                }
-            }
-            return { current, best };
-        }
-
-        function calculateProfitFactor(trades) {
-            if (!trades || trades.length === 0) return null;
-            let grossProfit = 0, grossLoss = 0;
-            for (const t of trades) {
-                if (t.pnl > 0) grossProfit += t.pnl;
-                else grossLoss += Math.abs(t.pnl);
-            }
-            if (grossLoss === 0) return grossProfit > 0 ? Infinity : 0;
-            return grossProfit / grossLoss;
-        }
-
-        function metricColor(value, greenThreshold, yellowThreshold) {
-            if (value >= greenThreshold) return 'var(--green)';
-            if (value >= yellowThreshold) return 'var(--yellow)';
-            return 'var(--red)';
-        }
-
-        function renderEquityCurve(dailyPnlByBot) {
-            const bots = ['BTCUSD', 'XAUUSD', 'EURUSD'];
-            const colors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4', Combined: '#06b6d4' };
-
-            // Collect all dates
-            const allDates = new Set();
-            bots.forEach(b => { if (dailyPnlByBot[b]) dailyPnlByBot[b].forEach(d => allDates.add(d.date)); });
-            const dates = [...allDates].sort();
-
-            // Build cumulative data
-            const datasets = [];
-            const cumByBot = {};
-            bots.forEach(bot => {
-                const map = {};
-                (dailyPnlByBot[bot] || []).forEach(d => { map[d.date] = d.total_pnl; });
-                let cum = 0;
-                cumByBot[bot] = dates.map(date => { cum += (map[date] || 0); return cum; });
-                datasets.push({
-                    label: bot,
-                    data: cumByBot[bot],
-                    borderColor: colors[bot],
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    tension: 0.3
-                });
-            });
-
-            // Combined
-            const combined = dates.map((_, i) => bots.reduce((s, b) => s + (cumByBot[b]?.[i] || 0), 0));
-            datasets.push({
-                label: 'Combined',
-                data: combined,
-                borderColor: colors.Combined,
-                backgroundColor: 'transparent',
-                borderWidth: 2.5,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                tension: 0.3,
-                borderDash: [6, 3]
-            });
-
-            if (equityCurveChart) { equityCurveChart.destroy(); equityCurveChart = null; }
-
-            const ctx = document.getElementById('equityCurveChart').getContext('2d');
-            equityCurveChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates.map(d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }),
-                    datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#21242d',
-                            titleColor: '#e4e4e7',
-                            bodyColor: '#a1a1aa',
-                            borderColor: '#2d3139',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '+' : ''}$${ctx.parsed.y.toFixed(2)}`
+                                color: '#8B949E',
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
                             }
                         }
                     },
-                    scales: {
-                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#71717a' } },
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#71717a', callback: v => '$' + v } }
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
                     }
                 }
             });
         }
 
-        function toggleEquityLine(btn, symbol) {
-            if (!equityCurveChart) return;
-            const idx = equityCurveChart.data.datasets.findIndex(d => d.label === symbol);
-            if (idx === -1) return;
-            const meta = equityCurveChart.getDatasetMeta(idx);
-            meta.hidden = !meta.hidden;
-            btn.classList.toggle('active');
-            equityCurveChart.update();
-        }
+        // Update trade history table
+        function updateTradeHistory(tradeOpens, tradeCloses) {
+            const tbody = document.getElementById('tradeHistoryTable');
+            
+            // Match opens with closes
+            const completedTrades = [];
+            
+            for (const close of tradeCloses) {
+                const open = tradeOpens.find(o => o.ticket === close.ticket);
+                if (open) {
+                    const heartbeats = tradesData.filter(d => d.event === 'heartbeat').sort((a, b) => new Date(a.ts) - new Date(b.ts));
+                    let profit = getTradeProfit(close, heartbeats);
+                    
+                    completedTrades.push({
+                        openTime: open.ts,
+                        direction: open.direction,
+                        entryPrice: open.price,
+                        exitPrice: close.close_price || 'SL/TP',
+                        lotSize: open.lot,
+                        profit: profit,
+                        duration: close.duration_seconds,
+                        exitReason: close.close_reason
+                    });
+                }
+            }
 
-        async function loadPerformanceMetrics() {
-            const isLiveMetrics = metricsSourceFilter === 'live';
-            const bots = isLiveMetrics ? ['BTCUSD'] : ['BTCUSD', 'XAUUSD', 'EURUSD'];
+            // Sort by most recent first
+            completedTrades.sort((a, b) => new Date(b.openTime) - new Date(a.openTime));
 
-            // Fetch trades filtered by source
-            const sourceParam = metricsSourceFilter !== 'all' ? `&source=eq.${metricsSourceFilter}` : '';
-            const trades = await supabaseFetch('trades', `?select=symbol,profit,created_at${sourceParam}&order=created_at.asc&limit=5000`);
-
-            if (!trades || trades.length === 0) {
-                document.getElementById('metricsCards').innerHTML = '<div class="no-data">No metrics data available</div>';
+            tbody.innerHTML = '';
+            
+            if (completedTrades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #8B949E;">No completed trades yet</td></tr>';
                 return;
             }
 
-            // Build per-bot daily P/L from trades
-            const pnlByBot = {};
-            bots.forEach(b => { pnlByBot[b] = []; });
-            const dailyByBotDate = {};
-            trades.forEach(t => {
-                const sym = t.symbol || '';
-                const pnl = parseFloat(t.profit) || 0;
-                const date = (t.created_at || '').substring(0, 10);
-                if (!date || !bots.includes(sym)) return;
-                const key = `${sym}_${date}`;
-                if (!dailyByBotDate[key]) dailyByBotDate[key] = { symbol: sym, date, total_pnl: 0, trades: 0, wins: 0, losses: 0 };
-                dailyByBotDate[key].total_pnl += pnl;
-                dailyByBotDate[key].trades++;
-                if (pnl > 0) dailyByBotDate[key].wins++;
-                else if (pnl < 0) dailyByBotDate[key].losses++;
-            });
-            Object.values(dailyByBotDate).forEach(d => {
-                if (pnlByBot[d.symbol]) pnlByBot[d.symbol].push(d);
-            });
-            // Sort each bot's daily entries by date
-            bots.forEach(b => { pnlByBot[b].sort((a, c) => a.date.localeCompare(c.date)); });
-
-            // Combined daily returns (sum per date across all bots)
-            const byDate = {};
-            Object.values(dailyByBotDate).forEach(d => { byDate[d.date] = (byDate[d.date] || 0) + d.total_pnl; });
-            const combinedReturns = Object.keys(byDate).sort().map(d => byDate[d]);
-
-            // Sharpe
-            const combinedSharpe = calculateSharpe(combinedReturns);
-            const botSharpes = {};
-            bots.forEach(b => { botSharpes[b] = calculateSharpe(pnlByBot[b].map(d => d.total_pnl)); });
-
-            // Drawdown (combined)
-            const dd = calculateDrawdown(combinedReturns);
-
-            // Win Streak per bot from trades
-            const tradesByBot = {};
-            bots.forEach(b => { tradesByBot[b] = []; });
-            if (trades) {
-                trades.forEach(t => {
-                    const sym = t.symbol;
-                    if (tradesByBot[sym]) tradesByBot[sym].push({ pnl: parseFloat(t.profit) || 0 });
-                });
-            }
-            const streaks = {};
-            bots.forEach(b => { streaks[b] = calculateWinStreak(tradesByBot[b]); });
-
-            // Profit Factor from trades
-            const allTrades = trades ? trades.map(t => ({ pnl: parseFloat(t.profit) || 0 })) : [];
-            const pf = calculateProfitFactor(allTrades);
-            const botPfs = {};
-            bots.forEach(b => { botPfs[b] = calculateProfitFactor(tradesByBot[b]); });
-
-            // Render metric cards
-            const sharpeVal = combinedSharpe !== null && isFinite(combinedSharpe) ? combinedSharpe.toFixed(2) : '-';
-            const sharpeColor = combinedSharpe > 1 ? 'var(--green)' : combinedSharpe >= 0 ? 'var(--yellow)' : 'var(--red)';
-            const botSharpeHtml = bots.map(b => {
-                const v = botSharpes[b];
-                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '-';
-                const c = v > 1 ? 'var(--green)' : v >= 0 ? 'var(--yellow)' : 'var(--red)';
-                return `<span style="color:${c}">${b}: ${vs}</span>`;
-            }).join('');
-
-            const pfVal = pf !== null && isFinite(pf) ? pf.toFixed(2) : '-';
-            const pfColor = metricColor(pf || 0, 1.5, 1);
-            const botPfHtml = bots.map(b => {
-                const v = botPfs[b];
-                const vs = v !== null && isFinite(v) ? v.toFixed(2) : '-';
-                const c = metricColor(v || 0, 1.5, 1);
-                return `<span style="color:${c}">${b}: ${vs}</span>`;
-            }).join('');
-
-            const streakHtml = bots.map(b => `<span>${b}: ${streaks[b].current}🔥 (best: ${streaks[b].best})</span>`).join('');
-
-            document.getElementById('metricsCards').innerHTML = `
-                <div class="metric-card">
-                    <div class="metric-card-title">Sharpe Ratio <span class="metric-info">i<div class="metric-tooltip"><strong>How good is profit vs risk?</strong>Measures return consistency. High Sharpe = steady profits, low Sharpe = wild swings. Warren Buffett's fund: ~0.76.<div class="scale"><span><span class="dot" style="background:var(--green)"></span> &gt;1 Great</span><span><span class="dot" style="background:var(--yellow)"></span> 0-1 OK</span><span><span class="dot" style="background:var(--red)"></span> &lt;0 Bad</span></div></div></span></div>
-                    <div class="metric-main-value" style="color:${sharpeColor}">${sharpeVal}</div>
-                    <div class="metric-sub">${botSharpeHtml}</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-card-title">Max Drawdown <span class="metric-info">i<div class="metric-tooltip"><strong>Worst dip from a peak</strong>The biggest drop from your highest point. If balance went $50K to $49.2K, that's -$800 drawdown. Smaller is better. Expect similar dips in the future.</div></span></div>
-                    <div class="metric-main-value" style="color:var(--red)">-$${dd.maxDd.toFixed(2)}</div>
-                    <div class="metric-sub"><span style="color:var(--red)">${dd.maxDdPct.toFixed(1)}% from peak</span></div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-card-title">Win Streak <span class="metric-info">i<div class="metric-tooltip"><strong>Consecutive winning trades</strong>Current streak and best-ever per bot. A long streak means the bot is reading the market well during that period.</div></span></div>
-                    <div class="metric-main-value" style="color:var(--green)">\u{1F525}</div>
-                    <div class="metric-sub">${streakHtml}</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-card-title">Profit Factor <span class="metric-info">i<div class="metric-tooltip"><strong>For every $1 lost, how much made?</strong>Total wins \u00F7 total losses. A factor of 2.0 means you make $2 for every $1 you lose.<div class="scale"><span><span class="dot" style="background:var(--green)"></span> &gt;1.5 Strong</span><span><span class="dot" style="background:var(--yellow)"></span> 1-1.5 OK</span><span><span class="dot" style="background:var(--red)"></span> &lt;1 Losing</span></div></div></span></div>
-                    <div class="metric-main-value" style="color:${pfColor}">${pfVal}</div>
-                    <div class="metric-sub">${botPfHtml}</div>
-                </div>
-            `;
-
-            // Render equity filter buttons
-            const colors = { BTCUSD: '#f7931a', XAUUSD: '#ffd700', EURUSD: '#0052b4', Combined: '#06b6d4' };
-            const filterBtns = bots.map(b => 
-                `<button class="equity-filter-btn active" data-symbol="${b}" onclick="toggleEquityLine(this, '${b}')" style="border-color: ${colors[b]}; color: ${colors[b]}; background: rgba(${b === 'BTCUSD' ? '247,147,26' : b === 'XAUUSD' ? '255,215,0' : '0,82,180'},0.1);">${b}</button>`
-            ).join('');
-            const combinedBtn = bots.length > 1 ? `<button class="equity-filter-btn active" data-symbol="Combined" onclick="toggleEquityLine(this, 'Combined')" style="border-color: #06b6d4; color: #06b6d4; background: rgba(6,182,212,0.1);">Combined</button>` : '';
-            document.getElementById('equityFilters').innerHTML = filterBtns + combinedBtn;
-
-            // Render equity curve
-            renderEquityCurve(pnlByBot);
-        }
-
-        // Chart source filter
-        function setChartSource(btn, source) {
-            document.querySelectorAll('#chartSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            chartSourceFilter = source;
-            document.getElementById('chartLoading').style.display = 'flex';
-            renderPnLChart(currentDays).then(() => {
-                document.getElementById('chartLoading').style.display = 'none';
+            completedTrades.forEach(trade => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${formatDate(trade.openTime)}</td>
+                    <td><span class="direction-${trade.direction}">${trade.direction.toUpperCase()}</span></td>
+                    <td>${trade.entryPrice.toFixed(2)}</td>
+                    <td>${typeof trade.exitPrice === 'number' ? trade.exitPrice.toFixed(2) : trade.exitPrice}</td>
+                    <td>${trade.lotSize}</td>
+                    <td class="${trade.profit >= 0 ? 'positive' : 'negative'}">${formatCurrency(trade.profit)}</td>
+                    <td>${formatDuration(trade.duration)}</td>
+                    <td>${trade.exitReason}</td>
+                `;
+                tbody.appendChild(row);
             });
         }
 
-        // LIVE Summary Hero Card
-        async function renderLiveHero() {
-            // Get live bot status
-            const statusData = await supabaseFetch('bot_status', '?bot_name=eq.BTCUSD-LIVE&select=*&limit=1');
-            
-            // Get all live trades
-            const liveTrades = await supabaseFetch('trades', '?source=eq.live&select=profit,created_at&order=created_at.desc&limit=5000');
-            
-            if (!liveTrades) return;
+        // Update session stats
+        function updateSessionStats(latestBotStart, latestHeartbeat) {
+            const sessionStart = latestBotStart ? formatDate(latestBotStart.ts) : 'N/A';
+            const sessionPnl = latestHeartbeat ? latestHeartbeat.session_pnl || 0 : 0;
+            const openPositions = latestHeartbeat ? latestHeartbeat.open_positions : 0;
+            const unrealizedPnl = latestHeartbeat ? latestHeartbeat.unrealized_pnl || 0 : 0;
 
-            // Account balance from bot_status
-            let balance = '—';
-            if (statusData && statusData.length > 0 && statusData[0].balance) {
-                balance = formatCurrency(parseFloat(statusData[0].balance));
-            }
-
-            // Today's P/L
-            function getMYTDateStr(d) {
-                const myt = new Date(d.getTime() + 8 * 60 * 60 * 1000);
-                return myt.toISOString().split('T')[0];
-            }
-            const today = getMYTDateStr(new Date());
-            const todayStart = new Date(new Date(`${today}T00:00:00Z`).getTime() - 8 * 60 * 60 * 1000);
-            
-            let todayPL = 0;
-            let totalPL = 0;
-            let wins = 0;
-            let total = liveTrades.length;
-
-            liveTrades.forEach(t => {
-                const pnl = parseFloat(t.profit) || 0;
-                totalPL += pnl;
-                if (pnl > 0) wins++;
-                if (new Date(t.created_at) >= todayStart) todayPL += pnl;
-            });
-
-            const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : '0.0';
-
-            document.getElementById('liveBalance').textContent = balance;
-            
-            const todayEl = document.getElementById('liveTodayPL');
-            todayEl.textContent = (todayPL >= 0 ? '+' : '') + formatCurrency(todayPL);
-            todayEl.style.color = todayPL >= 0 ? 'var(--green)' : 'var(--red)';
-
-            const totalEl = document.getElementById('liveTotalPL');
-            totalEl.textContent = (totalPL >= 0 ? '+' : '') + formatCurrency(totalPL);
-            totalEl.style.color = totalPL >= 0 ? 'var(--green)' : 'var(--red)';
-
-            const wrEl = document.getElementById('liveWinRate');
-            wrEl.textContent = winRate + '%';
-            wrEl.style.color = parseFloat(winRate) >= 50 ? 'var(--green)' : 'var(--red)';
-
-            document.getElementById('liveTradeCount').textContent = total;
-
-            // Update hero card border color based on total P/L
-            const card = document.getElementById('liveHeroCard');
-            if (totalPL >= 0) {
-                card.style.borderColor = 'rgba(34,197,94,0.3)';
-                card.style.background = 'linear-gradient(135deg, #1a1d26 0%, #121e15 100%)';
-                card.querySelector('div[style*="height: 3px"]').style.background = 'linear-gradient(90deg, #22c55e, #06b6d4, #22c55e)';
-            }
+            document.getElementById('sessionStart').textContent = sessionStart;
+            document.getElementById('sessionPnl').innerHTML = 
+                `<span class="${sessionPnl >= 0 ? 'positive' : 'negative'}">${formatCurrency(sessionPnl)}</span>`;
+            document.getElementById('openPositions').textContent = openPositions;
+            document.getElementById('unrealizedPnl').innerHTML = 
+                `<span class="${unrealizedPnl >= 0 ? 'positive' : 'negative'}">${formatCurrency(unrealizedPnl)}</span>`;
         }
 
-        // Polymarket + Sniper JS removed - revisit later
-
-        // Trade Source pill toggle (replaces dropdown)
-        function setTradeSource(btn, source) {
-            document.querySelectorAll('#tradeSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            // Update hidden select to keep applyTradeFilters() working
-            const sel = document.getElementById('tradeFilterSource');
-            sel.innerHTML = `<option value="${source}" selected>${source}</option>`;
-            sel.value = source;
-            tradeDisplayCount = 50;
-            applyTradeFilters();
-        }
-
-        // Daily Analysis source filter
-        let analysisSourceFilter = 'live';
-        function setAnalysisSource(btn, source) {
-            document.querySelectorAll('#analysisSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            analysisSourceFilter = source;
-            // Re-filter analysis data (daily_analysis may not have source column, filter by date instead)
-            const select = document.getElementById('analysisDateSelect');
-            let filtered = analysisData;
-            if (source === 'live') {
-                filtered = analysisData.filter(e => e.date >= '2026-02-18');
-            } else if (source === 'demo') {
-                filtered = analysisData.filter(e => e.date < '2026-02-18');
-            }
-            select.innerHTML = filtered.map(e => `<option value="${e.date}">${e.date}</option>`).join('');
-            if (filtered.length > 0) renderAnalysis(filtered[0]);
-            else document.getElementById('analysisContent').innerHTML = '<div style="color: var(--text-muted); padding: 1rem;">No analysis data for this filter.</div>';
-        }
-
-        // Logs source filter
-        let logsSourceFilter = 'live';
-        let allLogsCache = null;
-        function setLogsSource(btn, source) {
-            document.querySelectorAll('#logsSourceFilter .filter-pill').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            logsSourceFilter = source;
-            renderLogsFiltered();
-        }
-
-        function renderLogsFiltered() {
-            if (!allLogsCache) return;
-            const grid = document.getElementById('logsGrid');
-            const colors = { 'BTCUSD': '#f7931a', 'XAUUSD': '#ffd700', 'EURUSD': '#0052b4' };
-
-            // Filter logs by bot_name containing LIVE or not
-            const filteredData = {};
-            Object.entries(allLogsCache).forEach(([botKey, logs]) => {
-                if (logsSourceFilter === 'live') {
-                    filteredData[botKey] = logs.filter(l => l._botName && l._botName.includes('LIVE'));
-                } else if (logsSourceFilter === 'demo') {
-                    filteredData[botKey] = logs.filter(l => !l._botName || !l._botName.includes('LIVE'));
-                } else {
-                    filteredData[botKey] = logs;
+        // Load EMA status data
+        async function loadEMAData() {
+            try {
+                const response = await fetch('./data/ema_status.json');
+                if (!response.ok) {
+                    throw new Error('EMA data not available');
                 }
-            });
-
-            grid.innerHTML = Object.entries(filteredData).map(([botKey, logs]) => `
-                <div class="log-card">
-                    <div class="log-header">
-                        <div class="log-title">
-                            <span class="log-color-dot" style="background:${colors[botKey]}"></span>
-                            ${botKey} Logs
-                        </div>
-                        <button class="clear-btn" onclick="clearLogs('${botKey}')">Clear</button>
-                    </div>
-                    <div class="log-content" id="logs-${botKey}">
-                        ${logs.length > 0 ? logs.map(log => `
-                            <div class="log-entry ${getLogClass(log.message)}">${log.message}</div>
-                        `).join('') : '<div class="log-entry log-info">No logs for this filter</div>'}
-                    </div>
-                </div>
-            `).join('');
-
-            Object.keys(filteredData).forEach(botKey => {
-                const container = document.getElementById(`logs-${botKey}`);
-                if (container) container.scrollTop = container.scrollHeight;
-            });
+                
+                const emaData = await response.json();
+                updateEMAStatus(emaData);
+                
+            } catch (error) {
+                console.log('EMA data not available');
+                document.getElementById('emaUnavailable').style.display = 'block';
+                document.querySelector('.ema-grid').style.display = 'none';
+            }
         }
 
-        // Start
-        init();
-        // loadSniperStats();  // HIDDEN
-        loadDailyAnalysis();
-        setInterval(refresh, REFRESH_INTERVAL);
+        // Update EMA status panel
+        function updateEMAStatus(emaData) {
+            document.getElementById('currentPrice').textContent = emaData.currentPrice ? emaData.currentPrice.toFixed(2) : 'N/A';
+            document.getElementById('ema10').textContent = emaData.ema10 ? emaData.ema10.toFixed(2) : 'N/A';
+            document.getElementById('ema50').textContent = emaData.ema50 ? emaData.ema50.toFixed(2) : 'N/A';
+            document.getElementById('emaGap').textContent = emaData.gap ? emaData.gap.toFixed(2) : 'N/A';
+            document.getElementById('emaStatusText').textContent = emaData.status || 'N/A';
+        }
+
+        // Show error message
+        function showError(message) {
+            const metricsGrid = document.getElementById('metricsGrid');
+            metricsGrid.innerHTML = `<div class="error" style="grid-column: 1 / -1;">${message}</div>`;
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+        });
     </script>
-    <!-- Footer -->
-    <footer style="background: var(--bg-secondary); border-top: 1px solid var(--border-color); padding: 1.5rem 2rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <span style="color: var(--text-muted); font-size: 0.85rem;">MT5 Trading Bot</span>
-            <span style="color: var(--border-color);">•</span>
-            <a href="https://github.com/linuzri/mt5-trading" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                GitHub
-            </a>
-            <span style="color: var(--border-color);">•</span>
-            <a href="https://github.com/linuzri/mt5-trading#readme" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
-                📖 README
-            </a>
-            <span style="color: var(--border-color);">•</span>
-            <a href="https://github.com/linuzri/mt5-trading/commits/main" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
-                🔄 Changelog
-            </a>
-        </div>
-        <span style="color: var(--text-muted); font-size: 0.8rem;">Built by <a href="https://github.com/linuzri" target="_blank" rel="noopener" style="color: var(--text-secondary); text-decoration: none;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">linuzri</a> with 🤖 + ☕</span>
-    </footer>
 </body>
 </html>
