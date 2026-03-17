@@ -1,0 +1,21 @@
+# Testing dependencies for BTCUSD trading bot
+pytest>=7.4.0
+pytest-mock>=3.11.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0
+
+# Additional testing utilities
+freezegun>=1.2.0    # For time mocking
+responses>=0.23.0   # For HTTP mocking
+factory-boy>=3.3.0  # Test data factories
+hypothesis>=6.82.0  # Property-based testing
+
+# Type checking (optional but recommended)
+mypy>=1.5.0
+types-PyYAML
+types-requests
+
+# Code quality
+flake8>=6.0.0
+black>=23.7.0
+isort>=5.12.0
