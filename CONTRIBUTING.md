@@ -48,6 +48,21 @@ cd btcusd && python -m pytest tests/ -v
 - Always branch from `main`, PR back to `main`
 - Never push directly to `main`
 
+## TDD Enforcement (Hard Rule)
+
+**Tests come first. This is not optional.**
+
+- Write the test → watch it fail → write the code → watch it pass
+- Commit history should show test commits before or alongside implementation
+- PRs without tests will be rejected unless they fall under exceptions below
+
+**Exceptions (must be stated in PR description):**
+- Documentation-only changes
+- Config value tweaks (not structural changes)
+- Pure refactors where existing tests already cover the behavior
+
+**If you're unsure whether tests are needed: they are.**
+
 ## Test Requirements
 - All new code must have tests
 - Tests live in `btcusd/tests/`
