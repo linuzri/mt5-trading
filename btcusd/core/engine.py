@@ -358,6 +358,7 @@ class Engine:
                 equity=equity,
                 reason=signal_obj.reason,
                 dry_run=self.dry_run,
+                **signal_obj.metadata,  # Include all enrichment metadata
             )
             msg = (
                 f"{'[DRY-RUN] ' if self.dry_run else ''}"

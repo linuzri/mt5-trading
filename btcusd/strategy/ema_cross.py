@@ -32,7 +32,7 @@ class EmaCrossStrategy(Strategy):
     def name(self) -> str:
         return "ema_cross"
 
-    def evaluate(self, candles: pd.DataFrame) -> Optional[Signal]:
+    def evaluate(self, candles: pd.DataFrame, h4_candles: Optional[pd.DataFrame] = None) -> Optional[Signal]:
         fast_period = self.config.get("ema_fast", 10)
         slow_period = self.config.get("ema_slow", 50)
         atr_period = self.config.get("atr_period", 14)
@@ -58,12 +58,71 @@ class EmaCrossStrategy(Strategy):
         sl_dist = atr * sl_mult
         tp_dist = atr * tp_mult
 
+        # Enrichment calculations
+        current_price = close.iloc[-1]
+        
+        # EMA gap calculations
+        ema_gap = abs(fast_now - slow_now)
+        ema_gap_pct = round((ema_gap / current_price) * 100, 4)
+        
+        # EMA trend (converging/diverging)
+        prev_gap = abs(fast_prev - slow_prev)
+        ema_trend = "converging" if ema_gap < prev_gap else "diverging"
+        
+        # Signal strength (normalized gap percentage)
+        # Use a reasonable max gap of 2% for normalization
+        max_gap_pct = 2.0
+        signal_strength = min(ema_gap_pct / max_gap_pct, 1.0)
+        
+        # Candle body size relative to ATR
+        last_candle = candles.iloc[-1]
+        # Handle missing 'open' column gracefully
+        if "open" in candles.columns:
+            candle_body = abs(last_candle["close"] - last_candle["open"])
+        else:
+            # Fallback: estimate body size as small percentage of close price
+            candle_body = last_candle["close"] * 0.001  # 0.1% as default body size
+        candle_body_atr_ratio = round(candle_body / atr if atr > 0 else 0, 4)
+        
+        # H4 trend analysis
+        h4_trend = "unavailable"
+        h4_ema_fast = 0.0
+        h4_ema_slow = 0.0
+        
+        if h4_candles is not None and len(h4_candles) >= slow_period:
+            try:
+                h4_close = h4_candles["close"]
+                h4_fast = _ema(h4_close, fast_period)
+                h4_slow = _ema(h4_close, slow_period)
+                
+                h4_ema_fast = round(h4_fast.iloc[-1], 2)
+                h4_ema_slow = round(h4_slow.iloc[-1], 2)
+                
+                if h4_ema_fast > h4_ema_slow:
+                    h4_trend = "above"
+                elif h4_ema_fast < h4_ema_slow:
+                    h4_trend = "below"
+                else:
+                    h4_trend = "neutral"
+            except Exception:
+                # Handle any errors gracefully
+                h4_trend = "error"
+
         meta = {
             "ema_fast": round(fast_now, 2),
             "ema_slow": round(slow_now, 2),
             "ema_fast_prev": round(fast_prev, 2),
             "ema_slow_prev": round(slow_prev, 2),
             "atr": round(atr, 2),
+            # Enrichment fields
+            "ema_gap": round(ema_gap, 2),
+            "ema_gap_pct": ema_gap_pct,
+            "ema_trend": ema_trend,
+            "signal_strength": round(signal_strength, 4),
+            "candle_body_atr_ratio": candle_body_atr_ratio,
+            "h4_trend": h4_trend,
+            "h4_ema_fast": h4_ema_fast,
+            "h4_ema_slow": h4_ema_slow
         }
 
         # Bullish crossover: fast crosses above slow
