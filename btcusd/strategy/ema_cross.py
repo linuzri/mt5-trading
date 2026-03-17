@@ -32,7 +32,7 @@ class EmaCrossStrategy(Strategy):
     def name(self) -> str:
         return "ema_cross"
 
-    def evaluate(self, candles: pd.DataFrame, h4_candles: Optional[pd.DataFrame] = None) -> Optional[Signal]:
+    def evaluate(self, candles: pd.DataFrame, h4_candles: Optional[pd.DataFrame] = None, d1_candles: Optional[pd.DataFrame] = None) -> Optional[Signal]:
         fast_period = self.config.get("ema_fast", 10)
         slow_period = self.config.get("ema_slow", 50)
         atr_period = self.config.get("atr_period", 14)
@@ -108,6 +108,30 @@ class EmaCrossStrategy(Strategy):
                 # Handle any errors gracefully
                 h4_trend = "error"
 
+        # D1 trend analysis
+        d1_trend = "unavailable"
+        d1_ema_fast = 0.0
+        d1_ema_slow = 0.0
+        
+        if d1_candles is not None and len(d1_candles) >= slow_period:
+            try:
+                d1_close = d1_candles["close"]
+                d1_fast = _ema(d1_close, fast_period)
+                d1_slow = _ema(d1_close, slow_period)
+                
+                d1_ema_fast = round(d1_fast.iloc[-1], 2)
+                d1_ema_slow = round(d1_slow.iloc[-1], 2)
+                
+                if d1_ema_fast > d1_ema_slow:
+                    d1_trend = "above"
+                elif d1_ema_fast < d1_ema_slow:
+                    d1_trend = "below"
+                else:
+                    d1_trend = "neutral"
+            except Exception:
+                # Handle any errors gracefully
+                d1_trend = "error"
+
         meta = {
             "ema_fast": round(fast_now, 2),
             "ema_slow": round(slow_now, 2),
@@ -122,7 +146,10 @@ class EmaCrossStrategy(Strategy):
             "candle_body_atr_ratio": candle_body_atr_ratio,
             "h4_trend": h4_trend,
             "h4_ema_fast": h4_ema_fast,
-            "h4_ema_slow": h4_ema_slow
+            "h4_ema_slow": h4_ema_slow,
+            "d1_trend": d1_trend,
+            "d1_ema_fast": d1_ema_fast,
+            "d1_ema_slow": d1_ema_slow
         }
 
         # Bullish crossover: fast crosses above slow

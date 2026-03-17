@@ -24,6 +24,8 @@ def mock_mt5(monkeypatch):
     
     # Constants
     mock.TIMEFRAME_H1 = 16385
+    mock.TIMEFRAME_H4 = 16388
+    mock.TIMEFRAME_D1 = 16408
     mock.ORDER_TYPE_BUY = 0
     mock.ORDER_TYPE_SELL = 1
     mock.TRADE_ACTION_DEAL = 1
