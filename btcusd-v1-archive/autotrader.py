@@ -29,6 +29,11 @@ import argparse
 import datetime
 from pathlib import Path
 
+# Fix Windows console encoding for unicode output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Load .env from repo root (parent of btcusd/)
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")

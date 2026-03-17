@@ -76,4 +76,18 @@ if (!$SkipGit) {
     Pop-Location
 }
 
+# 4. Deploy to Vercel
+Push-Location (Join-Path $RootDir "vercel-dashboard")
+try {
+    $vercelOut = vercel deploy --yes --prod 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[OK] Deployed to Vercel" -ForegroundColor Green
+    } else {
+        Write-Host "[WARN] Vercel deploy failed: $vercelOut" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "[WARN] Vercel deploy error: $_" -ForegroundColor Yellow
+}
+Pop-Location
+
 Write-Host "=== Sync Complete ===" -ForegroundColor Cyan

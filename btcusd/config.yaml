@@ -1,0 +1,36 @@
+# Connection
+symbol: "BTCUSD"
+magic_number: 200001          # Unique ID for v2 trades (v1 used 100xxx)
+mt5_path: "C:\\Program Files\\Pepperstone MetaTrader 5\\terminal64.exe"
+
+# Strategy
+strategy: "ema_cross"
+timeframe: "H1"               # Primary timeframe
+
+# EMA Crossover params
+ema_fast: 10
+ema_slow: 50
+
+# Risk Management
+risk_per_trade: 0.5            # % of balance per trade
+sl_atr_multiplier: 2.0         # SL = ATR * this
+tp_atr_multiplier: 3.0         # TP = ATR * this  (1.5:1 R:R)
+atr_period: 14
+min_lot: 0.01
+max_lot: 1.0
+
+# Limits
+max_daily_trades: 50
+max_weekly_trades: 200
+cooldown_seconds: 300          # 5 min between trades
+max_open_positions: 3          # Max simultaneous positions
+
+# Notifications
+telegram_enabled: true
+telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"   # From env var
+telegram_chat_id: "3588682"
+
+# Logging
+log_file: "logs/trades.jsonl"
+log_level: "INFO"
+heartbeat_interval_minutes: 30   # Periodic equity/state snapshot
