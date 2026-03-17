@@ -18,33 +18,30 @@ class TrendStrategy:
 
     def get_trend_direction(self):
         """
-        Determine trend from H4 EMA alignment.
+        Determine trend from H4 EMA direction.
 
-        Returns: 'bullish', 'bearish', or 'neutral'
+        Returns: 'bullish' or 'bearish' (always picks a side)
 
-        Bullish: Price > EMA20 > EMA50 on H4
-        Bearish: Price < EMA20 < EMA50 on H4
-        Neutral: EMAs tangled (no trade)
+        Bullish: EMA10 > EMA80 on H4
+        Bearish: EMA10 <= EMA80 on H4
+        No neutral state — demo mode, maximize trades.
         """
         rates = mt5.copy_rates_from(self.symbol, mt5.TIMEFRAME_H4, datetime.now(UTC), 100)
         if rates is None or len(rates) < 60:
-            return 'neutral'
+            return 'bullish'  # default to bullish if no data
 
         df = pd.DataFrame(rates)
         df['ema10'] = df['close'].ewm(span=10, adjust=False).mean()
         df['ema80'] = df['close'].ewm(span=80, adjust=False).mean()
 
         latest = df.iloc[-1]
-        price = latest['close']
         ema10 = latest['ema10']
         ema80 = latest['ema80']
 
-        if price > ema10 > ema80:
+        if ema10 > ema80:
             return 'bullish'
-        elif price < ema10 < ema80:
-            return 'bearish'
         else:
-            return 'neutral'
+            return 'bearish'
 
     def get_h1_entry_signal(self, trend_direction):
         """

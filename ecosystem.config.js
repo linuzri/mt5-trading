@@ -1,39 +1,18 @@
 module.exports = {
   apps: [
     {
-      name: "bot-btcusd",
+      name: "bot-btcusd-v2",
       cwd: "C:\\Users\\Nazri Hussain\\projects\\mt5-trading\\btcusd",
-      script: "trading.py",
+      script: "main.py",
       interpreter: "python",
       autorestart: true,
       watch: false,
       max_memory_restart: "500M",
       env: {
-        PYTHONUNBUFFERED: "1"
-      }
-    },
-    {
-      name: "bot-xauusd",
-      cwd: "C:\\Users\\Nazri Hussain\\projects\\mt5-trading\\xauusd",
-      script: "trading.py",
-      interpreter: "python",
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "500M",
-      env: {
-        PYTHONUNBUFFERED: "1"
-      }
-    },
-    {
-      name: "bot-eurusd",
-      cwd: "C:\\Users\\Nazri Hussain\\projects\\mt5-trading\\eurusd",
-      script: "trading.py",
-      interpreter: "python",
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "500M",
-      env: {
-        PYTHONUNBUFFERED: "1"
+        PYTHONUNBUFFERED: "1",
+        PYTHONIOENCODING: "utf-8",
+        TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
+        TELEGRAM_CHAT_ID: "3588682"
       }
     },
     {
@@ -44,18 +23,6 @@ module.exports = {
       watch: false,
       env: {
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || ""
-      }
-    },
-    {
-      name: "bot-btcusd-live",
-      cwd: "C:\\Users\\Nazri Hussain\\projects\\mt5-trading\\btcusd-live",
-      script: "trading.py",
-      interpreter: "python",
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "500M",
-      env: {
-        PYTHONUNBUFFERED: "1"
       }
     }
   ]

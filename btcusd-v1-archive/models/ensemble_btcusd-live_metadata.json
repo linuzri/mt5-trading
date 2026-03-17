@@ -1,0 +1,55 @@
+{
+  "model_type": "ensemble",
+  "models": [
+    "rf",
+    "xgb",
+    "lgb"
+  ],
+  "feature_names": [
+    "bb_upper",
+    "bb_lower",
+    "range_position",
+    "price_vs_ema200",
+    "atr_14",
+    "drawdown_pct",
+    "bb_width",
+    "trend_strength",
+    "macd_signal",
+    "volume_ratio",
+    "price_vs_ema50",
+    "macd_line",
+    "rsi_14",
+    "price_vs_ema20",
+    "hourly_return",
+    "daily_range_position",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos"
+  ],
+  "individual_accuracies": {
+    "rf": 0.5278207109737248,
+    "xgb": 0.527047913446677,
+    "lgb": 0.4860896445131376
+  },
+  "ensemble_accuracy": 0.5193199381761978,
+  "performance_metrics": {
+    "individual_accuracies": {
+      "rf": 0.5278207109737248,
+      "xgb": 0.527047913446677,
+      "lgb": 0.4860896445131376
+    },
+    "validation_accuracies": {
+      "rf": 0.4462490332559938,
+      "xgb": 0.4462490332559938,
+      "lgb": 0.5042536736272235
+    },
+    "ensemble_test_accuracy": 0.5193199381761978,
+    "test_metrics": {
+      "accuracy": 0.5193199381761978
+    },
+    "cv_mean": 0.5136527563111798,
+    "cv_std": 0.019492616602156215
+  },
+  "trained_at": "2026-02-26T23:07:48.852661"
+}
