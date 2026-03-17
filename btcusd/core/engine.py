@@ -279,8 +279,27 @@ class Engine:
         self.state.set("last_candle_ts", last_candle_ts)
         self.state.save()
 
+        # Fetch multi-timeframe candles for strategy context
+        h4_candles = None
+        d1_candles = None
+        
+        if not self.dry_run:
+            try:
+                h4_candles = self.market.get_candles_tf("H4", count=200)
+                if h4_candles is None:
+                    log.warning("Failed to fetch H4 candles")
+            except Exception as e:
+                log.warning("Error fetching H4 candles: %s", e)
+                
+            try:
+                d1_candles = self.market.get_candles_tf("D1", count=200)
+                if d1_candles is None:
+                    log.warning("Failed to fetch D1 candles")
+            except Exception as e:
+                log.warning("Error fetching D1 candles: %s", e)
+
         # Strategy evaluation
-        signal_obj = self.strategy.evaluate(candles)
+        signal_obj = self.strategy.evaluate(candles, h4_candles=h4_candles, d1_candles=d1_candles)
         price = float(candles["close"].iloc[-1])
 
         if signal_obj is None:

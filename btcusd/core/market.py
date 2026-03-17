@@ -91,6 +91,23 @@ class Market:
         df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
         return df
 
+    def get_candles_tf(self, timeframe: str, count: int = 200) -> Optional[pd.DataFrame]:
+        """Fetch OHLCV candles for any timeframe. Returns DataFrame with columns [time, open, high, low, close, volume]."""
+        if not self.ensure_connected():
+            return None
+        
+        # Convert string timeframe to MT5 constant
+        tf = TIMEFRAME_MAP[timeframe]
+        
+        rates = mt5.copy_rates_from_pos(self.symbol, tf, 0, count)
+        if rates is None or len(rates) == 0:
+            log.warning("copy_rates_from_pos returned nothing for %s %s", self.symbol, timeframe)
+            return None
+        
+        df = pd.DataFrame(rates)
+        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+        return df
+
     def get_tick(self) -> Optional[tuple]:
         """Returns (bid, ask, spread_pct) or None."""
         if not self.ensure_connected():
