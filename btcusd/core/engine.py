@@ -365,28 +365,26 @@ class Engine:
 
         if ticket is not None:
             self.state.record_trade()
-            # Explicit kwargs take precedence; filter them out of metadata to avoid duplicates
-            _explicit_keys = {
-                "ticket", "direction", "price", "sl", "tp", "lot",
-                "spread", "atr", "balance", "equity", "reason", "dry_run",
-            }
-            _extra = {k: v for k, v in signal_obj.metadata.items() if k not in _explicit_keys}
-            self._log_event(
-                "trade_open",
-                ticket=ticket,
-                direction=signal_obj.direction,
-                price=price,
-                sl=sl,
-                tp=tp,
-                lot=lot,
-                spread=spread,
-                atr=round(atr, 2),
-                balance=balance,
-                equity=equity,
-                reason=signal_obj.reason,
-                dry_run=self.dry_run,
-                **_extra,  # Enrichment metadata (dupes filtered)
-            )
+            # Build trade_open event data - explicit values take precedence over metadata
+            trade_data = {}
+            # Start with metadata
+            trade_data.update(signal_obj.metadata)
+            # Override with explicit values (these take precedence)
+            trade_data.update({
+                "ticket": ticket,
+                "direction": signal_obj.direction,
+                "price": price,
+                "sl": sl,
+                "tp": tp,
+                "lot": lot,
+                "spread": spread,
+                "atr": round(atr, 2),
+                "balance": balance,
+                "equity": equity,
+                "reason": signal_obj.reason,
+                "dry_run": self.dry_run,
+            })
+            self._log_event("trade_open", **trade_data)
             msg = (
                 f"{'[DRY-RUN] ' if self.dry_run else ''}"
                 f"{'🟢 BUY' if signal_obj.direction == 'buy' else '🔴 SELL'} BTCUSD\n"
