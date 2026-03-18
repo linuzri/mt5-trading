@@ -46,16 +46,49 @@ BOTS = {
 }
 
 def parse_trade_log(bot_key):
-    """Parse trade_log.csv for a bot"""
+    """Parse trades.jsonl for a bot (v2 format)"""
     bot = BOTS[bot_key]
-    log_path = os.path.join(bot['path'], 'trade_log.csv')
+    jsonl_path = os.path.join(bot['path'], 'logs', 'trades.jsonl')
+    csv_path = os.path.join(bot['path'], 'trade_log.csv')
     trades = []
     
-    if not os.path.exists(log_path):
+    # Try JSONL first (v2)
+    if os.path.exists(jsonl_path):
+        try:
+            import json
+            with open(jsonl_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                        if event.get('event') == 'trade_close':
+                            trades.append({
+                                'timestamp': event.get('ts', ''),
+                                'side': event.get('direction', '').upper(),
+                                'entry_price': event.get('entry_price', 0),
+                                'exit_price': event.get('close_price', 0),
+                                'pnl': event.get('profit', 0),
+                                'bot': bot_key,
+                                'symbol': bot['symbol'],
+                                'ticket': event.get('ticket', 0),
+                                'lot': event.get('lot', 0),
+                                'close_reason': event.get('close_reason', ''),
+                                'duration_seconds': event.get('duration_seconds', 0),
+                            })
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            print(f"Error reading {jsonl_path}: {e}")
+        return trades
+    
+    # Fallback to CSV (v1)
+    if not os.path.exists(csv_path):
         return trades
     
     try:
-        with open(log_path, 'r', encoding='utf-8') as f:
+        with open(csv_path, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -81,29 +114,94 @@ def parse_trade_log(bot_key):
                     except (ValueError, IndexError):
                         continue
     except Exception as e:
-        print(f"Error reading {log_path}: {e}")
+        print(f"Error reading {csv_path}: {e}")
     
     return trades
 
 def parse_notification_log(bot_key, limit=50):
-    """Parse trade_notifications.log for a bot"""
+    """Parse logs from JSONL or notification log"""
     bot = BOTS[bot_key]
+    jsonl_path = os.path.join(bot['path'], 'logs', 'trades.jsonl')
     log_path = os.path.join(bot['path'], 'trade_notifications.log')
     logs = []
     
+    # Try JSONL first
+    if os.path.exists(jsonl_path):
+        try:
+            import json
+            all_events = []
+            with open(jsonl_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                        ev_type = event.get('event', 'unknown')
+                        ts = event.get('ts', '')[:19]
+                        
+                        if ev_type == 'heartbeat':
+                            bal = event.get('balance', 0)
+                            eq = event.get('equity', 0)
+                            pos = event.get('open_positions', 0)
+                            pnl = event.get('session_pnl', 0)
+                            msg = f"{ts} [HEARTBEAT] Balance: ${bal:,.2f} | Equity: ${eq:,.2f} | Positions: {pos} | Session P/L: ${pnl:+,.2f}"
+                            all_events.append({'message': msg, 'level': 'info', 'bot': bot_key})
+                        elif ev_type == 'trade_open':
+                            direction = event.get('direction', '?').upper()
+                            price = event.get('price', 0)
+                            lot = event.get('lot', 0)
+                            reason = event.get('reason', '')
+                            msg = f"{ts} [NOTIFY] {direction} order placed @ {price:.2f}, lot: {lot}, reason: {reason}"
+                            all_events.append({'message': msg, 'level': 'trade', 'bot': bot_key})
+                        elif ev_type == 'trade_close':
+                            direction = event.get('direction', '?').upper()
+                            profit = event.get('profit', 0)
+                            close_price = event.get('close_price', 0)
+                            bal = event.get('balance_after', 0)
+                            msg = f"{ts} [CLOSE] {direction} closed @ {close_price:.2f}, P/L: ${profit:+.2f}, Balance: ${bal:,.2f}"
+                            all_events.append({'message': msg, 'level': 'trade', 'bot': bot_key})
+                        elif ev_type == 'signal':
+                            direction = event.get('direction', '?').upper()
+                            reason = event.get('reason', '')
+                            msg = f"{ts} [SIGNAL] {direction} - {reason}"
+                            all_events.append({'message': msg, 'level': 'info', 'bot': bot_key})
+                        elif ev_type == 'error':
+                            message = event.get('message', '')
+                            msg = f"{ts} [ERROR] {message}"
+                            all_events.append({'message': msg, 'level': 'error', 'bot': bot_key})
+                        elif ev_type == 'bot_start':
+                            strategy = event.get('strategy', '')
+                            bal = event.get('balance', 0)
+                            msg = f"{ts} [STARTUP] Bot started - {strategy}, Balance: ${bal:,.2f}"
+                            all_events.append({'message': msg, 'level': 'info', 'bot': bot_key})
+                        elif ev_type == 'risk_check':
+                            allowed = event.get('allowed', False)
+                            reason = event.get('reason', '')
+                            msg = f"{ts} [RISK] {'✅ Allowed' if allowed else '❌ Blocked'}: {reason}"
+                            all_events.append({'message': msg, 'level': 'info' if allowed else 'warning', 'bot': bot_key})
+                        elif ev_type == 'skip':
+                            reason = event.get('reason', '')
+                            msg = f"{ts} [SKIP] {reason}"
+                            all_events.append({'message': msg, 'level': 'warning', 'bot': bot_key})
+                    except json.JSONDecodeError:
+                        continue
+            
+            return all_events[-limit:]
+        except Exception as e:
+            print(f"Error reading {jsonl_path}: {e}")
+    
+    # Fallback to notification log
     if not os.path.exists(log_path):
         return logs
     
     try:
         with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.readlines()
-            # Get last N lines
             for line in lines[-limit:]:
                 line = line.strip()
                 if not line:
                     continue
-                
-                # Determine log level
                 level = 'info'
                 if '[ERROR]' in line or '[SHUTDOWN]' in line:
                     level = 'error'
@@ -113,19 +211,43 @@ def parse_notification_log(bot_key, limit=50):
                     level = 'trade'
                 elif '[BALANCE]' in line:
                     level = 'balance'
-                
-                logs.append({
-                    'message': line,
-                    'level': level,
-                    'bot': bot_key
-                })
+                logs.append({'message': line, 'level': level, 'bot': bot_key})
     except Exception as e:
         print(f"Error reading {log_path}: {e}")
     
     return logs
 
 def get_current_balance(bot_key):
-    """Get the most recent balance from logs"""
+    """Get the most recent balance from JSONL logs"""
+    bot = BOTS[bot_key]
+    jsonl_path = os.path.join(bot['path'], 'logs', 'trades.jsonl')
+    
+    if os.path.exists(jsonl_path):
+        try:
+            import json
+            last_balance = bot['initial_fund']
+            with open(jsonl_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                        if 'balance' in event:
+                            last_balance = event['balance']
+                        elif 'balance_after' in event:
+                            last_balance = event['balance_after']
+                    except json.JSONDecodeError:
+                        continue
+            return last_balance
+        except Exception as e:
+            print(f"Error reading balance from {jsonl_path}: {e}")
+    
+    # Fallback to notification log
+    return _get_balance_from_notification_log(bot_key)
+
+def _get_balance_from_notification_log(bot_key):
+    """Fallback method to get balance from notification log"""
     bot = BOTS[bot_key]
     log_path = os.path.join(bot['path'], 'trade_notifications.log')
     
@@ -147,20 +269,24 @@ def get_current_balance(bot_key):
     return bot['initial_fund']
 
 def get_bot_status(bot_key):
-    """Check if bot is running by looking at recent log activity"""
+    """Check if bot is running by looking at recent JSONL activity"""
     bot = BOTS[bot_key]
+    jsonl_path = os.path.join(bot['path'], 'logs', 'trades.jsonl')
     log_path = os.path.join(bot['path'], 'trade_notifications.log')
     
-    if not os.path.exists(log_path):
+    # Check JSONL first
+    check_path = jsonl_path if os.path.exists(jsonl_path) else log_path
+    
+    if not os.path.exists(check_path):
         return 'stopped'
     
     try:
-        mtime = os.path.getmtime(log_path)
+        mtime = os.path.getmtime(check_path)
         age_seconds = (datetime.now().timestamp() - mtime)
         
-        if age_seconds < 120:  # Updated in last 2 minutes
+        if age_seconds < 120:
             return 'running'
-        elif age_seconds < 600:  # Updated in last 10 minutes
+        elif age_seconds < 600:
             return 'paused'
         else:
             return 'stopped'
@@ -168,39 +294,56 @@ def get_bot_status(bot_key):
         return 'stopped'
 
 def get_balance_history(bot_key, days=30):
-    """Get daily balance from logs to calculate REAL P/L (with caching)"""
+    """Get daily balance from JSONL logs"""
+    import json
     import time as time_module
     
     cache_key = bot_key
     now = time_module.time()
     
-    # Return cached data if fresh (30 seconds)
     if cache_key in _balance_cache and cache_key in _cache_time:
         if now - _cache_time[cache_key] < 30:
             return _balance_cache[cache_key]
     
     bot = BOTS[bot_key]
-    log_path = os.path.join(bot['path'], 'trade_notifications.log')
+    jsonl_path = os.path.join(bot['path'], 'logs', 'trades.jsonl')
+    daily_balances = {}
     
-    daily_balances = {}  # date -> last balance of that day
+    if os.path.exists(jsonl_path):
+        try:
+            with open(jsonl_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                        ts = event.get('ts', '')
+                        if ts:
+                            date = ts[:10]  # YYYY-MM-DD
+                            balance = event.get('balance_after') or event.get('balance')
+                            if balance is not None:
+                                daily_balances[date] = balance
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            print(f"Error reading balance history: {e}")
+    else:
+        # Fallback to notification log parsing
+        log_path = os.path.join(bot['path'], 'trade_notifications.log')
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        if '[BALANCE]' in line:
+                            match = re.search(r'^(\d{4}-\d{2}-\d{2}).*\$([0-9,]+\.?\d*)', line)
+                            if match:
+                                date = match.group(1)
+                                balance = float(match.group(2).replace(',', ''))
+                                daily_balances[date] = balance
+            except Exception as e:
+                print(f"Error reading balance history: {e}")
     
-    if not os.path.exists(log_path):
-        return daily_balances
-    
-    try:
-        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                if '[BALANCE]' in line:
-                    # Extract timestamp and balance
-                    match = re.search(r'^(\d{4}-\d{2}-\d{2}).*\$([0-9,]+\.?\d*)', line)
-                    if match:
-                        date = match.group(1)
-                        balance = float(match.group(2).replace(',', ''))
-                        daily_balances[date] = balance
-    except Exception as e:
-        print(f"Error reading balance history: {e}")
-    
-    # Cache the result
     _balance_cache[cache_key] = daily_balances
     _cache_time[cache_key] = now
     
@@ -303,18 +446,43 @@ def dashboard():
     return send_from_directory('.', 'trading-dashboard.html')
 
 def get_today_stats(bot_key):
-    """Get today's trading stats for a bot"""
-    trades = parse_trade_log(bot_key)
+    """Get today's trading stats from JSONL"""
+    bot = BOTS[bot_key]
+    jsonl_path = os.path.join(bot['path'], 'logs', 'trades.jsonl')
     today = datetime.now().strftime('%Y-%m-%d')
     
     today_trades = []
-    for trade in trades:
+    
+    if os.path.exists(jsonl_path):
         try:
-            ts_str = trade['timestamp'].split('+')[0].split('.')[0]
-            if ts_str.startswith(today):
-                today_trades.append(trade)
-        except:
-            continue
+            import json
+            with open(jsonl_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                        if event.get('event') == 'trade_close':
+                            ts = event.get('ts', '')
+                            if ts.startswith(today):
+                                today_trades.append({
+                                    'pnl': event.get('profit', 0)
+                                })
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            print(f"Error reading today stats: {e}")
+    else:
+        # Fallback to CSV
+        trades = parse_trade_log(bot_key)
+        for trade in trades:
+            try:
+                ts_str = trade['timestamp'].split('+')[0].split('.')[0]
+                if ts_str.startswith(today):
+                    today_trades.append(trade)
+            except:
+                continue
     
     wins = sum(1 for t in today_trades if t['pnl'] > 0)
     losses = sum(1 for t in today_trades if t['pnl'] < 0)

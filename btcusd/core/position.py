@@ -164,6 +164,7 @@ class PositionManager:
 
     def _build_close_data(self, ticket: int, info: dict, market) -> dict:
         """Build enriched close event data with PnL and duration."""
+        import time as time_module
         now = datetime.now(timezone.utc)
         entry_price = info.get("entry_price", 0)
         direction = info.get("direction", "unknown")
@@ -179,38 +180,88 @@ class PositionManager:
             except (ValueError, TypeError):
                 pass
 
-        # Try to get close details from MT5 deal history
+        # Try to get close details from MT5 deal history with retry
         close_price = 0.0
         profit = 0.0
+        swap = 0.0
         close_reason = "sl_or_tp"
-        try:
-            from datetime import timedelta
-            # Search deals in last 7 days
-            deals = mt5.history_deals_get(
-                now - timedelta(days=7), now,
-                position=ticket
-            )
-            if deals:
-                # Find the closing deal (not the opening one)
-                for deal in reversed(deals):
-                    if deal.entry == 1:  # DEAL_ENTRY_OUT
-                        close_price = deal.price
-                        profit = deal.profit
-                        if deal.reason == 3:  # DEAL_REASON_SL
-                            close_reason = "stop_loss"
-                        elif deal.reason == 4:  # DEAL_REASON_TP
-                            close_reason = "take_profit"
-                        elif deal.reason == 0:  # DEAL_REASON_CLIENT
-                            close_reason = "manual"
-                        break
-        except Exception as e:
-            log.warning("Could not fetch deal history for ticket %d: %s", ticket, e)
+        
+        # Retry up to 3 times with small delays to let deal propagate
+        for attempt in range(3):
+            try:
+                from datetime import timedelta
+                deals = mt5.history_deals_get(
+                    now - timedelta(days=7), now,
+                    position=ticket
+                )
+                if deals:
+                    for deal in reversed(deals):
+                        # Verify this deal actually belongs to our position
+                        if deal.entry == 1 and deal.position_id == ticket:  # DEAL_ENTRY_OUT
+                            close_price = deal.price
+                            profit = deal.profit
+                            swap = deal.swap
+                            if deal.reason == 3:  # DEAL_REASON_SL
+                                close_reason = "stop_loss"
+                            elif deal.reason == 4:  # DEAL_REASON_TP
+                                close_reason = "take_profit"
+                            elif deal.reason == 0:  # DEAL_REASON_CLIENT
+                                close_reason = "manual"
+                            break
+                    
+                    if close_price != 0.0:
+                        break  # Found valid data, stop retrying
+                
+                if attempt < 2:
+                    time_module.sleep(0.5)  # Brief delay before retry
+                    
+            except Exception as e:
+                log.warning("Attempt %d: Could not fetch deal history for ticket %d: %s", attempt + 1, ticket, e)
+        
+        # Fallback: if deal not found, estimate from SL/TP
+        if close_price == 0.0:
+            log.warning("Deal history not found for ticket %d after retries, using balance-based estimation", ticket)
+            acct = market.get_account()
+            balance_after = acct[0] if acct else 0
+            # We can infer profit from balance change, but we don't have the previous balance reliably
+            # Use SL/TP as best guess for close price
+            sl = info.get("sl", 0)
+            tp = info.get("tp", 0)
+            
+            # Check balance change to determine if SL or TP hit
+            # This is a rough heuristic
+            if balance_after > 0 and entry_price > 0:
+                # Try to get the actual deal without position filter (broader search)
+                try:
+                    from datetime import timedelta
+                    recent_deals = mt5.history_deals_get(
+                        now - timedelta(minutes=5), now
+                    )
+                    if recent_deals:
+                        for deal in reversed(recent_deals):
+                            if (deal.entry == 1 and 
+                                deal.symbol == self.market.symbol and
+                                abs(deal.volume - lot) < 0.01):
+                                close_price = deal.price
+                                profit = deal.profit
+                                swap = deal.swap
+                                if deal.reason == 3:
+                                    close_reason = "stop_loss"
+                                elif deal.reason == 4:
+                                    close_reason = "take_profit"
+                                elif deal.reason == 0:
+                                    close_reason = "manual"
+                                log.info("Found deal via broad search for ticket %d: price=%.2f profit=%.2f", 
+                                        ticket, close_price, profit)
+                                break
+                except Exception as e:
+                    log.warning("Broad deal search failed for ticket %d: %s", ticket, e)
 
-        # Calculate pips (BTCUSD = 2 decimal places, 1 pip = 0.01)
+        # Calculate pips
         profit_pips = 0.0
         if close_price and entry_price:
             if direction == "buy":
-                profit_pips = (close_price - entry_price) / 1.0  # $1 per point
+                profit_pips = (close_price - entry_price) / 1.0
             else:
                 profit_pips = (entry_price - close_price) / 1.0
 
@@ -228,6 +279,7 @@ class PositionManager:
             "lot": lot,
             "sl": info.get("sl", 0),
             "tp": info.get("tp", 0),
+            "swap": round(swap, 2),
             "duration_seconds": duration_seconds,
             "close_reason": close_reason,
             "balance_after": balance_after,

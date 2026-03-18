@@ -259,8 +259,10 @@ class TestPositionManager:
         # Mock deal history
         deal_mock = Mock()
         deal_mock.entry = 1  # DEAL_ENTRY_OUT (closing)
+        deal_mock.position_id = 123456  # Match ticket number
         deal_mock.price = 82100.0
         deal_mock.profit = 50.0
+        deal_mock.swap = 0.0
         deal_mock.reason = 4  # DEAL_REASON_TP
         mock_mt5.history_deals_get.return_value = [deal_mock]
         
