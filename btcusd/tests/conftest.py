@@ -112,8 +112,11 @@ def sample_candles():
 
 @pytest.fixture
 def crossover_candles():
-    """Generate candle data that creates EMA crossover signals."""
-    n = 100  # More data points for proper EMA calculation
+    """Generate candle data that creates EMA crossover signals.
+    
+    Crossover happens at completed bar (-2), with a forming candle at -1.
+    """
+    n = 101  # Extra bar for the "forming" candle
     times = pd.date_range(end=datetime.now(timezone.utc), periods=n, freq="h")
     
     # Create price series that will generate bullish crossover
@@ -127,9 +130,12 @@ def crossover_candles():
         elif i < 85:
             # Consolidation
             closes.append(base - 70 * 30)
-        else:
+        elif i < n - 1:
             # Sharp uptrend for crossover
             closes.append(base - 70 * 30 + (i - 85) * 200)
+        else:
+            # Forming candle — same level as last completed
+            closes.append(closes[-1])
     
     opens = [c - 5 for c in closes]
     highs = [max(o, c) + 10 for o, c in zip(opens, closes)]

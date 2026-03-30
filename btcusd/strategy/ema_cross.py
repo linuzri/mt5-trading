@@ -48,17 +48,23 @@ class EmaCrossStrategy(Strategy):
         fast = _ema(close, fast_period)
         slow = _ema(close, slow_period)
 
-        # Current and previous bar values
-        fast_now = fast.iloc[-1]
-        fast_prev = fast.iloc[-2]
-        slow_now = slow.iloc[-1]
-        slow_prev = slow.iloc[-2]
+        # Use last COMPLETED candle (-2) and the one before it (-3).
+        # iloc[-1] is the currently forming candle whose close == current tick
+        # price, so EMAs on it are unreliable for crossover detection.
+        if len(candles) < slow_period + 3:
+            log.debug("Not enough candles for completed-bar check")
+            return None
 
-        atr = _atr(candles, atr_period)
+        fast_now = fast.iloc[-2]   # last completed bar
+        fast_prev = fast.iloc[-3]  # bar before that
+        slow_now = slow.iloc[-2]
+        slow_prev = slow.iloc[-3]
+
+        atr = _atr(candles.iloc[:-1], atr_period)  # ATR on completed bars only
         sl_dist = atr * sl_mult
         tp_dist = atr * tp_mult
 
-        # Enrichment calculations
+        # Enrichment calculations — use live price for execution
         current_price = close.iloc[-1]
         
         # EMA gap calculations
@@ -74,8 +80,8 @@ class EmaCrossStrategy(Strategy):
         max_gap_pct = 2.0
         signal_strength = min(ema_gap_pct / max_gap_pct, 1.0)
         
-        # Candle body size relative to ATR
-        last_candle = candles.iloc[-1]
+        # Candle body size relative to ATR (last completed candle)
+        last_candle = candles.iloc[-2]
         # Handle missing 'open' column gracefully
         if "open" in candles.columns:
             candle_body = abs(last_candle["close"] - last_candle["open"])
