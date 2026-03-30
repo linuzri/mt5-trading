@@ -83,14 +83,14 @@ class TestEmaCrossStrategy:
         """Test bullish crossover generates BUY signal."""
         strategy = EmaCrossStrategy(mock_config)
         
-        # Build data where EMA10 crosses above EMA50 at the last bar.
+        # Build data where EMA10 crosses above EMA50 at the completed bar (-2).
         # Long flat section keeps both EMAs ~82000, then a sharp spike
-        # on the last bar pulls fast EMA above slow.
-        n = 80
+        # pulls fast EMA above slow. Last bar is "forming" candle.
+        n = 81
         times = pd.date_range(end=pd.Timestamp.now(), periods=n, freq="h")
-        closes = [82000.0] * (n - 5)
-        # 4 bars of declining, then sudden spike → forces fast > slow at bar -1
-        closes += [81900, 81800, 81700, 81600, 83500]
+        closes = [82000.0] * (n - 6)
+        # 4 bars of declining, then sudden spike, then forming candle
+        closes += [81900, 81800, 81700, 81600, 83500, 83500]
         
         candles = pd.DataFrame({
             "time": times,
@@ -117,12 +117,12 @@ class TestEmaCrossStrategy:
         """Test bearish crossover generates SELL signal."""
         strategy = EmaCrossStrategy(mock_config)
         
-        # Mirror of bullish: flat section, then sharp drop on last bar
-        n = 80
+        # Mirror of bullish: flat section, then sharp drop, plus forming candle
+        n = 81
         times = pd.date_range(end=pd.Timestamp.now(), periods=n, freq="h")
-        closes = [82000.0] * (n - 5)
-        # 4 bars rising, then crash → forces fast < slow at bar -1
-        closes += [82100, 82200, 82300, 82400, 80500]
+        closes = [82000.0] * (n - 6)
+        # 4 bars rising, then crash, then forming candle
+        closes += [82100, 82200, 82300, 82400, 80500, 80500]
         
         candles = pd.DataFrame({
             "time": times,

@@ -7,10 +7,13 @@ from strategy.ema_cross import EmaCrossStrategy
 
 
 def create_crossover_candles():
-    """Create candle data that generates a crossover signal."""
-    n = 80
+    """Create candle data that generates a crossover signal.
+    
+    Crossover happens at completed bar (-2), with a forming candle at -1.
+    """
+    n = 81
     times = pd.date_range(end=datetime.now(timezone.utc), periods=n, freq="h")
-    closes = [82000.0] * (n - 5) + [81900, 81800, 81700, 81600, 83500]
+    closes = [82000.0] * (n - 6) + [81900, 81800, 81700, 81600, 83500, 83500]
     
     return pd.DataFrame({
         "time": times,
