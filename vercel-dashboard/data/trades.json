@@ -4852,5 +4852,142 @@
         "tracked_count":  1,
         "session_pnl":  -244.44,
         "market_open":  true
+    },
+    {
+        "ts":  "2026-04-03T22:01:13.880524+00:00",
+        "event":  "trade_close",
+        "ticket":  277117668,
+        "direction":  "sell",
+        "entry_price":  66574.58,
+        "close_price":  0.0,
+        "profit":  0.0,
+        "profit_pips":  0.0,
+        "lot":  0.2,
+        "sl":  67811.43076312871,
+        "tp":  64719.178855306935,
+        "duration_seconds":  151234,
+        "close_reason":  "sl_or_tp",
+        "balance_after":  49591.94
+    },
+    {
+        "ts":  "2026-04-03T23:00:18.923400+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49520.84,
+        "open_positions":  1,
+        "unrealized_pnl":  -65.62,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T00:00:21.092427+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49512.5,
+        "open_positions":  1,
+        "unrealized_pnl":  -73.96,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T01:00:23.575278+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49520.01,
+        "open_positions":  1,
+        "unrealized_pnl":  -66.45,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T02:00:25.765657+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49531.12,
+        "open_positions":  1,
+        "unrealized_pnl":  -55.34,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T03:00:27.482165+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49528.04,
+        "open_positions":  1,
+        "unrealized_pnl":  -58.42,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T04:00:33.712116+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49533.87,
+        "open_positions":  1,
+        "unrealized_pnl":  -52.59,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T05:00:36.091661+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49528.74,
+        "open_positions":  1,
+        "unrealized_pnl":  -57.72,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T06:00:51.494764+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49514.42,
+        "open_positions":  1,
+        "unrealized_pnl":  -72.04,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T07:01:46.440190+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49495.61,
+        "open_positions":  1,
+        "unrealized_pnl":  -90.23,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T08:01:00.498629+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49493.91,
+        "open_positions":  1,
+        "unrealized_pnl":  -92.55,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-04T09:00:19.358970+00:00",
+        "event":  "heartbeat",
+        "balance":  49591.94,
+        "equity":  49515.36,
+        "open_positions":  1,
+        "unrealized_pnl":  -71.1,
+        "tracked_count":  0,
+        "session_pnl":  -244.44,
+        "market_open":  true
     }
 ]
