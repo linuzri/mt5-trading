@@ -10067,5 +10067,137 @@
         "tracked_count":  1,
         "session_pnl":  361.28,
         "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T10:00:32.755773+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49818.87,
+        "open_positions":  1,
+        "unrealized_pnl":  73.89,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T11:00:34.815498+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49883.55,
+        "open_positions":  1,
+        "unrealized_pnl":  138.57,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T12:00:37.773225+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49841.5,
+        "open_positions":  1,
+        "unrealized_pnl":  96.52,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T13:00:40.905067+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49758.3,
+        "open_positions":  1,
+        "unrealized_pnl":  13.32,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T14:00:46.382075+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49734.97,
+        "open_positions":  1,
+        "unrealized_pnl":  -10.01,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T15:00:51.916959+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49707.09,
+        "open_positions":  1,
+        "unrealized_pnl":  -37.89,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T16:01:03.977398+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49733.64,
+        "open_positions":  1,
+        "unrealized_pnl":  -11.34,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T17:00:13.774459+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49707.02,
+        "open_positions":  1,
+        "unrealized_pnl":  -37.96,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T18:00:48.066720+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49666.23,
+        "open_positions":  1,
+        "unrealized_pnl":  -78.67,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T19:00:55.120462+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49681.99,
+        "open_positions":  1,
+        "unrealized_pnl":  -62.99,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T20:01:01.918262+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49569.25,
+        "open_positions":  1,
+        "unrealized_pnl":  -175.73,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
+    },
+    {
+        "ts":  "2026-04-21T21:00:06.297184+00:00",
+        "event":  "heartbeat",
+        "balance":  49749.21,
+        "equity":  49697.67,
+        "open_positions":  1,
+        "unrealized_pnl":  -43.11,
+        "tracked_count":  1,
+        "session_pnl":  361.28,
+        "market_open":  true
     }
 ]
